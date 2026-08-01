@@ -33,14 +33,23 @@ jobs:
 
       - run: flutter pub get
 
+      # IMPORTANT: an empty --dart-define OVERRIDES Dart defaultValue.
+      # Fall back to clean-slate project keys when secrets/vars are unset.
       - name: Build web
         env:
-          SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://tappfahlaiixctyliesz.supabase.co' }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
+          URL="${SUPABASE_URL:-https://tappfahlaiixctyliesz.supabase.co}"
+          KEY="${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhcHBmYWhsYWlpeGN0eWxpZXN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1NzY5NTYsImV4cCI6MjEwMTE1Mjk1Nn0.Z-QK46G21yBuOy0Y3QcNAP_gMfmr_Jo1pRZ1ZKwRvV4}"
+          if [ -z "$KEY" ]; then
+            echo "SUPABASE_ANON_KEY is empty" >&2
+            exit 1
+          fi
+          echo "Building with SUPABASE_URL=$URL (key length ${#KEY})"
           flutter build web --release --no-tree-shake-icons \
-            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
-            --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
+            --dart-define=SUPABASE_URL="$URL" \
+            --dart-define=SUPABASE_ANON_KEY="$KEY"
           printf '/*    /index.html   200\n' > build/web/_redirects
 
       - name: Publish to Cloudflare Pages
@@ -50,6 +59,5 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: peeke-cmms-erp
           directory: build/web
-          # main → production URL; PRs → preview URL
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
