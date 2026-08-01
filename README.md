@@ -1,30 +1,51 @@
 # Peeke CMMS-ERP
 
-**Peeke™** CMMS-ERP — clean-slate Riverpod app (greenfield workspace).
-
-> GitHub repo name: `Peeke_CMMS-ERP` (spaces are not allowed in repository names).
-
-## Purpose
-
-New development baseline. Production app [`ArollSparrow/Peeke`](https://github.com/ArollSparrow/Peeke) is a **product reference only** — not a code dump.
+**Peeke™** CMMS-ERP — clean-slate multi-tenant platform (Riverpod + Supabase).
 
 | Repo | Role |
 |------|------|
-| `ArollSparrow/Peeke` | Production CMMS-ERP |
-| **`ArollSparrow/Peeke_CMMS-ERP`** | Clean-slate platform (this repo) |
+| [`ArollSparrow/Peeke`](https://github.com/ArollSparrow/Peeke) | Production (reference only) |
+| **`ArollSparrow/Peeke_CMMS-ERP`** | Clean slate (this repo) |
 
-## Locked product decisions
+## Locked decisions
 
-- **Multi-tenant platform** — each organization is independent.
-- **Tenant payments = bring your own (BYO)** — tenants connect **their own** Paystack account (Stripe optional later). Peeke does **not** take or split their customer funds. See [`docs/adr/001-tenant-payments-byo.md`](docs/adr/001-tenant-payments-byo.md).
-- **Riverpod-first**, Supabase backend, Gloss UI, Cloudflare-oriented edge/web.
-- Agent branches: `*_grok`.
+- Multi-tenant: every org isolated via RLS
+- **BYO Paystack** for tenant customer payments ([ADR 001](docs/adr/001-tenant-payments-byo.md))
+- Riverpod-first, Gloss UI, Cloudflare-oriented edge
+
+## Backend
+
+| Field | Value |
+|-------|--------|
+| Supabase project | **Peeke CMMS-ERP** |
+| Ref | `tappfahlaiixctyliesz` |
+| URL | `https://tappfahlaiixctyliesz.supabase.co` |
+| Region | `eu-central-1` |
+
+Migration **001** applied: `organizations`, `profiles`, `organization_members` + RLS helpers.
+
+## Phase 0 (in progress)
+
+- [x] Implementation strategy
+- [x] Org/auth schema + RLS
+- [x] Flutter scaffold (auth, org create, home shell)
+- [ ] Platform folders (`android`/`ios`/`web`) via local `flutter create .`
+- [ ] End-to-end test on device/web
+
+## Run locally
+
+```bash
+git clone https://github.com/ArollSparrow/Peeke_CMMS-ERP.git
+cd Peeke_CMMS-ERP
+flutter create . --project-name peeke_cmms_erp   # generates platform folders once
+flutter pub get
+flutter run -d chrome   # or your device
+```
+
+Keys default to the clean-slate project in `lib/infra/supabase/supabase_env.dart` (anon only).
 
 ## Docs
 
-- [`docs/FOUNDATION.md`](docs/FOUNDATION.md) — stack and phase order
-- [`docs/adr/001-tenant-payments-byo.md`](docs/adr/001-tenant-payments-byo.md) — payments ADR
-
-## Status
-
-Foundation documentation started. Scaffold and schema next.
+- [Implementation strategy](docs/IMPLEMENTATION_STRATEGY.md)
+- [Foundation](docs/FOUNDATION.md)
+- [ADR 001 — BYO payments](docs/adr/001-tenant-payments-byo.md)
