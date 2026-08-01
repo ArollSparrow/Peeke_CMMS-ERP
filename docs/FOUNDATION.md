@@ -23,6 +23,20 @@
 | UI | Gloss design system as single kit |
 | Branches | Agent work uses `*_grok` |
 
+## Supabase (clean slate)
+
+| Field | Value |
+|-------|--------|
+| Name | **Peeke CMMS-ERP** |
+| Project ref / id | `tappfahlaiixctyliesz` |
+| Region | `eu-central-1` |
+| Status | `ACTIVE_HEALTHY` |
+| API URL | `https://tappfahlaiixctyliesz.supabase.co` |
+| DB host | `db.tappfahlaiixctyliesz.supabase.co` |
+| Org | `peekopsys@gmail.com's Org` (`nrfdlrvqhrgsfzmmyxuu`) |
+
+**Separate from production:** Peeke™ (`ggvdgkaptatlfepgnjkx`) remains the live production project and is not used for this greenfield work.
+
 ## Explicit non-copies from production
 
 - No monolithic `SupabaseService`.
@@ -45,9 +59,9 @@
 ## Connectors in use for this workspace
 
 - GitHub (`ArollSparrow`)
-- Supabase (when project linked)
-- Cloudflare (when configured)
+- Supabase — project **Peeke CMMS-ERP** (`tappfahlaiixctyliesz`)
+- Cloudflare (`Jkiaimorogo@gmail.com's Account`)
 
 ## Status
 
-Foundation docs started. Flutter scaffold and first schema migrations next.
+Clean-slate Supabase project created and healthy. Flutter scaffold and first schema migrations next.
