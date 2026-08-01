@@ -33,19 +33,25 @@ jobs:
 
       - run: flutter pub get
 
-      # IMPORTANT: an empty --dart-define OVERRIDES Dart defaultValue.
-      # Fall back to clean-slate project keys when secrets/vars are unset.
+      # Clean-slate project: tappfahlaiixctyliesz
+      # A real legacy anon JWT is ~208 chars and starts with eyJ
+      # Short secrets (e.g. 20 chars) MUST NOT override the fallback.
       - name: Build web
         env:
-          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_URL_INPUT: ${{ vars.SUPABASE_URL }}
+          SUPABASE_ANON_KEY_INPUT: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          URL="${SUPABASE_URL:-https://tappfahlaiixctyliesz.supabase.co}"
-          KEY="${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhcHBmYWhsYWlpeGN0eWxpZXN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1NzY5NTYsImV4cCI6MjEwMTE1Mjk1Nn0.Z-QK46G21yBuOy0Y3QcNAP_gMfmr_Jo1pRZ1ZKwRvV4}"
-          if [ -z "$KEY" ]; then
-            echo "SUPABASE_ANON_KEY is empty" >&2
-            exit 1
+          DEFAULT_URL="https://tappfahlaiixctyliesz.supabase.co"
+          DEFAULT_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhcHBmYWhsYWlpeGN0eWxpZXN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1NzY5NTYsImV4cCI6MjEwMTE1Mjk1Nn0.Z-QK46G21yBuOy0Y3QcNAP_gMfmr_Jo1pRZ1ZKwRvV4"
+
+          URL="${SUPABASE_URL_INPUT:-$DEFAULT_URL}"
+          KEY="$SUPABASE_ANON_KEY_INPUT"
+
+          if [ ${#KEY} -lt 100 ]; then
+            echo "SUPABASE_ANON_KEY secret is missing or too short (len=${#KEY}). Using clean-slate default JWT."
+            KEY="$DEFAULT_KEY"
           fi
+
           echo "Building with SUPABASE_URL=$URL (key length ${#KEY})"
           flutter build web --release --no-tree-shake-icons \
             --dart-define=SUPABASE_URL="$URL" \
