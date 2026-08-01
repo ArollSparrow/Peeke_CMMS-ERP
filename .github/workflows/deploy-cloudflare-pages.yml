@@ -1,0 +1,55 @@
+name: Deploy Web → Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Build Flutter Web & Deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Enable web
+        run: flutter config --enable-web
+
+      - name: Ensure web platform
+        run: |
+          if [ ! -d web ]; then
+            flutter create . --project-name peeke_cmms_erp --platforms=web
+          fi
+
+      - run: flutter pub get
+
+      - name: Build web
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://tappfahlaiixctyliesz.supabase.co' }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          flutter build web --release --no-tree-shake-icons \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
+          printf '/*    /index.html   200\n' > build/web/_redirects
+
+      - name: Publish to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: peeke-cmms-erp
+          directory: build/web
+          # main → production URL; PRs → preview URL
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
