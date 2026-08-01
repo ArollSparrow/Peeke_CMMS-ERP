@@ -2,24 +2,29 @@
 
 **Peeke™** CMMS-ERP — clean-slate Riverpod app (greenfield workspace).
 
-> Repo name on GitHub: `Peeke_CMMS-ERP` (spaces are not allowed in repository names).
+> GitHub repo name: `Peeke_CMMS-ERP` (spaces are not allowed in repository names).
 
 ## Purpose
 
-New development baseline for a full Riverpod architecture without carrying legacy patterns from the current production app.
+New development baseline. Production app [`ArollSparrow/Peeke`](https://github.com/ArollSparrow/Peeke) is a **product reference only** — not a code dump.
 
 | Repo | Role |
 |------|------|
-| [`ArollSparrow/Peeke`](https://github.com/ArollSparrow/Peeke) | Production CMMS-ERP (current) |
-| **`ArollSparrow/Peeke_CMMS-ERP`** | Clean-slate Riverpod app (this repo) |
+| `ArollSparrow/Peeke` | Production CMMS-ERP |
+| **`ArollSparrow/Peeke_CMMS-ERP`** | Clean-slate platform (this repo) |
 
-## Principles
+## Locked product decisions
 
-- **Riverpod-first** state (AsyncNotifier / Notifier, families, code-gen where useful)
-- Port features deliberately; no forced parity until ready
-- Agent branches: `*_grok`
-- Strategy and implementation land here first
+- **Multi-tenant platform** — each organization is independent.
+- **Tenant payments = bring your own (BYO)** — tenants connect **their own** Paystack account (Stripe optional later). Peeke does **not** take or split their customer funds. See [`docs/adr/001-tenant-payments-byo.md`](docs/adr/001-tenant-payments-byo.md).
+- **Riverpod-first**, Supabase backend, Gloss UI, Cloudflare-oriented edge/web.
+- Agent branches: `*_grok`.
+
+## Docs
+
+- [`docs/FOUNDATION.md`](docs/FOUNDATION.md) — stack and phase order
+- [`docs/adr/001-tenant-payments-byo.md`](docs/adr/001-tenant-payments-byo.md) — payments ADR
 
 ## Status
 
-Seeded. Flutter + Riverpod scaffold and migration strategy next.
+Foundation documentation started. Scaffold and schema next.
