@@ -67,8 +67,7 @@ class HomeShellScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(16),
             children: [
               Text(
-                'Signed in as ${user?.email ?? '—'}${'
-'}',
+                'Signed in as ${user?.email ?? '—'}',
                 style: const TextStyle(color: GlossColors.muted),
               ),
               const SizedBox(height: 8),
