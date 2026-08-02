@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../design/gloss_theme.dart';
 import '../auth/auth_providers.dart';
 import '../clients/client_providers.dart';
+import '../inventory/inventory_providers.dart';
 import '../work/work_providers.dart';
 import 'org_providers.dart';
 
@@ -20,6 +21,8 @@ class HomeShellScreen extends ConsumerWidget {
     final systemsAsync = ref.watch(systemsListProvider);
     final openWo = ref.watch(openWorkOrdersCountProvider).valueOrNull;
     final pendingWr = ref.watch(pendingWorkRequestsCountProvider).valueOrNull;
+    final lowStock = ref.watch(lowStockCountProvider).valueOrNull;
+    final partsCount = ref.watch(partsCountProvider).valueOrNull;
 
     final clientCount = clientsAsync.valueOrNull?.length;
     final systemCount = systemsAsync.valueOrNull?.length;
@@ -52,6 +55,8 @@ class HomeShellScreen extends ConsumerWidget {
               ref.invalidate(systemsListProvider);
               ref.invalidate(openWorkOrdersCountProvider);
               ref.invalidate(pendingWorkRequestsCountProvider);
+              ref.invalidate(lowStockCountProvider);
+              ref.invalidate(partsCountProvider);
             },
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
@@ -70,26 +75,6 @@ class HomeShellScreen extends ConsumerWidget {
                 Row(children: [
                   Expanded(
                     child: _KpiCard(
-                      label: 'Clients',
-                      value: clientCount?.toString() ?? '…',
-                      icon: Icons.business_outlined,
-                      onTap: () => context.push('/clients'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _KpiCard(
-                      label: 'Systems',
-                      value: systemCount?.toString() ?? '…',
-                      icon: Icons.memory_outlined,
-                      onTap: () => context.push('/systems'),
-                    ),
-                  ),
-                ]),
-                const SizedBox(height: 12),
-                Row(children: [
-                  Expanded(
-                    child: _KpiCard(
                       label: 'Open WOs',
                       value: openWo?.toString() ?? '…',
                       icon: Icons.handyman_outlined,
@@ -99,10 +84,30 @@ class HomeShellScreen extends ConsumerWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _KpiCard(
-                      label: 'Pending WRs',
-                      value: pendingWr?.toString() ?? '…',
-                      icon: Icons.inbox_outlined,
-                      onTap: () => context.push('/work/requests'),
+                      label: 'Low stock',
+                      value: lowStock?.toString() ?? '…',
+                      icon: Icons.warning_amber_outlined,
+                      onTap: () => context.push('/inventory/parts?low=1'),
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(
+                    child: _KpiCard(
+                      label: 'Parts',
+                      value: partsCount?.toString() ?? '…',
+                      icon: Icons.inventory_2_outlined,
+                      onTap: () => context.push('/inventory/parts'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _KpiCard(
+                      label: 'Systems',
+                      value: systemCount?.toString() ?? '…',
+                      icon: Icons.memory_outlined,
+                      onTap: () => context.push('/systems'),
                     ),
                   ),
                 ]),
@@ -124,24 +129,18 @@ class HomeShellScreen extends ConsumerWidget {
                   onTap: () => context.push('/work'),
                 ),
                 _ModuleTile(
+                  icon: Icons.inventory_2_outlined,
+                  title: 'Inventory',
+                  subtitle: 'Parts, receive, issue',
+                  badge: partsCount == null ? 'Live' : '$partsCount',
+                  onTap: () => context.push('/inventory'),
+                ),
+                _ModuleTile(
                   icon: Icons.business,
                   title: 'Clients',
                   subtitle: 'Profiles, sites, SLA',
                   badge: clientCount == null ? null : (clientCount == 0 ? 'Empty' : '$clientCount'),
                   onTap: () => context.push('/clients'),
-                ),
-                _ModuleTile(
-                  icon: Icons.memory,
-                  title: 'Systems',
-                  subtitle: 'Assets linked to clients',
-                  badge: systemCount == null ? null : (systemCount == 0 ? 'Empty' : '$systemCount'),
-                  onTap: () => context.push('/systems'),
-                ),
-                const _ModuleTile(
-                  icon: Icons.inventory_2_outlined,
-                  title: 'Inventory',
-                  subtitle: 'Phase 3 — not started',
-                  enabled: false,
                 ),
                 const _ModuleTile(
                   icon: Icons.local_shipping_outlined,
@@ -156,7 +155,8 @@ class HomeShellScreen extends ConsumerWidget {
                   _ProgressItem(done: true, title: 'Phase 0 — Foundation', detail: 'Auth, org, RLS, home shell'),
                   _ProgressItem(done: true, title: 'Phase 1 — Registration', detail: 'Clients, systems, attach flow'),
                   _ProgressItem(done: true, title: 'Phase 2 — Work loop', detail: 'WR → WO, status machine, KPIs'),
-                  _ProgressItem(done: false, title: 'Phase 3 — Inventory', detail: 'Parts, issue, receive'),
+                  _ProgressItem(done: true, title: 'Phase 3 — Inventory', detail: 'Parts, receive, issue, adjust'),
+                  _ProgressItem(done: false, title: 'Phase 4 — Procurement', detail: 'PO / supplier flow'),
                   _ProgressItem(done: false, title: 'Phase 7 — BYO payments', detail: 'Tenant Paystack credentials'),
                 ]),
                 const SizedBox(height: 24),
