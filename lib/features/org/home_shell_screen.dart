@@ -70,12 +70,52 @@ class HomeShellScreen extends ConsumerWidget {
                 'Signed in as ${user?.email ?? '—'}',
                 style: const TextStyle(color: GlossColors.muted),
               ),
-              const SizedBox(height: 8),
-              const Text(
-                'Phase 0 shell — org context is live. Domain modules come next.',
-                style: TextStyle(color: GlossColors.muted),
+              const SizedBox(height: 4),
+              Text(
+                active == null
+                    ? 'Select an organization'
+                    : 'Active: ${active.name}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
               ),
               const SizedBox(height: 16),
+              const Text(
+                'Master data',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: GlossColors.muted,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.business),
+                  title: const Text('Clients'),
+                  subtitle: const Text('Customer organizations'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/clients'),
+                ),
+              ),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.memory),
+                  title: const Text('Systems'),
+                  subtitle: const Text('Assets (generators, inverters, …)'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/systems'),
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'Organizations',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: GlossColors.muted,
+                ),
+              ),
+              const SizedBox(height: 8),
               ...orgs.map(
                 (o) => Card(
                   child: ListTile(
