@@ -32,7 +32,7 @@ class SparePart {
   final String? notes;
 
   factory SparePart.fromMap(Map<String, dynamic> m) {
-    double num(dynamic v) => v is num ? v.toDouble() : 0;
+    double asDouble(dynamic v) => v is num ? v.toDouble() : 0;
     return SparePart(
       id: m['id'] as String,
       organizationId: m['organization_id'] as String,
@@ -41,9 +41,9 @@ class SparePart {
       description: m['description'] as String?,
       category: m['category'] as String?,
       unit: m['unit'] as String? ?? 'pcs',
-      quantityOnHand: num(m['quantity_on_hand']),
-      reorderLevel: num(m['reorder_level']),
-      unitCost: num(m['unit_cost']),
+      quantityOnHand: asDouble(m['quantity_on_hand']),
+      reorderLevel: asDouble(m['reorder_level']),
+      unitCost: asDouble(m['unit_cost']),
       location: m['location'] as String?,
       supplierName: m['supplier_name'] as String?,
       isActive: m['is_active'] as bool? ?? true,
