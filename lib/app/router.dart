@@ -14,6 +14,7 @@ import '../features/clients/systems_list_screen.dart';
 import '../features/inventory/inventory_screens.dart';
 import '../features/org/create_org_screen.dart';
 import '../features/org/home_shell_screen.dart';
+import '../features/procurement/procurement_screens.dart';
 import '../features/work/work_lists_screens.dart';
 import '../features/work/work_order_detail_screen.dart';
 import '../features/work/work_order_form_screen.dart';
@@ -90,19 +91,40 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           lowOnly: state.uri.queryParameters['low'] == '1',
         ),
       ),
-      GoRoute(
-        path: '/inventory/parts/new',
-        builder: (context, state) => const SparePartFormScreen(),
-      ),
+      GoRoute(path: '/inventory/parts/new', builder: (context, state) => const SparePartFormScreen()),
       GoRoute(
         path: '/inventory/parts/:id',
-        builder: (context, state) =>
-            SparePartDetailScreen(partId: state.pathParameters['id']!),
+        builder: (context, state) => SparePartDetailScreen(partId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/inventory/parts/:id/edit',
+        builder: (context, state) => SparePartFormScreen(partId: state.pathParameters['id']),
+      ),
+      GoRoute(path: '/procurement', builder: (context, state) => const ProcurementHubScreen()),
+      GoRoute(path: '/procurement/vendors', builder: (context, state) => const VendorsListScreen()),
+      GoRoute(path: '/procurement/vendors/new', builder: (context, state) => const VendorFormScreen()),
+      GoRoute(
+        path: '/procurement/vendors/:id',
+        builder: (context, state) => VendorDetailScreen(vendorId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/procurement/vendors/:id/edit',
+        builder: (context, state) => VendorFormScreen(vendorId: state.pathParameters['id']),
+      ),
+      GoRoute(
+        path: '/procurement/orders',
+        builder: (context, state) => const PurchaseOrdersListScreen(),
+      ),
+      GoRoute(
+        path: '/procurement/orders/new',
+        builder: (context, state) => PurchaseOrderFormScreen(
+          preselectedVendorId: state.uri.queryParameters['vendorId'],
+        ),
+      ),
+      GoRoute(
+        path: '/procurement/orders/:id',
         builder: (context, state) =>
-            SparePartFormScreen(partId: state.pathParameters['id']),
+            PurchaseOrderDetailScreen(orderId: state.pathParameters['id']!),
       ),
     ],
   );

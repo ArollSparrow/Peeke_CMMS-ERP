@@ -6,6 +6,7 @@ import '../../design/gloss_theme.dart';
 import '../auth/auth_providers.dart';
 import '../clients/client_providers.dart';
 import '../inventory/inventory_providers.dart';
+import '../procurement/procurement_providers.dart';
 import '../work/work_providers.dart';
 import 'org_providers.dart';
 
@@ -20,12 +21,11 @@ class HomeShellScreen extends ConsumerWidget {
     final clientsAsync = ref.watch(clientsListProvider);
     final systemsAsync = ref.watch(systemsListProvider);
     final openWo = ref.watch(openWorkOrdersCountProvider).valueOrNull;
-    final pendingWr = ref.watch(pendingWorkRequestsCountProvider).valueOrNull;
     final lowStock = ref.watch(lowStockCountProvider).valueOrNull;
     final partsCount = ref.watch(partsCountProvider).valueOrNull;
+    final openPo = ref.watch(openPoCountProvider).valueOrNull;
 
     final clientCount = clientsAsync.valueOrNull?.length;
-    final systemCount = systemsAsync.valueOrNull?.length;
 
     return Scaffold(
       appBar: AppBar(
@@ -54,9 +54,9 @@ class HomeShellScreen extends ConsumerWidget {
               ref.invalidate(clientsListProvider);
               ref.invalidate(systemsListProvider);
               ref.invalidate(openWorkOrdersCountProvider);
-              ref.invalidate(pendingWorkRequestsCountProvider);
               ref.invalidate(lowStockCountProvider);
               ref.invalidate(partsCountProvider);
+              ref.invalidate(openPoCountProvider);
             },
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
@@ -84,10 +84,10 @@ class HomeShellScreen extends ConsumerWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _KpiCard(
-                      label: 'Low stock',
-                      value: lowStock?.toString() ?? '…',
-                      icon: Icons.warning_amber_outlined,
-                      onTap: () => context.push('/inventory/parts?low=1'),
+                      label: 'Open POs',
+                      value: openPo?.toString() ?? '…',
+                      icon: Icons.local_shipping_outlined,
+                      onTap: () => context.push('/procurement/orders'),
                     ),
                   ),
                 ]),
@@ -95,19 +95,19 @@ class HomeShellScreen extends ConsumerWidget {
                 Row(children: [
                   Expanded(
                     child: _KpiCard(
-                      label: 'Parts',
-                      value: partsCount?.toString() ?? '…',
-                      icon: Icons.inventory_2_outlined,
-                      onTap: () => context.push('/inventory/parts'),
+                      label: 'Low stock',
+                      value: lowStock?.toString() ?? '…',
+                      icon: Icons.warning_amber_outlined,
+                      onTap: () => context.push('/inventory/parts?low=1'),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: _KpiCard(
-                      label: 'Systems',
-                      value: systemCount?.toString() ?? '…',
-                      icon: Icons.memory_outlined,
-                      onTap: () => context.push('/systems'),
+                      label: 'Parts',
+                      value: partsCount?.toString() ?? '…',
+                      icon: Icons.inventory_2_outlined,
+                      onTap: () => context.push('/inventory/parts'),
                     ),
                   ),
                 ]),
@@ -136,17 +136,18 @@ class HomeShellScreen extends ConsumerWidget {
                   onTap: () => context.push('/inventory'),
                 ),
                 _ModuleTile(
+                  icon: Icons.local_shipping_outlined,
+                  title: 'Procurement',
+                  subtitle: 'Vendors → POs → receive',
+                  badge: openPo == null ? 'Live' : '$openPo open',
+                  onTap: () => context.push('/procurement'),
+                ),
+                _ModuleTile(
                   icon: Icons.business,
                   title: 'Clients',
                   subtitle: 'Profiles, sites, SLA',
                   badge: clientCount == null ? null : (clientCount == 0 ? 'Empty' : '$clientCount'),
                   onTap: () => context.push('/clients'),
-                ),
-                const _ModuleTile(
-                  icon: Icons.local_shipping_outlined,
-                  title: 'Procurement',
-                  subtitle: 'Phase 4 — not started',
-                  enabled: false,
                 ),
                 const SizedBox(height: 24),
                 const _SectionLabel('Build progress'),
@@ -156,7 +157,7 @@ class HomeShellScreen extends ConsumerWidget {
                   _ProgressItem(done: true, title: 'Phase 1 — Registration', detail: 'Clients, systems, attach flow'),
                   _ProgressItem(done: true, title: 'Phase 2 — Work loop', detail: 'WR → WO, status machine, KPIs'),
                   _ProgressItem(done: true, title: 'Phase 3 — Inventory', detail: 'Parts, receive, issue, adjust'),
-                  _ProgressItem(done: false, title: 'Phase 4 — Procurement', detail: 'PO / supplier flow'),
+                  _ProgressItem(done: true, title: 'Phase 4 — Procurement', detail: 'Vendors, PO, receive to stock'),
                   _ProgressItem(done: false, title: 'Phase 7 — BYO payments', detail: 'Tenant Paystack credentials'),
                 ]),
                 const SizedBox(height: 24),
