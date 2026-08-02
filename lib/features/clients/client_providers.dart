@@ -17,7 +17,6 @@ class ClientRepository {
     int limit = _pageSize,
     String? query,
   }) async {
-    // Filters must be applied before order/range (those return TransformBuilder).
     var filtered = _client
         .from('clients')
         .select()
@@ -25,12 +24,13 @@ class ClientRepository {
 
     final t = query?.trim();
     if (t != null && t.isNotEmpty) {
-      filtered = filtered.or('name.ilike.%$t%,code.ilike.%$t%');
+      filtered = filtered.or(
+        'name.ilike.%$t%,site_name.ilike.%$t%,location.ilike.%$t%,code.ilike.%$t%',
+      );
     }
 
-    final rows = await filtered
-        .order('name')
-        .range(offset, offset + limit - 1);
+    final rows =
+        await filtered.order('name').range(offset, offset + limit - 1);
 
     return (rows as List)
         .map((e) => Client.fromMap(Map<String, dynamic>.from(e as Map)))
@@ -41,9 +41,15 @@ class ClientRepository {
     required String organizationId,
     required String name,
     String? code,
-    String? contactName,
-    String? contactEmail,
-    String? contactPhone,
+    String? siteName,
+    String? location,
+    String? contact,
+    String? phone,
+    String? email,
+    String? billingAddress,
+    String? accountManager,
+    String? accountType,
+    int? slaHours,
   }) async {
     final row = await _client
         .from('clients')
@@ -51,12 +57,20 @@ class ClientRepository {
           'organization_id': organizationId,
           'name': name.trim(),
           if (code != null && code.trim().isNotEmpty) 'code': code.trim(),
-          if (contactName != null && contactName.trim().isNotEmpty)
-            'contact_name': contactName.trim(),
-          if (contactEmail != null && contactEmail.trim().isNotEmpty)
-            'contact_email': contactEmail.trim(),
-          if (contactPhone != null && contactPhone.trim().isNotEmpty)
-            'contact_phone': contactPhone.trim(),
+          if (siteName != null && siteName.trim().isNotEmpty)
+            'site_name': siteName.trim(),
+          if (location != null && location.trim().isNotEmpty)
+            'location': location.trim(),
+          if (contact != null && contact.trim().isNotEmpty)
+            'contact': contact.trim(),
+          if (phone != null && phone.trim().isNotEmpty) 'phone': phone.trim(),
+          if (email != null && email.trim().isNotEmpty) 'email': email.trim(),
+          if (billingAddress != null && billingAddress.trim().isNotEmpty)
+            'billing_address': billingAddress.trim(),
+          if (accountManager != null && accountManager.trim().isNotEmpty)
+            'account_manager': accountManager.trim(),
+          if (accountType != null) 'account_type': accountType,
+          if (slaHours != null) 'sla_hours': slaHours,
         })
         .select()
         .single();
@@ -73,36 +87,47 @@ class SystemRepository {
     int offset = 0,
     int limit = _pageSize,
     String? query,
+    String? clientId,
   }) async {
     var filtered = _client
         .from('systems')
         .select()
         .eq('organization_id', organizationId);
 
+    if (clientId != null) {
+      filtered = filtered.eq('client_id', clientId);
+    }
+
     final t = query?.trim();
     if (t != null && t.isNotEmpty) {
       filtered = filtered.or(
-        'name.ilike.%$t%,code.ilike.%$t%,serial_number.ilike.%$t%',
+        'name.ilike.%$t%,code.ilike.%$t%,serial_number.ilike.%$t%,client_name.ilike.%$t%,type.ilike.%$t%',
       );
     }
 
-    final rows = await filtered
-        .order('name')
-        .range(offset, offset + limit - 1);
+    final rows =
+        await filtered.order('name').range(offset, offset + limit - 1);
 
     return (rows as List)
         .map((e) => AssetSystem.fromMap(Map<String, dynamic>.from(e as Map)))
         .toList();
   }
 
+  /// Creates a system linked to a client (production pattern).
   Future<AssetSystem> create({
     required String organizationId,
     required String name,
-    String? clientId,
+    required String clientId,
+    required String clientName,
+    String? clientLocation,
+    String? clientSite,
     String? code,
-    String? systemType,
+    String? type,
     String? model,
     String? serialNumber,
+    double? capacity,
+    String? capacityUnit,
+    String? barcode,
     String? siteName,
   }) async {
     final row = await _client
@@ -110,13 +135,22 @@ class SystemRepository {
         .insert({
           'organization_id': organizationId,
           'name': name.trim(),
-          if (clientId != null) 'client_id': clientId,
+          'client_id': clientId,
+          'client_name': clientName,
+          if (clientLocation != null) 'client_location': clientLocation,
+          if (clientSite != null) 'client_site': clientSite,
           if (code != null && code.trim().isNotEmpty) 'code': code.trim(),
-          if (systemType != null && systemType.trim().isNotEmpty)
-            'system_type': systemType.trim(),
+          if (type != null && type.trim().isNotEmpty) ...{
+            'type': type.trim(),
+            'system_type': type.trim(),
+          },
           if (model != null && model.trim().isNotEmpty) 'model': model.trim(),
           if (serialNumber != null && serialNumber.trim().isNotEmpty)
             'serial_number': serialNumber.trim(),
+          if (capacity != null) 'capacity': capacity,
+          if (capacityUnit != null) 'capacity_unit': capacityUnit,
+          if (barcode != null && barcode.trim().isNotEmpty)
+            'barcode': barcode.trim(),
           if (siteName != null && siteName.trim().isNotEmpty)
             'site_name': siteName.trim(),
         })
@@ -134,7 +168,6 @@ final systemRepositoryProvider = Provider<SystemRepository>((ref) {
   return SystemRepository(ref.watch(supabaseClientProvider));
 });
 
-/// First page of clients for the active org.
 final clientsListProvider =
     FutureProvider.autoDispose<List<Client>>((ref) async {
   final org = ref.watch(activeOrganizationProvider);
