@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../design/gloss_theme.dart';
 import '../auth/auth_providers.dart';
 import '../clients/client_providers.dart';
+import '../work/work_providers.dart';
 import 'org_providers.dart';
 
 class HomeShellScreen extends ConsumerWidget {
@@ -17,6 +18,8 @@ class HomeShellScreen extends ConsumerWidget {
     final user = ref.watch(currentUserProvider);
     final clientsAsync = ref.watch(clientsListProvider);
     final systemsAsync = ref.watch(systemsListProvider);
+    final openWo = ref.watch(openWorkOrdersCountProvider).valueOrNull;
+    final pendingWr = ref.watch(pendingWorkRequestsCountProvider).valueOrNull;
 
     final clientCount = clientsAsync.valueOrNull?.length;
     final systemCount = systemsAsync.valueOrNull?.length;
@@ -47,6 +50,8 @@ class HomeShellScreen extends ConsumerWidget {
               ref.invalidate(myOrganizationsProvider);
               ref.invalidate(clientsListProvider);
               ref.invalidate(systemsListProvider);
+              ref.invalidate(openWorkOrdersCountProvider);
+              ref.invalidate(pendingWorkRequestsCountProvider);
             },
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
@@ -101,17 +106,19 @@ class HomeShellScreen extends ConsumerWidget {
                   children: [
                     Expanded(
                       child: _KpiCard(
-                        label: 'Organizations',
-                        value: '${orgs.length}',
-                        icon: Icons.apartment_outlined,
+                        label: 'Open WOs',
+                        value: openWo?.toString() ?? '…',
+                        icon: Icons.handyman_outlined,
+                        onTap: () => context.push('/work/orders'),
                       ),
                     ),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: _KpiCard(
-                        label: 'Role',
-                        value: 'Owner',
-                        icon: Icons.verified_user_outlined,
+                        label: 'Pending WRs',
+                        value: pendingWr?.toString() ?? '…',
+                        icon: Icons.inbox_outlined,
+                        onTap: () => context.push('/work/requests'),
                       ),
                     ),
                   ],
@@ -122,9 +129,16 @@ class HomeShellScreen extends ConsumerWidget {
                 _ModuleTile(
                   icon: Icons.app_registration_outlined,
                   title: 'Registration',
-                  subtitle: 'Clients → systems (full module)',
+                  subtitle: 'Clients → systems',
                   badge: 'Live',
                   onTap: () => context.push('/registration'),
+                ),
+                _ModuleTile(
+                  icon: Icons.handyman_outlined,
+                  title: 'Work loop',
+                  subtitle: 'Requests → work orders',
+                  badge: openWo == null ? 'Live' : '$openWo open',
+                  onTap: () => context.push('/work'),
                 ),
                 _ModuleTile(
                   icon: Icons.business,
@@ -143,12 +157,6 @@ class HomeShellScreen extends ConsumerWidget {
                       ? null
                       : (systemCount == 0 ? 'Empty' : '$systemCount'),
                   onTap: () => context.push('/systems'),
-                ),
-                const _ModuleTile(
-                  icon: Icons.handyman_outlined,
-                  title: 'Work orders',
-                  subtitle: 'Phase 2 — not started',
-                  enabled: false,
                 ),
                 const _ModuleTile(
                   icon: Icons.inventory_2_outlined,
@@ -174,19 +182,18 @@ class HomeShellScreen extends ConsumerWidget {
                     ),
                     _ProgressItem(
                       done: true,
-                      title: 'Phase 1 — Registration module',
-                      detail:
-                          'Client/system CRUD, link, detail, attach flow',
+                      title: 'Phase 1 — Registration',
+                      detail: 'Clients, systems, attach flow',
                     ),
                     _ProgressItem(
-                      done: false,
-                      title: 'Phase 1 — Contracts (optional)',
-                      detail: 'Client contracts screen later',
-                    ),
-                    _ProgressItem(
-                      done: false,
+                      done: true,
                       title: 'Phase 2 — Work loop',
-                      detail: 'Requests → work orders',
+                      detail: 'WR → WO, status machine, KPIs',
+                    ),
+                    _ProgressItem(
+                      done: false,
+                      title: 'Phase 3 — Inventory',
+                      detail: 'Parts, issue, receive',
                     ),
                     _ProgressItem(
                       done: false,
