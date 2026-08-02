@@ -17,6 +17,16 @@ Production `ArollSparrow/Peeke` is a **product reference only**.
 
 ---
 
+## Working rule (updated)
+
+**Every phase must leave a verifiable surface on the home/dashboard.**
+
+- After deploy, signed-in users must see **what is live** without reading git.
+- KPIs, module tiles, and a phase checklist on `/home` are the acceptance UI.
+- Strategy may adapt order when UX feedback requires it (e.g. landing before deeper domain work).
+
+---
+
 ## Phases
 
 ### Phase 0 — Foundation ✅ DONE
@@ -29,24 +39,25 @@ Production `ArollSparrow/Peeke` is a **product reference only**.
 | Auth screens | Login / register / session gate |
 | Org bootstrap | `create_organization` RPC + owner membership |
 
-**Exit criteria met:** Signed-in user creates/uses org and lands on gated home shell.  
+**Exit criteria met:** Signed-in user creates/uses org and lands on gated home.  
 **First tenant:** Peeke Automation (`peeke-automation-cmms-erp`).
 
-### Phase 1 — Master data (IN PROGRESS)
-
-Clients, systems (assets), basic lists with pagination + Gloss patterns.
+### Phase 1 — Master data + home dashboard (IN PROGRESS)
 
 | Work | Status |
 |------|--------|
 | Tables `clients`, `systems` + RLS | ✅ migration `003` |
 | Typed models + repositories | ✅ |
 | List + create UI | ✅ |
-| Home nav | ✅ |
+| **Home dashboard (KPIs, modules, phase checklist)** | ✅ |
 | Detail screens / client↔system link | next |
+
+**How to verify on prod:** open `/home` → see org name, client/system counts, module tiles, build progress.
 
 ### Phase 2 — Work loop
 
-Work requests → work orders (state machine, roles, badges).
+Work requests → work orders (state machine, roles, badges).  
+Dashboard gains WO KPIs when this ships.
 
 ### Phase 3 — Inventory
 
@@ -84,6 +95,7 @@ Storage attachments, QR, hierarchy, budgets.
 6. **Branches:** `feature/*_grok` for agent work; merge after your review.
 7. **Migrations** only via Supabase `apply_migration` / versioned SQL in repo under `supabase/migrations/`.
 8. **Org create** via SECURITY DEFINER RPC (avoid INSERT…RETURNING RLS chicken-and-egg).
+9. **Home is the proof** — no phase is “done” until `/home` reflects it.
 
 ---
 
@@ -96,7 +108,7 @@ lib/
   design/              gloss tokens + widgets
   features/
     auth/
-    org/
+    org/               home dashboard lives here
     clients/           (phase 1)
     ...
   infra/
@@ -109,4 +121,8 @@ docs/
 
 ## Success metric for Phase 0
 
-> Create account → create organization → land on empty home with org name — no production code copied. **Met 2026-08-02.**
+> Create account → create organization → land on home with org name — no production code copied. **Met 2026-08-02.**
+
+## Success metric for Phase 1 (dashboard)
+
+> Home shows live client/system counts, open modules, and phase checklist. Add a client → count updates after refresh.
