@@ -6,6 +6,7 @@ import '../../design/gloss_theme.dart';
 import '../auth/auth_providers.dart';
 import '../clients/client_providers.dart';
 import '../inventory/inventory_providers.dart';
+import '../maintenance/maintenance_providers.dart';
 import '../procurement/procurement_providers.dart';
 import '../work/work_providers.dart';
 import 'org_providers.dart';
@@ -24,6 +25,7 @@ class HomeShellScreen extends ConsumerWidget {
     final lowStock = ref.watch(lowStockCountProvider).valueOrNull;
     final partsCount = ref.watch(partsCountProvider).valueOrNull;
     final openPo = ref.watch(openPoCountProvider).valueOrNull;
+    final duePm = ref.watch(duePmCountProvider).valueOrNull;
 
     final clientCount = clientsAsync.valueOrNull?.length;
 
@@ -57,6 +59,7 @@ class HomeShellScreen extends ConsumerWidget {
               ref.invalidate(lowStockCountProvider);
               ref.invalidate(partsCountProvider);
               ref.invalidate(openPoCountProvider);
+              ref.invalidate(duePmCountProvider);
             },
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
@@ -84,10 +87,10 @@ class HomeShellScreen extends ConsumerWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _KpiCard(
-                      label: 'Open POs',
-                      value: openPo?.toString() ?? '…',
-                      icon: Icons.local_shipping_outlined,
-                      onTap: () => context.push('/procurement/orders'),
+                      label: 'PM due',
+                      value: duePm?.toString() ?? '…',
+                      icon: Icons.event_repeat_outlined,
+                      onTap: () => context.push('/maintenance/plans'),
                     ),
                   ),
                 ]),
@@ -95,19 +98,19 @@ class HomeShellScreen extends ConsumerWidget {
                 Row(children: [
                   Expanded(
                     child: _KpiCard(
-                      label: 'Low stock',
-                      value: lowStock?.toString() ?? '…',
-                      icon: Icons.warning_amber_outlined,
-                      onTap: () => context.push('/inventory/parts?low=1'),
+                      label: 'Open POs',
+                      value: openPo?.toString() ?? '…',
+                      icon: Icons.local_shipping_outlined,
+                      onTap: () => context.push('/procurement/orders'),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: _KpiCard(
-                      label: 'Parts',
-                      value: partsCount?.toString() ?? '…',
-                      icon: Icons.inventory_2_outlined,
-                      onTap: () => context.push('/inventory/parts'),
+                      label: 'Low stock',
+                      value: lowStock?.toString() ?? '…',
+                      icon: Icons.warning_amber_outlined,
+                      onTap: () => context.push('/inventory/parts?low=1'),
                     ),
                   ),
                 ]),
@@ -127,6 +130,13 @@ class HomeShellScreen extends ConsumerWidget {
                   subtitle: 'Requests → work orders',
                   badge: openWo == null ? 'Live' : '$openWo open',
                   onTap: () => context.push('/work'),
+                ),
+                _ModuleTile(
+                  icon: Icons.event_repeat_outlined,
+                  title: 'Maintenance',
+                  subtitle: 'PM plans → jobs → history',
+                  badge: duePm == null ? 'Live' : '$duePm due',
+                  onTap: () => context.push('/maintenance'),
                 ),
                 _ModuleTile(
                   icon: Icons.inventory_2_outlined,
@@ -158,6 +168,8 @@ class HomeShellScreen extends ConsumerWidget {
                   _ProgressItem(done: true, title: 'Phase 2 — Work loop', detail: 'WR → WO, status machine, KPIs'),
                   _ProgressItem(done: true, title: 'Phase 3 — Inventory', detail: 'Parts, receive, issue, adjust'),
                   _ProgressItem(done: true, title: 'Phase 4 — Procurement', detail: 'Vendors, PO, receive to stock'),
+                  _ProgressItem(done: true, title: 'Phase 5 — Maintenance (slice 1)', detail: 'Technicians, PM plans, log job, history'),
+                  _ProgressItem(done: false, title: 'Phase 5b — Service status', detail: 'Due systems, progress bars, auto WO'),
                   _ProgressItem(done: false, title: 'Phase 7 — BYO payments', detail: 'Tenant Paystack credentials'),
                 ]),
                 const SizedBox(height: 24),
