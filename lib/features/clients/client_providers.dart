@@ -5,7 +5,13 @@ import '../auth/auth_providers.dart';
 import '../org/org_providers.dart';
 import 'client_models.dart';
 
-const _pageSize = 30;
+const _pageSize = 50;
+
+String? _trimOrNull(String? v) {
+  final t = v?.trim();
+  if (t == null || t.isEmpty) return null;
+  return t;
+}
 
 class ClientRepository {
   ClientRepository(this._client);
@@ -25,7 +31,7 @@ class ClientRepository {
     final t = query?.trim();
     if (t != null && t.isNotEmpty) {
       filtered = filtered.or(
-        'name.ilike.%$t%,site_name.ilike.%$t%,location.ilike.%$t%,code.ilike.%$t%',
+        'name.ilike.%$t%,site_name.ilike.%$t%,location.ilike.%$t%,code.ilike.%$t%,phone.ilike.%$t%',
       );
     }
 
@@ -37,6 +43,13 @@ class ClientRepository {
         .toList();
   }
 
+  Future<Client?> getById(String id) async {
+    final row =
+        await _client.from('clients').select().eq('id', id).maybeSingle();
+    if (row == null) return null;
+    return Client.fromMap(Map<String, dynamic>.from(row));
+  }
+
   Future<Client> create({
     required String organizationId,
     required String name,
@@ -44,34 +57,49 @@ class ClientRepository {
     String? siteName,
     String? location,
     String? contact,
+    String? locationCoords,
     String? phone,
     String? email,
     String? billingAddress,
     String? accountManager,
     String? accountType,
     int? slaHours,
+    String? notes,
   }) async {
     final row = await _client
         .from('clients')
         .insert({
           'organization_id': organizationId,
           'name': name.trim(),
-          if (code != null && code.trim().isNotEmpty) 'code': code.trim(),
-          if (siteName != null && siteName.trim().isNotEmpty)
-            'site_name': siteName.trim(),
-          if (location != null && location.trim().isNotEmpty)
-            'location': location.trim(),
-          if (contact != null && contact.trim().isNotEmpty)
-            'contact': contact.trim(),
-          if (phone != null && phone.trim().isNotEmpty) 'phone': phone.trim(),
-          if (email != null && email.trim().isNotEmpty) 'email': email.trim(),
-          if (billingAddress != null && billingAddress.trim().isNotEmpty)
-            'billing_address': billingAddress.trim(),
-          if (accountManager != null && accountManager.trim().isNotEmpty)
-            'account_manager': accountManager.trim(),
+          if (_trimOrNull(code) != null) 'code': _trimOrNull(code),
+          if (_trimOrNull(siteName) != null) 'site_name': _trimOrNull(siteName),
+          if (_trimOrNull(location) != null) 'location': _trimOrNull(location),
+          if (_trimOrNull(contact) != null) 'contact': _trimOrNull(contact),
+          if (_trimOrNull(locationCoords) != null)
+            'location_coords': _trimOrNull(locationCoords),
+          if (_trimOrNull(phone) != null) 'phone': _trimOrNull(phone),
+          if (_trimOrNull(email) != null) 'email': _trimOrNull(email),
+          if (_trimOrNull(billingAddress) != null)
+            'billing_address': _trimOrNull(billingAddress),
+          if (_trimOrNull(accountManager) != null)
+            'account_manager': _trimOrNull(accountManager),
           if (accountType != null) 'account_type': accountType,
           if (slaHours != null) 'sla_hours': slaHours,
+          if (_trimOrNull(notes) != null) 'notes': _trimOrNull(notes),
         })
+        .select()
+        .single();
+    return Client.fromMap(Map<String, dynamic>.from(row));
+  }
+
+  Future<Client> update(String id, Map<String, dynamic> patch) async {
+    final row = await _client
+        .from('clients')
+        .update({
+          ...patch,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', id)
         .select()
         .single();
     return Client.fromMap(Map<String, dynamic>.from(row));
@@ -101,7 +129,7 @@ class SystemRepository {
     final t = query?.trim();
     if (t != null && t.isNotEmpty) {
       filtered = filtered.or(
-        'name.ilike.%$t%,code.ilike.%$t%,serial_number.ilike.%$t%,client_name.ilike.%$t%,type.ilike.%$t%',
+        'name.ilike.%$t%,code.ilike.%$t%,serial_number.ilike.%$t%,client_name.ilike.%$t%,type.ilike.%$t%,model.ilike.%$t%',
       );
     }
 
@@ -113,7 +141,24 @@ class SystemRepository {
         .toList();
   }
 
-  /// Creates a system linked to a client (production pattern).
+  Future<List<AssetSystem>> listByClient(String clientId) async {
+    final rows = await _client
+        .from('systems')
+        .select()
+        .eq('client_id', clientId)
+        .order('name');
+    return (rows as List)
+        .map((e) => AssetSystem.fromMap(Map<String, dynamic>.from(e as Map)))
+        .toList();
+  }
+
+  Future<AssetSystem?> getById(String id) async {
+    final row =
+        await _client.from('systems').select().eq('id', id).maybeSingle();
+    if (row == null) return null;
+    return AssetSystem.fromMap(Map<String, dynamic>.from(row));
+  }
+
   Future<AssetSystem> create({
     required String organizationId,
     required String name,
@@ -129,6 +174,13 @@ class SystemRepository {
     String? capacityUnit,
     String? barcode,
     String? siteName,
+    DateTime? installationDate,
+    DateTime? registrationDate,
+    double? fuelTankCapacity,
+    double? initialHourMeter,
+    double? initialEnergyMeter,
+    String? operationType,
+    String? notes,
   }) async {
     final row = await _client
         .from('systems')
@@ -139,24 +191,52 @@ class SystemRepository {
           'client_name': clientName,
           if (clientLocation != null) 'client_location': clientLocation,
           if (clientSite != null) 'client_site': clientSite,
-          if (code != null && code.trim().isNotEmpty) 'code': code.trim(),
-          if (type != null && type.trim().isNotEmpty) ...{
-            'type': type.trim(),
-            'system_type': type.trim(),
+          if (_trimOrNull(code) != null) 'code': _trimOrNull(code),
+          if (_trimOrNull(type) != null) ...{
+            'type': _trimOrNull(type),
+            'system_type': _trimOrNull(type),
           },
-          if (model != null && model.trim().isNotEmpty) 'model': model.trim(),
-          if (serialNumber != null && serialNumber.trim().isNotEmpty)
-            'serial_number': serialNumber.trim(),
+          if (_trimOrNull(model) != null) 'model': _trimOrNull(model),
+          if (_trimOrNull(serialNumber) != null)
+            'serial_number': _trimOrNull(serialNumber),
           if (capacity != null) 'capacity': capacity,
           if (capacityUnit != null) 'capacity_unit': capacityUnit,
-          if (barcode != null && barcode.trim().isNotEmpty)
-            'barcode': barcode.trim(),
-          if (siteName != null && siteName.trim().isNotEmpty)
-            'site_name': siteName.trim(),
+          if (_trimOrNull(barcode) != null) 'barcode': _trimOrNull(barcode),
+          if (_trimOrNull(siteName) != null) 'site_name': _trimOrNull(siteName),
+          if (installationDate != null)
+            'installation_date':
+                installationDate.toIso8601String().split('T').first,
+          if (registrationDate != null)
+            'registration_date':
+                registrationDate.toIso8601String().split('T').first,
+          if (fuelTankCapacity != null) 'fuel_tank_capacity': fuelTankCapacity,
+          if (initialHourMeter != null) 'initial_hour_meter': initialHourMeter,
+          if (initialEnergyMeter != null)
+            'initial_energy_meter': initialEnergyMeter,
+          if (_trimOrNull(operationType) != null)
+            'operation_type': _trimOrNull(operationType),
+          if (_trimOrNull(notes) != null) 'notes': _trimOrNull(notes),
         })
         .select()
         .single();
     return AssetSystem.fromMap(Map<String, dynamic>.from(row));
+  }
+
+  Future<AssetSystem> update(String id, Map<String, dynamic> patch) async {
+    final row = await _client
+        .from('systems')
+        .update({
+          ...patch,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', id)
+        .select()
+        .single();
+    return AssetSystem.fromMap(Map<String, dynamic>.from(row));
+  }
+
+  Future<void> delete(String id) async {
+    await _client.from('systems').delete().eq('id', id);
   }
 }
 
@@ -180,4 +260,19 @@ final systemsListProvider =
   final org = ref.watch(activeOrganizationProvider);
   if (org == null) return [];
   return ref.watch(systemRepositoryProvider).list(organizationId: org.id);
+});
+
+final clientByIdProvider =
+    FutureProvider.autoDispose.family<Client?, String>((ref, id) async {
+  return ref.watch(clientRepositoryProvider).getById(id);
+});
+
+final systemByIdProvider =
+    FutureProvider.autoDispose.family<AssetSystem?, String>((ref, id) async {
+  return ref.watch(systemRepositoryProvider).getById(id);
+});
+
+final systemsByClientProvider =
+    FutureProvider.autoDispose.family<List<AssetSystem>, String>((ref, clientId) async {
+  return ref.watch(systemRepositoryProvider).listByClient(clientId);
 });
