@@ -57,7 +57,8 @@ class OrgRepository {
 
   final SupabaseClient _client;
 
-  /// Creates org and membership as owner in one client flow.
+  /// Creates org + owner membership in one SECURITY DEFINER RPC.
+  /// Avoids INSERT...RETURNING RLS failure before membership exists.
   Future<Organization> createOrganization({
     required String name,
     required String slug,
@@ -67,21 +68,18 @@ class OrgRepository {
       throw StateError('Must be signed in to create an organization');
     }
 
-    final inserted = await _client
-        .from('organizations')
-        .insert({'name': name, 'slug': slug})
-        .select()
-        .single();
+    final row = await _client.rpc(
+      'create_organization',
+      params: {
+        'p_name': name.trim(),
+        'p_slug': slug.trim().toLowerCase(),
+      },
+    );
 
-    final org = Organization.fromMap(Map<String, dynamic>.from(inserted));
-
-    await _client.from('organization_members').insert({
-      'organization_id': org.id,
-      'user_id': user.id,
-      'role': 'owner',
-    });
-
-    return org;
+    if (row is! Map) {
+      throw StateError('create_organization returned unexpected payload');
+    }
+    return Organization.fromMap(Map<String, dynamic>.from(row));
   }
 }
 
