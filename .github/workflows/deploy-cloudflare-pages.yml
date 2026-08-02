@@ -1,8 +1,11 @@
 name: Deploy Web → Cloudflare Pages
 
 on:
+  # Production: main
+  # Previews: any other branch push (e.g. feature/*_grok) + PRs into main
   push:
-    branches: [main]
+    branches:
+      - '**'
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -14,6 +17,7 @@ jobs:
     permissions:
       contents: read
       deployments: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
 
@@ -59,6 +63,7 @@ jobs:
           printf '/*    /index.html   200\n' > build/web/_redirects
 
       - name: Publish to Cloudflare Pages
+        id: cloudflare
         uses: cloudflare/pages-action@v1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -66,4 +71,15 @@ jobs:
           projectName: peeke-cmms-erp
           directory: build/web
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          # Non-main → preview deployment; main → production
           branch: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+
+      - name: Deployment summary
+        run: |
+          echo "### Cloudflare Pages" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Git branch:** \`${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Deployment URL:** ${{ steps.cloudflare.outputs.url }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Environment:** ${{ steps.cloudflare.outputs.environment }}" >> "$GITHUB_STEP_SUMMARY"
+          # Stable branch alias (slashes → hyphens) once CF has created the deployment:
+          BRANCH_ALIAS=$(echo "${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}" | tr '/' '-')
+          echo "- **Expected branch alias:** https://\${BRANCH_ALIAS}.peeke-cmms-erp.pages.dev" >> "$GITHUB_STEP_SUMMARY"

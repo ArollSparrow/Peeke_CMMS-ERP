@@ -4,7 +4,12 @@ import 'package:go_router/go_router.dart';
 
 import '../features/auth/auth_providers.dart';
 import '../features/auth/login_screen.dart';
+import '../features/clients/client_detail_screen.dart';
+import '../features/clients/client_form_screen.dart';
 import '../features/clients/clients_list_screen.dart';
+import '../features/clients/registration_hub_screen.dart';
+import '../features/clients/system_detail_screen.dart';
+import '../features/clients/system_form_screen.dart';
 import '../features/clients/systems_list_screen.dart';
 import '../features/org/create_org_screen.dart';
 import '../features/org/home_shell_screen.dart';
@@ -43,12 +48,50 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const CreateOrgScreen(),
       ),
       GoRoute(
+        path: '/registration',
+        builder: (context, state) => const RegistrationHubScreen(),
+      ),
+      GoRoute(
         path: '/clients',
         builder: (context, state) => const ClientsListScreen(),
       ),
       GoRoute(
+        path: '/clients/new',
+        builder: (context, state) => const ClientFormScreen(),
+      ),
+      GoRoute(
+        path: '/clients/:id',
+        builder: (context, state) => ClientDetailScreen(
+          clientId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/clients/:id/edit',
+        builder: (context, state) => ClientFormScreen(
+          clientId: state.pathParameters['id'],
+        ),
+      ),
+      GoRoute(
         path: '/systems',
         builder: (context, state) => const SystemsListScreen(),
+      ),
+      GoRoute(
+        path: '/systems/new',
+        builder: (context, state) => SystemFormScreen(
+          preselectedClientId: state.uri.queryParameters['clientId'],
+        ),
+      ),
+      GoRoute(
+        path: '/systems/:id',
+        builder: (context, state) => SystemDetailScreen(
+          systemId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/systems/:id/edit',
+        builder: (context, state) => SystemFormScreen(
+          systemId: state.pathParameters['id'],
+        ),
       ),
     ],
   );

@@ -12,9 +12,17 @@
 | Environment | URL |
 |-------------|-----|
 | **Production** (`main`) | https://peeke-cmms-erp.pages.dev |
-| **Preview** (PRs / other branches) | `https://<branch-or-hash>.peeke-cmms-erp.pages.dev` |
+| **Branch preview** | `https://<branch-with-slashes-as-hyphens>.peeke-cmms-erp.pages.dev` |
+| **Unique deploy** | Printed in **Actions** job summary / Cloudflare deployment (hash URL) |
 
-> First successful deploy is required before the production URL serves the app. See **Deploy setup** below.
+### Example (registration review branch)
+
+After a **green** Actions run on `feature/registration_module_grok`:
+
+- Branch alias: https://feature-registration-module-grok.peeke-cmms-erp.pages.dev  
+- Or open **Actions → Deploy Web → Cloudflare Pages → latest run → Summary** for the exact deployment URL.
+
+> Preview URLs only exist **after** CI has deployed that branch. Pushing code alone is not enough if the workflow never ran for that branch.
 
 ## Locked decisions
 
@@ -35,20 +43,22 @@
 
 GitHub Actions workflow: `.github/workflows/deploy-cloudflare-pages.yml`
 
+**Triggers**
+
+- Every **push** to any branch (including `feature/*_grok`) → Pages deploy  
+- **Pull requests** into `main` → preview deploy  
+- **workflow_dispatch** → manual run  
+- `main` → production environment on project `peeke-cmms-erp`
+
 Add **repository secrets** (Settings → Secrets and variables → Actions):
 
 | Secret | Value |
 |--------|--------|
 | `CLOUDFLARE_API_TOKEN` | Token with **Account → Cloudflare Pages → Edit** |
-| `CLOUDFLARE_ACCOUNT_ID` | `642cb1f526f3f6bcb29f4a94f262fc48` |
-| `SUPABASE_ANON_KEY` | Anon/publishable key from Supabase project `tappfahlaiixctyliesz` |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account id |
+| `SUPABASE_ANON_KEY` | Anon key from Supabase project `tappfahlaiixctyliesz` |
 
 Optional variable: `SUPABASE_URL` (defaults to clean-slate URL in the workflow).
-
-Then push to `main` or run **Actions → Deploy Web → Cloudflare Pages → Run workflow**.
-
-- **Production:** every push to `main`
-- **Preview:** every pull request (unique preview URL in the Actions log / deployment)
 
 ## Run locally
 
