@@ -51,7 +51,6 @@ class HomeShellScreen extends ConsumerWidget {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
               children: [
-                // ── Welcome ───────────────────────────────────────────
                 Text(
                   active?.name ?? 'Organization',
                   style: const TextStyle(
@@ -76,8 +75,6 @@ class HomeShellScreen extends ConsumerWidget {
                   ),
                 ],
                 const SizedBox(height: 20),
-
-                // ── KPI row ───────────────────────────────────────────
                 Row(
                   children: [
                     Expanded(
@@ -110,7 +107,7 @@ class HomeShellScreen extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    Expanded(
+                    const Expanded(
                       child: _KpiCard(
                         label: 'Role',
                         value: 'Owner',
@@ -120,14 +117,19 @@ class HomeShellScreen extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: 24),
-
-                // ── Modules ───────────────────────────────────────────
                 const _SectionLabel('Modules'),
                 const SizedBox(height: 8),
                 _ModuleTile(
+                  icon: Icons.app_registration_outlined,
+                  title: 'Registration',
+                  subtitle: 'Clients → systems (full module)',
+                  badge: 'Live',
+                  onTap: () => context.push('/registration'),
+                ),
+                _ModuleTile(
                   icon: Icons.business,
                   title: 'Clients',
-                  subtitle: 'Customer organizations in this tenant',
+                  subtitle: 'Profiles, sites, SLA',
                   badge: clientCount == null
                       ? null
                       : (clientCount == 0 ? 'Empty' : '$clientCount'),
@@ -136,33 +138,31 @@ class HomeShellScreen extends ConsumerWidget {
                 _ModuleTile(
                   icon: Icons.memory,
                   title: 'Systems',
-                  subtitle: 'Assets — generators, inverters, plant',
+                  subtitle: 'Assets linked to clients',
                   badge: systemCount == null
                       ? null
                       : (systemCount == 0 ? 'Empty' : '$systemCount'),
                   onTap: () => context.push('/systems'),
                 ),
-                _ModuleTile(
+                const _ModuleTile(
                   icon: Icons.handyman_outlined,
                   title: 'Work orders',
                   subtitle: 'Phase 2 — not started',
                   enabled: false,
                 ),
-                _ModuleTile(
+                const _ModuleTile(
                   icon: Icons.inventory_2_outlined,
                   title: 'Inventory',
                   subtitle: 'Phase 3 — not started',
                   enabled: false,
                 ),
-                _ModuleTile(
+                const _ModuleTile(
                   icon: Icons.local_shipping_outlined,
                   title: 'Procurement',
                   subtitle: 'Phase 4 — not started',
                   enabled: false,
                 ),
                 const SizedBox(height: 24),
-
-                // ── Build progress ────────────────────────────────────
                 const _SectionLabel('Build progress'),
                 const SizedBox(height: 8),
                 const _ProgressCard(
@@ -174,13 +174,14 @@ class HomeShellScreen extends ConsumerWidget {
                     ),
                     _ProgressItem(
                       done: true,
-                      title: 'Phase 1 — Master data (partial)',
-                      detail: 'Clients & systems tables + list/create',
+                      title: 'Phase 1 — Registration module',
+                      detail:
+                          'Client/system CRUD, link, detail, attach flow',
                     ),
                     _ProgressItem(
                       done: false,
-                      title: 'Phase 1 — Finish',
-                      detail: 'Detail screens, client↔system link',
+                      title: 'Phase 1 — Contracts (optional)',
+                      detail: 'Client contracts screen later',
                     ),
                     _ProgressItem(
                       done: false,
@@ -195,8 +196,6 @@ class HomeShellScreen extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: 24),
-
-                // ── Orgs switcher ─────────────────────────────────────
                 const _SectionLabel('Your organizations'),
                 const SizedBox(height: 8),
                 ...orgs.map(
