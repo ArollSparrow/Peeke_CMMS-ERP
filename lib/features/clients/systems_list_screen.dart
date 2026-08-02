@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../design/gloss_theme.dart';
 import '../org/org_providers.dart';
+import 'client_models.dart';
 import 'client_providers.dart';
 
 class SystemsListScreen extends ConsumerStatefulWidget {
@@ -13,79 +14,177 @@ class SystemsListScreen extends ConsumerStatefulWidget {
 }
 
 class _SystemsListScreenState extends ConsumerState<SystemsListScreen> {
-  final _nameCtrl = TextEditingController();
-  final _codeCtrl = TextEditingController();
-  final _typeCtrl = TextEditingController();
   bool _saving = false;
 
-  @override
-  void dispose() {
-    _nameCtrl.dispose();
-    _codeCtrl.dispose();
-    _typeCtrl.dispose();
-    super.dispose();
-  }
+  static const _types = ['Generator', 'PV Inverter', 'Pump Inverter', 'Other'];
+  static const _units = ['kW', 'kVA'];
 
   Future<void> _showCreate() async {
     final org = ref.read(activeOrganizationProvider);
     if (org == null) return;
 
-    _nameCtrl.clear();
-    _codeCtrl.clear();
-    _typeCtrl.clear();
+    final clients = await ref.read(clientRepositoryProvider).list(
+          organizationId: org.id,
+        );
+    if (!mounted) return;
+
+    if (clients.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Create a client first — systems must belong to a client.'),
+        ),
+      );
+      return;
+    }
+
+    Client selectedClient = clients.first;
+    String? selectedType = _types.first;
+    String? selectedUnit = _units.first;
+    final nameCtrl = TextEditingController();
+    final serialCtrl = TextEditingController();
+    final modelCtrl = TextEditingController();
+    final capacityCtrl = TextEditingController();
 
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('New system'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _nameCtrl,
-              decoration: const InputDecoration(labelText: 'Name'),
-              textCapitalization: TextCapitalization.words,
-              autofocus: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: const Text('New system'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                DropdownButtonFormField<Client>(
+                  value: selectedClient,
+                  decoration: const InputDecoration(labelText: 'Client *'),
+                  items: clients
+                      .map(
+                        (c) => DropdownMenuItem(
+                          value: c,
+                          child: Text(
+                            c.siteName != null && c.siteName!.isNotEmpty
+                                ? '${c.name} · ${c.siteName}'
+                                : c.name,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (c) {
+                    if (c != null) setLocal(() => selectedClient = c);
+                  },
+                ),
+                DropdownButtonFormField<String>(
+                  value: selectedType,
+                  decoration: const InputDecoration(labelText: 'System type *'),
+                  items: _types
+                      .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                      .toList(),
+                  onChanged: (t) => setLocal(() => selectedType = t),
+                ),
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Display name *',
+                    hintText: 'e.g. Gen-1 Main',
+                  ),
+                ),
+                TextField(
+                  controller: serialCtrl,
+                  decoration: const InputDecoration(labelText: 'Serial number'),
+                ),
+                TextField(
+                  controller: modelCtrl,
+                  decoration: const InputDecoration(labelText: 'Model'),
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 6,
+                      child: TextField(
+                        controller: capacityCtrl,
+                        decoration: const InputDecoration(labelText: 'Capacity'),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 4,
+                      child: DropdownButtonFormField<String>(
+                        value: selectedUnit,
+                        decoration: const InputDecoration(labelText: 'Unit'),
+                        items: _units
+                            .map(
+                              (u) => DropdownMenuItem(value: u, child: Text(u)),
+                            )
+                            .toList(),
+                        onChanged: (u) => setLocal(() => selectedUnit = u),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            TextField(
-              controller: _codeCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Code (optional)',
-              ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
             ),
-            TextField(
-              controller: _typeCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Type (optional)',
-                hintText: 'e.g. generator, inverter',
-              ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Create'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Create'),
-          ),
-        ],
       ),
     );
 
-    if (ok != true || !mounted) return;
-    final name = _nameCtrl.text.trim();
-    if (name.isEmpty) return;
+    if (ok != true || !mounted) {
+      nameCtrl.dispose();
+      serialCtrl.dispose();
+      modelCtrl.dispose();
+      capacityCtrl.dispose();
+      return;
+    }
+
+    final name = nameCtrl.text.trim().isNotEmpty
+        ? nameCtrl.text.trim()
+        : [
+            selectedType,
+            serialCtrl.text.trim().isNotEmpty
+                ? serialCtrl.text.trim()
+                : modelCtrl.text.trim(),
+          ].where((e) => e != null && e.isNotEmpty).join(' ');
+
+    if (name.isEmpty) {
+      nameCtrl.dispose();
+      serialCtrl.dispose();
+      modelCtrl.dispose();
+      capacityCtrl.dispose();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Name or serial/model is required')),
+      );
+      return;
+    }
 
     setState(() => _saving = true);
     try {
       await ref.read(systemRepositoryProvider).create(
             organizationId: org.id,
             name: name,
-            code: _codeCtrl.text.trim().isEmpty ? null : _codeCtrl.text,
-            systemType: _typeCtrl.text.trim().isEmpty ? null : _typeCtrl.text,
+            clientId: selectedClient.id,
+            clientName: selectedClient.name,
+            clientLocation: selectedClient.location,
+            clientSite: selectedClient.siteName,
+            type: selectedType,
+            model: modelCtrl.text,
+            serialNumber: serialCtrl.text,
+            capacity: double.tryParse(capacityCtrl.text.trim()),
+            capacityUnit: selectedUnit,
           );
       ref.invalidate(systemsListProvider);
     } catch (e) {
@@ -95,6 +194,10 @@ class _SystemsListScreenState extends ConsumerState<SystemsListScreen> {
         );
       }
     } finally {
+      nameCtrl.dispose();
+      serialCtrl.dispose();
+      modelCtrl.dispose();
+      capacityCtrl.dispose();
       if (mounted) setState(() => _saving = false);
     }
   }
@@ -135,9 +238,13 @@ class _SystemsListScreenState extends ConsumerState<SystemsListScreen> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        const Text(
-                          'Systems are assets (generators, inverters, etc.).',
-                          style: TextStyle(color: GlossColors.muted),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 24),
+                          child: Text(
+                            'Systems are assets linked to a client (generator, inverter, …).',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: GlossColors.muted),
+                          ),
                         ),
                         const SizedBox(height: 16),
                         FilledButton.icon(
@@ -159,11 +266,7 @@ class _SystemsListScreenState extends ConsumerState<SystemsListScreen> {
                       child: ListTile(
                         title: Text(s.name),
                         subtitle: Text(
-                          [
-                            if (s.code != null && s.code!.isNotEmpty) s.code,
-                            if (s.systemType != null) s.systemType,
-                            s.status,
-                          ].whereType<String>().join(' · '),
+                          s.subtitle.isEmpty ? s.status : s.subtitle,
                           style: const TextStyle(color: GlossColors.muted),
                         ),
                       ),
