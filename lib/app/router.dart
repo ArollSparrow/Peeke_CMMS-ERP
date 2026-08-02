@@ -4,9 +4,10 @@ import 'package:go_router/go_router.dart';
 
 import '../features/auth/auth_providers.dart';
 import '../features/auth/login_screen.dart';
+import '../features/clients/clients_list_screen.dart';
+import '../features/clients/systems_list_screen.dart';
 import '../features/org/create_org_screen.dart';
 import '../features/org/home_shell_screen.dart';
-import '../features/org/org_providers.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authRefresh = ValueNotifier<int>(0);
@@ -40,6 +41,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/org/create',
         builder: (context, state) => const CreateOrgScreen(),
+      ),
+      GoRoute(
+        path: '/clients',
+        builder: (context, state) => const ClientsListScreen(),
+      ),
+      GoRoute(
+        path: '/systems',
+        builder: (context, state) => const SystemsListScreen(),
       ),
     ],
   );
