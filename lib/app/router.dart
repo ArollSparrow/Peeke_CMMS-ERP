@@ -13,6 +13,11 @@ import '../features/clients/system_form_screen.dart';
 import '../features/clients/systems_list_screen.dart';
 import '../features/org/create_org_screen.dart';
 import '../features/org/home_shell_screen.dart';
+import '../features/work/work_lists_screens.dart';
+import '../features/work/work_order_detail_screen.dart';
+import '../features/work/work_order_form_screen.dart';
+import '../features/work/work_request_detail_screen.dart';
+import '../features/work/work_request_form_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authRefresh = ValueNotifier<int>(0);
@@ -91,6 +96,38 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/systems/:id/edit',
         builder: (context, state) => SystemFormScreen(
           systemId: state.pathParameters['id'],
+        ),
+      ),
+      GoRoute(
+        path: '/work',
+        builder: (context, state) => const WorkHubScreen(),
+      ),
+      GoRoute(
+        path: '/work/requests',
+        builder: (context, state) => const WorkRequestsListScreen(),
+      ),
+      GoRoute(
+        path: '/work/requests/new',
+        builder: (context, state) => const WorkRequestFormScreen(),
+      ),
+      GoRoute(
+        path: '/work/requests/:id',
+        builder: (context, state) => WorkRequestDetailScreen(
+          requestId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/work/orders',
+        builder: (context, state) => const WorkOrdersListScreen(),
+      ),
+      GoRoute(
+        path: '/work/orders/new',
+        builder: (context, state) => const WorkOrderFormScreen(),
+      ),
+      GoRoute(
+        path: '/work/orders/:id',
+        builder: (context, state) => WorkOrderDetailScreen(
+          orderId: state.pathParameters['id']!,
         ),
       ),
     ],
