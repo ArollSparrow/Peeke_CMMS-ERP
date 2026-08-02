@@ -13,45 +13,61 @@ class ClientsListScreen extends ConsumerStatefulWidget {
 }
 
 class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
-  final _nameCtrl = TextEditingController();
-  final _codeCtrl = TextEditingController();
   bool _saving = false;
-
-  @override
-  void dispose() {
-    _nameCtrl.dispose();
-    _codeCtrl.dispose();
-    super.dispose();
-  }
 
   Future<void> _showCreate() async {
     final org = ref.read(activeOrganizationProvider);
     if (org == null) return;
 
-    _nameCtrl.clear();
-    _codeCtrl.clear();
+    final nameCtrl = TextEditingController();
+    final siteCtrl = TextEditingController();
+    final locationCtrl = TextEditingController();
+    final phoneCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
 
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('New client'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _nameCtrl,
-              decoration: const InputDecoration(labelText: 'Name'),
-              textCapitalization: TextCapitalization.words,
-              autofocus: true,
-            ),
-            TextField(
-              controller: _codeCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Code (optional)',
-                hintText: 'e.g. ACME',
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Client name *',
+                  hintText: 'Organisation / company',
+                ),
+                textCapitalization: TextCapitalization.words,
+                autofocus: true,
               ),
-            ),
-          ],
+              TextField(
+                controller: siteCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Site name',
+                  hintText: 'Branch / site',
+                ),
+              ),
+              TextField(
+                controller: locationCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Location',
+                  hintText: 'Town or area',
+                ),
+              ),
+              TextField(
+                controller: phoneCtrl,
+                decoration: const InputDecoration(labelText: 'Phone'),
+                keyboardType: TextInputType.phone,
+              ),
+              TextField(
+                controller: emailCtrl,
+                decoration: const InputDecoration(labelText: 'Email'),
+                keyboardType: TextInputType.emailAddress,
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -66,16 +82,34 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
       ),
     );
 
-    if (ok != true || !mounted) return;
-    final name = _nameCtrl.text.trim();
-    if (name.isEmpty) return;
+    if (ok != true || !mounted) {
+      nameCtrl.dispose();
+      siteCtrl.dispose();
+      locationCtrl.dispose();
+      phoneCtrl.dispose();
+      emailCtrl.dispose();
+      return;
+    }
+
+    final name = nameCtrl.text.trim();
+    if (name.isEmpty) {
+      nameCtrl.dispose();
+      siteCtrl.dispose();
+      locationCtrl.dispose();
+      phoneCtrl.dispose();
+      emailCtrl.dispose();
+      return;
+    }
 
     setState(() => _saving = true);
     try {
       await ref.read(clientRepositoryProvider).create(
             organizationId: org.id,
             name: name,
-            code: _codeCtrl.text.trim().isEmpty ? null : _codeCtrl.text,
+            siteName: siteCtrl.text,
+            location: locationCtrl.text,
+            phone: phoneCtrl.text,
+            email: emailCtrl.text,
           );
       ref.invalidate(clientsListProvider);
     } catch (e) {
@@ -85,6 +119,11 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
         );
       }
     } finally {
+      nameCtrl.dispose();
+      siteCtrl.dispose();
+      locationCtrl.dispose();
+      phoneCtrl.dispose();
+      emailCtrl.dispose();
       if (mounted) setState(() => _saving = false);
     }
   }
@@ -149,10 +188,7 @@ class _ClientsListScreenState extends ConsumerState<ClientsListScreen> {
                       child: ListTile(
                         title: Text(c.name),
                         subtitle: Text(
-                          [
-                            if (c.code != null && c.code!.isNotEmpty) c.code,
-                            if (c.contactName != null) c.contactName,
-                          ].whereType<String>().join(' · '),
+                          c.subtitle.isEmpty ? 'No site details' : c.subtitle,
                           style: const TextStyle(color: GlossColors.muted),
                         ),
                         trailing: c.isActive
