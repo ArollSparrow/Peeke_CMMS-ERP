@@ -11,6 +11,7 @@ import '../features/clients/registration_hub_screen.dart';
 import '../features/clients/system_detail_screen.dart';
 import '../features/clients/system_form_screen.dart';
 import '../features/clients/systems_list_screen.dart';
+import '../features/inventory/inventory_screens.dart';
 import '../features/org/create_org_screen.dart';
 import '../features/org/home_shell_screen.dart';
 import '../features/work/work_lists_screens.dart';
@@ -81,6 +82,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/work/orders/:id',
         builder: (context, state) => WorkOrderDetailScreen(orderId: state.pathParameters['id']!),
+      ),
+      GoRoute(path: '/inventory', builder: (context, state) => const InventoryHubScreen()),
+      GoRoute(
+        path: '/inventory/parts',
+        builder: (context, state) => SparePartsListScreen(
+          lowOnly: state.uri.queryParameters['low'] == '1',
+        ),
+      ),
+      GoRoute(
+        path: '/inventory/parts/new',
+        builder: (context, state) => const SparePartFormScreen(),
+      ),
+      GoRoute(
+        path: '/inventory/parts/:id',
+        builder: (context, state) =>
+            SparePartDetailScreen(partId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/inventory/parts/:id/edit',
+        builder: (context, state) =>
+            SparePartFormScreen(partId: state.pathParameters['id']),
       ),
     ],
   );
