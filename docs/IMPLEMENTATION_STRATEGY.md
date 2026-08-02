@@ -19,7 +19,7 @@ Production `ArollSparrow/Peeke` is a **product reference only**.
 
 ## Phases
 
-### Phase 0 — Foundation (NOW)
+### Phase 0 — Foundation ✅ DONE
 
 | Work | Deliverable |
 |------|-------------|
@@ -27,13 +27,22 @@ Production `ArollSparrow/Peeke` is a **product reference only**.
 | Flutter scaffold | Feature folders, Riverpod, Supabase init, router shell |
 | Design tokens | Minimal Gloss colors + page scaffold |
 | Auth screens | Login / register / session gate |
-| Org bootstrap | Create org + join as owner |
+| Org bootstrap | `create_organization` RPC + owner membership |
 
-**Exit criteria:** Signed-in user can create an org and see a gated home shell.
+**Exit criteria met:** Signed-in user creates/uses org and lands on gated home shell.  
+**First tenant:** Peeke Automation (`peeke-automation-cmms-erp`).
 
-### Phase 1 — Master data
+### Phase 1 — Master data (IN PROGRESS)
 
 Clients, systems (assets), basic lists with pagination + Gloss patterns.
+
+| Work | Status |
+|------|--------|
+| Tables `clients`, `systems` + RLS | ✅ migration `003` |
+| Typed models + repositories | ✅ |
+| List + create UI | ✅ |
+| Home nav | ✅ |
+| Detail screens / client↔system link | next |
 
 ### Phase 2 — Work loop
 
@@ -53,7 +62,7 @@ PM plans, downtime, reports.
 
 ### Phase 6 — Comms
 
-In-app notifications; Activepieces/Slack later.
+In-app notifications; Cloudflare Workers → Slack (Activepieces optional).
 
 ### Phase 7 — BYO payments
 
@@ -74,6 +83,7 @@ Storage attachments, QR, hierarchy, budgets.
 5. **Secrets server-only** (Paystack secret, service role).
 6. **Branches:** `feature/*_grok` for agent work; merge after your review.
 7. **Migrations** only via Supabase `apply_migration` / versioned SQL in repo under `supabase/migrations/`.
+8. **Org create** via SECURITY DEFINER RPC (avoid INSERT…RETURNING RLS chicken-and-egg).
 
 ---
 
@@ -87,7 +97,7 @@ lib/
   features/
     auth/
     org/
-    clients/           (phase 1+)
+    clients/           (phase 1)
     ...
   infra/
     supabase/
@@ -97,15 +107,6 @@ docs/
 
 ---
 
-## Immediate next commits
-
-1. Migration `001_org_and_auth_foundation` on clean-slate project ✓
-2. Flutter package skeleton + `pubspec.yaml`
-3. Auth + org providers and minimal UI shell
-4. Mirror migration SQL in repo
-
----
-
 ## Success metric for Phase 0
 
-> Create account → create organization → land on empty home with org name — no production code copied.
+> Create account → create organization → land on empty home with org name — no production code copied. **Met 2026-08-02.**
