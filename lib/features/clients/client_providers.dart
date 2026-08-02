@@ -17,19 +17,21 @@ class ClientRepository {
     int limit = _pageSize,
     String? query,
   }) async {
-    var q = _client
+    // Filters must be applied before order/range (those return TransformBuilder).
+    var filtered = _client
         .from('clients')
         .select()
-        .eq('organization_id', organizationId)
+        .eq('organization_id', organizationId);
+
+    final t = query?.trim();
+    if (t != null && t.isNotEmpty) {
+      filtered = filtered.or('name.ilike.%$t%,code.ilike.%$t%');
+    }
+
+    final rows = await filtered
         .order('name')
         .range(offset, offset + limit - 1);
 
-    if (query != null && query.trim().isNotEmpty) {
-      final t = query.trim();
-      q = q.or('name.ilike.%$t%,code.ilike.%$t%');
-    }
-
-    final rows = await q;
     return (rows as List)
         .map((e) => Client.fromMap(Map<String, dynamic>.from(e as Map)))
         .toList();
@@ -72,19 +74,22 @@ class SystemRepository {
     int limit = _pageSize,
     String? query,
   }) async {
-    var q = _client
+    var filtered = _client
         .from('systems')
         .select()
-        .eq('organization_id', organizationId)
+        .eq('organization_id', organizationId);
+
+    final t = query?.trim();
+    if (t != null && t.isNotEmpty) {
+      filtered = filtered.or(
+        'name.ilike.%$t%,code.ilike.%$t%,serial_number.ilike.%$t%',
+      );
+    }
+
+    final rows = await filtered
         .order('name')
         .range(offset, offset + limit - 1);
 
-    if (query != null && query.trim().isNotEmpty) {
-      final t = query.trim();
-      q = q.or('name.ilike.%$t%,code.ilike.%$t%,serial_number.ilike.%$t%');
-    }
-
-    final rows = await q;
     return (rows as List)
         .map((e) => AssetSystem.fromMap(Map<String, dynamic>.from(e as Map)))
         .toList();
