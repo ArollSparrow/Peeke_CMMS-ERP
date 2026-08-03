@@ -341,7 +341,13 @@ class _PlatformSubscriptionsScreenState
     );
 
     if (ok != true || orgId == null) return;
-    final plan = plans.where((p) => p.id == planId).firstOrNull;
+    SubscriptionPlan? plan;
+    for (final p in plans) {
+      if (p.id == planId) {
+        plan = p;
+        break;
+      }
+    }
     try {
       await ref.read(platformRepositoryProvider).upsertSubscription(
             organizationId: orgId!,
