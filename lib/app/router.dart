@@ -17,6 +17,7 @@ import '../features/operations/operations_screens.dart';
 import '../features/org/create_org_screen.dart';
 import '../features/org/home_shell_screen.dart';
 import '../features/payments/payment_screens.dart';
+import '../features/platform/platform_screens.dart';
 import '../features/procurement/procurement_screens.dart';
 import '../features/work/work_lists_screens.dart';
 import '../features/work/work_order_detail_screen.dart';
@@ -38,14 +39,31 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     refreshListenable: authRefresh,
     redirect: (context, state) {
       final signedIn = ref.read(isSignedInProvider);
-      final loggingIn = state.matchedLocation == '/login';
+      final loc = state.matchedLocation;
+      final loggingIn = loc == '/login';
 
       if (!signedIn && !loggingIn) return '/login';
-      if (signedIn && loggingIn) return '/home';
+      // After sign-in, resolve owner vs tenant via gate
+      if (signedIn && loggingIn) return '/gate';
       return null;
     },
     routes: [
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(path: '/gate', builder: (context, state) => const PostAuthGateScreen()),
+      // Platform owner console
+      GoRoute(path: '/platform', builder: (context, state) => const PlatformHomeScreen()),
+      GoRoute(path: '/platform/tenants', builder: (context, state) => const PlatformTenantsScreen()),
+      GoRoute(
+        path: '/platform/subscriptions',
+        builder: (context, state) => PlatformSubscriptionsScreen(
+          preselectedOrgId: state.uri.queryParameters['orgId'],
+        ),
+      ),
+      GoRoute(
+        path: '/platform/payments',
+        builder: (context, state) => const PlatformPaymentSettingsScreen(),
+      ),
+      // Tenant CMMS
       GoRoute(path: '/home', builder: (context, state) => const HomeShellScreen()),
       GoRoute(path: '/org/create', builder: (context, state) => const CreateOrgScreen()),
       GoRoute(path: '/registration', builder: (context, state) => const RegistrationHubScreen()),
@@ -159,7 +177,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const RecordOperationScreen(breakdownOnly: true),
       ),
       GoRoute(path: '/operations/records', builder: (context, state) => const OperationRecordsScreen()),
-      // Payments (BYO)
+      // Tenant BYO payments
       GoRoute(path: '/payments', builder: (context, state) => const PaymentsHubScreen()),
       GoRoute(path: '/payments/settings', builder: (context, state) => const PaymentSettingsScreen()),
       GoRoute(
