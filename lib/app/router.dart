@@ -17,6 +17,7 @@ import '../features/operations/operations_screens.dart';
 import '../features/org/create_org_screen.dart';
 import '../features/org/home_shell_screen.dart';
 import '../features/payments/payment_screens.dart';
+import '../features/platform/platform_providers.dart';
 import '../features/platform/platform_screens.dart';
 import '../features/procurement/procurement_screens.dart';
 import '../features/work/work_lists_screens.dart';
@@ -25,10 +26,24 @@ import '../features/work/work_order_form_screen.dart';
 import '../features/work/work_request_detail_screen.dart';
 import '../features/work/work_request_form_screen.dart';
 
+bool _isPlatformPath(String loc) =>
+    loc == '/platform' || loc.startsWith('/platform/');
+
+bool _isTenantAppPath(String loc) {
+  if (loc == '/login' || loc == '/gate') return false;
+  if (_isPlatformPath(loc)) return false;
+  return true;
+}
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authRefresh = ValueNotifier<int>(0);
 
   ref.listen(authStateProvider, (_, __) {
+    authRefresh.value++;
+  });
+
+  // Refresh redirects when platform-admin status resolves
+  ref.listen(isPlatformAdminProvider, (_, __) {
     authRefresh.value++;
   });
 
@@ -43,14 +58,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final loggingIn = loc == '/login';
 
       if (!signedIn && !loggingIn) return '/login';
-      // After sign-in, resolve owner vs tenant via gate
       if (signedIn && loggingIn) return '/gate';
+
+      // Isolate: platform owners never enter tenant CMMS routes
+      final adminAsync = ref.read(isPlatformAdminProvider);
+      final isAdmin = adminAsync.valueOrNull;
+      if (isAdmin == true && _isTenantAppPath(loc)) {
+        return '/platform';
+      }
+      // Tenants never enter platform console
+      if (isAdmin == false && _isPlatformPath(loc)) {
+        return '/home';
+      }
+
       return null;
     },
     routes: [
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(path: '/gate', builder: (context, state) => const PostAuthGateScreen()),
-      // Platform owner console
       GoRoute(path: '/platform', builder: (context, state) => const PlatformHomeScreen()),
       GoRoute(path: '/platform/tenants', builder: (context, state) => const PlatformTenantsScreen()),
       GoRoute(
@@ -63,7 +88,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/platform/payments',
         builder: (context, state) => const PlatformPaymentSettingsScreen(),
       ),
-      // Tenant CMMS
       GoRoute(path: '/home', builder: (context, state) => const HomeShellScreen()),
       GoRoute(path: '/org/create', builder: (context, state) => const CreateOrgScreen()),
       GoRoute(path: '/registration', builder: (context, state) => const RegistrationHubScreen()),
@@ -177,7 +201,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const RecordOperationScreen(breakdownOnly: true),
       ),
       GoRoute(path: '/operations/records', builder: (context, state) => const OperationRecordsScreen()),
-      // Tenant BYO payments
       GoRoute(path: '/payments', builder: (context, state) => const PaymentsHubScreen()),
       GoRoute(path: '/payments/settings', builder: (context, state) => const PaymentSettingsScreen()),
       GoRoute(

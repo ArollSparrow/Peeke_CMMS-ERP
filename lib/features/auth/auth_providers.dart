@@ -20,3 +20,11 @@ final currentUserProvider = Provider<User?>((ref) {
 final isSignedInProvider = Provider<bool>((ref) {
   return ref.watch(currentUserProvider) != null;
 });
+
+/// True when Supabase has confirmed the user's email (ownership proof).
+final isEmailConfirmedProvider = Provider<bool>((ref) {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return false;
+  // Supabase sets emailConfirmedAt when the verification link is used.
+  return user.emailConfirmedAt != null;
+});

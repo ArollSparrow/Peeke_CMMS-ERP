@@ -7,7 +7,8 @@ import '../auth/auth_providers.dart';
 import 'platform_models.dart';
 import 'platform_providers.dart';
 
-/// Post-login gate: platform admin → /platform, else → /home.
+/// Post-login gate: platform admin → /platform only; tenants → /home.
+/// Roles are fully isolated (no owner → tenant CMMS shortcut).
 class PostAuthGateScreen extends ConsumerWidget {
   const PostAuthGateScreen({super.key});
 
@@ -58,10 +59,6 @@ class PlatformHomeScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Peeke Platform'),
         actions: [
-          TextButton(
-            onPressed: () => context.go('/home'),
-            child: const Text('Open tenant CMMS'),
-          ),
           IconButton(
             tooltip: 'Sign out',
             onPressed: () async {
@@ -89,8 +86,9 @@ class PlatformHomeScreen extends ConsumerWidget {
             Text(user?.email ?? '', style: const TextStyle(color: GlossColors.muted)),
             const SizedBox(height: 8),
             const Text(
-              'Collect SaaS subscriptions from tenants with Peeke Paystack keys. '
-              'Tenant BYO keys (customer payments) are configured inside each org.',
+              'This console is isolated from tenant CMMS. '
+              'Tenants register with a separate email, confirm ownership via inbox, '
+              'then create their organization. You collect SaaS subscriptions here.',
               style: TextStyle(color: GlossColors.muted, fontSize: 13),
             ),
             const SizedBox(height: 20),
@@ -156,7 +154,17 @@ class PlatformTenantsScreen extends ConsumerWidget {
         error: (e, _) => Center(child: Text('$e')),
         data: (items) {
           if (items.isEmpty) {
-            return const Center(child: Text('No tenant organizations yet'));
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text(
+                  'No tenant organizations yet.\n\n'
+                  'Tenants register with a new email, confirm the link in their inbox, '
+                  'then create an organization from the tenant app.',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            );
           }
           return ListView.separated(
             padding: const EdgeInsets.all(12),
@@ -237,7 +245,8 @@ class _PlatformSubscriptionsScreenState
                 Padding(
                   padding: EdgeInsets.all(24),
                   child: Text(
-                    'Assign a plan to a tenant organization to track billing status.',
+                    'When a tenant creates an organization they start on trial. '
+                    'Assign a paid plan here when ready.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: GlossColors.muted),
                   ),

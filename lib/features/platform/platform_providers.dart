@@ -30,7 +30,6 @@ class PlatformRepository {
         .map((e) => TenantOrgSummary.fromMap(Map<String, dynamic>.from(e as Map)))
         .toList();
 
-    // Attach subscription status where present
     final subs = await _client.from('organization_subscriptions').select(
           'organization_id, status, subscription_plans(name)',
         );
