@@ -17,6 +17,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _register = false;
   bool _busy = false;
   String? _error;
+  String? _info;
 
   @override
   void dispose() {
@@ -29,20 +30,54 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     setState(() {
       _busy = true;
       _error = null;
+      _info = null;
     });
     final client = ref.read(supabaseClientProvider);
     try {
       if (_register) {
-        await client.auth.signUp(
+        final res = await client.auth.signUp(
           email: _email.text.trim(),
           password: _password.text,
         );
+        // When confirm-email is enabled, session may be null until link is clicked.
+        if (res.session == null) {
+          setState(() {
+            _info =
+                'Check your inbox at ${_email.text.trim()} and open the confirmation link to prove ownership. Then sign in and create your organization.';
+            _register = false;
+          });
+        }
       } else {
         await client.auth.signInWithPassword(
           email: _email.text.trim(),
           password: _password.text,
         );
       }
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _resendConfirmation() async {
+    final email = _email.text.trim();
+    if (email.isEmpty) {
+      setState(() => _error = 'Enter your email first');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+      _info = null;
+    });
+    try {
+      await ref.read(supabaseClientProvider).auth.resend(
+            type: OtpType.signup,
+            email: email,
+          );
+      setState(() =>
+          _info = 'Confirmation email resent to $email. Check inbox and spam.');
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
@@ -73,10 +108,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    _register ? 'Create an account' : 'Sign in to continue',
+                    _register
+                        ? 'Register as a tenant (new email)'
+                        : 'Sign in to continue',
                     style: const TextStyle(color: GlossColors.muted),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 8),
+                  if (_register)
+                    const Text(
+                      'Use a work email you control. We send a confirmation link — '
+                      'you must open it before creating an organization (proves ownership).',
+                      style: TextStyle(color: GlossColors.muted, fontSize: 12),
+                    ),
+                  const SizedBox(height: 16),
                   TextField(
                     controller: _email,
                     keyboardType: TextInputType.emailAddress,
@@ -92,6 +136,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     const SizedBox(height: 12),
                     Text(_error!, style: const TextStyle(color: GlossColors.danger)),
                   ],
+                  if (_info != null) ...[
+                    const SizedBox(height: 12),
+                    Text(_info!, style: const TextStyle(color: Color(0xFF16A34A))),
+                  ],
                   const SizedBox(height: 20),
                   FilledButton(
                     onPressed: _busy ? null : _submit,
@@ -101,17 +149,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             width: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : Text(_register ? 'Register' : 'Sign in'),
+                        : Text(_register ? 'Register tenant account' : 'Sign in'),
                   ),
                   TextButton(
                     onPressed: _busy
                         ? null
-                        : () => setState(() => _register = !_register),
+                        : () => setState(() {
+                              _register = !_register;
+                              _error = null;
+                              _info = null;
+                            }),
                     child: Text(
                       _register
                           ? 'Already have an account? Sign in'
-                          : 'Need an account? Register',
+                          : 'Need a tenant account? Register',
                     ),
+                  ),
+                  TextButton(
+                    onPressed: _busy ? null : _resendConfirmation,
+                    child: const Text('Resend confirmation email'),
                   ),
                 ],
               ),

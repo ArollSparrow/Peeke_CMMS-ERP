@@ -1,0 +1,2 @@
+-- Applied via MCP: deleted Peeke Automation tenant, blocked platform admins
+-- from create_organization, require email_confirmed_at for tenant org ownership.
