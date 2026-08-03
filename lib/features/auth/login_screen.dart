@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../design/gloss_theme.dart';
 import 'auth_providers.dart';
@@ -39,7 +40,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           email: _email.text.trim(),
           password: _password.text,
         );
-        // When confirm-email is enabled, session may be null until link is clicked.
         if (res.session == null) {
           setState(() {
             _info =
