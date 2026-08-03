@@ -1,0 +1,2 @@
+-- Phase 7: BYO payments — applied via Supabase MCP on tappfahlaiixctyliesz
+-- organization_payment_settings + payment_transactions; admin-only write RLS

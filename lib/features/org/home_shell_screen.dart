@@ -8,6 +8,7 @@ import '../clients/client_providers.dart';
 import '../inventory/inventory_providers.dart';
 import '../maintenance/maintenance_providers.dart';
 import '../operations/operations_providers.dart';
+import '../payments/payment_providers.dart';
 import '../procurement/procurement_providers.dart';
 import '../work/work_providers.dart';
 import 'org_providers.dart';
@@ -27,8 +28,14 @@ class HomeShellScreen extends ConsumerWidget {
     final openPo = ref.watch(openPoCountProvider).valueOrNull;
     final duePm = ref.watch(duePmCountProvider).valueOrNull;
     final opsToday = ref.watch(opsTodayCountProvider).valueOrNull;
+    final paySettings = ref.watch(paymentSettingsProvider).valueOrNull;
 
     final clientCount = clientsAsync.valueOrNull?.length;
+    final payBadge = paySettings == null
+        ? 'Setup'
+        : (paySettings.isConfigured && paySettings.isEnabled
+            ? paySettings.statusLabel
+            : 'Setup');
 
     return Scaffold(
       appBar: AppBar(
@@ -62,6 +69,7 @@ class HomeShellScreen extends ConsumerWidget {
               ref.invalidate(openPoCountProvider);
               ref.invalidate(duePmCountProvider);
               ref.invalidate(opsTodayCountProvider);
+              ref.invalidate(paymentSettingsProvider);
             },
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
@@ -162,6 +170,13 @@ class HomeShellScreen extends ConsumerWidget {
                   onTap: () => context.push('/procurement'),
                 ),
                 _ModuleTile(
+                  icon: Icons.payments_outlined,
+                  title: 'Payments',
+                  subtitle: 'BYO Paystack credentials',
+                  badge: payBadge,
+                  onTap: () => context.push('/payments'),
+                ),
+                _ModuleTile(
                   icon: Icons.business,
                   title: 'Clients',
                   subtitle: 'Profiles, sites, SLA',
@@ -179,7 +194,7 @@ class HomeShellScreen extends ConsumerWidget {
                   _ProgressItem(done: true, title: 'Phase 4 — Procurement', detail: 'Vendors, PO, receive to stock'),
                   _ProgressItem(done: true, title: 'Phase 5 — Maintenance', detail: 'Technicians, PM plans, log job, history'),
                   _ProgressItem(done: true, title: 'Phase 6 — Operations', detail: 'Start/stop, fueling, breakdown, meters'),
-                  _ProgressItem(done: false, title: 'Phase 7 — BYO payments', detail: 'Tenant Paystack credentials'),
+                  _ProgressItem(done: true, title: 'Phase 7 — BYO payments', detail: 'Tenant Paystack credentials + ledger'),
                 ]),
                 const SizedBox(height: 24),
                 const _SectionLabel('Your organizations'),
