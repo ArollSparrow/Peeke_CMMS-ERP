@@ -13,6 +13,7 @@ import '../features/clients/system_form_screen.dart';
 import '../features/clients/systems_list_screen.dart';
 import '../features/inventory/inventory_screens.dart';
 import '../features/maintenance/maintenance_screens.dart';
+import '../features/operations/operations_screens.dart';
 import '../features/org/create_org_screen.dart';
 import '../features/org/home_shell_screen.dart';
 import '../features/procurement/procurement_screens.dart';
@@ -127,7 +128,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) =>
             PurchaseOrderDetailScreen(orderId: state.pathParameters['id']!),
       ),
-      // Maintenance
       GoRoute(path: '/maintenance', builder: (context, state) => const MaintenanceHubScreen()),
       GoRoute(path: '/maintenance/plans', builder: (context, state) => const PmPlansListScreen()),
       GoRoute(
@@ -147,6 +147,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/maintenance/jobs/new', builder: (context, state) => const LogMaintenanceJobScreen()),
       GoRoute(path: '/maintenance/history', builder: (context, state) => const ServiceHistoryScreen()),
       GoRoute(path: '/maintenance/technicians', builder: (context, state) => const TechniciansListScreen()),
+      // Operations
+      GoRoute(path: '/operations', builder: (context, state) => const OperationsHubScreen()),
+      GoRoute(path: '/operations/record', builder: (context, state) => const RecordOperationScreen()),
+      GoRoute(
+        path: '/operations/fueling',
+        builder: (context, state) => const RecordOperationScreen(fuelingOnly: true),
+      ),
+      GoRoute(
+        path: '/operations/breakdown',
+        builder: (context, state) => const RecordOperationScreen(breakdownOnly: true),
+      ),
+      GoRoute(path: '/operations/records', builder: (context, state) => const OperationRecordsScreen()),
     ],
   );
 });
