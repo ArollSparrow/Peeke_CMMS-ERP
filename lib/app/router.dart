@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../features/auth/auth_providers.dart';
 import '../features/auth/login_screen.dart';
+import '../features/auth/reset_password_screen.dart';
 import '../features/clients/client_detail_screen.dart';
 import '../features/clients/client_form_screen.dart';
 import '../features/clients/clients_list_screen.dart';
@@ -29,8 +30,11 @@ import '../features/work/work_request_form_screen.dart';
 bool _isPlatformPath(String loc) =>
     loc == '/platform' || loc.startsWith('/platform/');
 
+bool _isAuthPublicPath(String loc) =>
+    loc == '/login' || loc == '/reset-password';
+
 bool _isTenantAppPath(String loc) {
-  if (loc == '/login' || loc == '/gate') return false;
+  if (loc == '/login' || loc == '/gate' || loc == '/reset-password') return false;
   if (_isPlatformPath(loc)) return false;
   return true;
 }
@@ -42,7 +46,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     authRefresh.value++;
   });
 
-  // Refresh redirects when platform-admin status resolves
   ref.listen(isPlatformAdminProvider, (_, __) {
     authRefresh.value++;
   });
@@ -55,18 +58,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final signedIn = ref.read(isSignedInProvider);
       final loc = state.matchedLocation;
-      final loggingIn = loc == '/login';
 
-      if (!signedIn && !loggingIn) return '/login';
-      if (signedIn && loggingIn) return '/gate';
+      // Password recovery: stay on reset screen until user finishes
+      if (loc == '/reset-password') return null;
 
-      // Isolate: platform owners never enter tenant CMMS routes
+      if (!signedIn && !_isAuthPublicPath(loc)) return '/login';
+      if (signedIn && loc == '/login') return '/gate';
+
       final adminAsync = ref.read(isPlatformAdminProvider);
       final isAdmin = adminAsync.valueOrNull;
       if (isAdmin == true && _isTenantAppPath(loc)) {
         return '/platform';
       }
-      // Tenants never enter platform console
       if (isAdmin == false && _isPlatformPath(loc)) {
         return '/home';
       }
@@ -75,6 +78,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(
+        path: '/reset-password',
+        builder: (context, state) => const ResetPasswordScreen(),
+      ),
       GoRoute(path: '/gate', builder: (context, state) => const PostAuthGateScreen()),
       GoRoute(path: '/platform', builder: (context, state) => const PlatformHomeScreen()),
       GoRoute(path: '/platform/tenants', builder: (context, state) => const PlatformTenantsScreen()),
