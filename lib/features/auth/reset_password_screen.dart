@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../design/gloss_theme.dart';
 import 'auth_providers.dart';
@@ -117,7 +118,9 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                     autofillHints: const [AutofillHints.newPassword],
                     decoration:
                         const InputDecoration(labelText: 'Confirm new password'),
-                    onSubmitted: (_) => _busy ? null : _save(),
+                    onSubmitted: (_) {
+                      if (!_busy) _save();
+                    },
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: 12),
@@ -152,6 +155,3 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
     );
   }
 }
-
-// UserAttributes is from supabase_flutter
-import 'package:supabase_flutter/supabase_flutter.dart' show UserAttributes;
