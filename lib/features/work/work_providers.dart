@@ -274,6 +274,101 @@ class WorkRepository {
     return WorkOrder.fromMap(m);
   }
 
+  /// Optional gate: open → pending_approval.
+  Future<WorkOrder> submitForApproval({
+    required String id,
+    String? actor,
+    String? notes,
+  }) async {
+    final row = await _client
+        .from('work_orders')
+        .update({
+          'status': 'pending_approval',
+          if (notes != null) 'approval_notes': notes,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', id)
+        .select()
+        .single();
+    final m = Map<String, dynamic>.from(row);
+    await _client.from('work_order_events').insert({
+      'organization_id': m['organization_id'],
+      'work_order_id': id,
+      'action': 'submitted_for_approval',
+      'stage': 'approval',
+      'from_status': 'open',
+      'to_status': 'pending_approval',
+      'actor': actor,
+      if (notes != null) 'notes': notes,
+    });
+    return WorkOrder.fromMap(m);
+  }
+
+  /// pending_approval → open (clears the gate).
+  Future<WorkOrder> approveOrder({
+    required String id,
+    String? approvedBy,
+    String? notes,
+  }) async {
+    final row = await _client
+        .from('work_orders')
+        .update({
+          'status': 'open',
+          'approved_by': approvedBy,
+          'approved_at': DateTime.now().toUtc().toIso8601String(),
+          if (notes != null) 'approval_notes': notes,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', id)
+        .select()
+        .single();
+    final m = Map<String, dynamic>.from(row);
+    await _client.from('work_order_events').insert({
+      'organization_id': m['organization_id'],
+      'work_order_id': id,
+      'action': 'approved',
+      'stage': 'approval',
+      'from_status': 'pending_approval',
+      'to_status': 'open',
+      'actor': approvedBy,
+      if (notes != null) 'notes': notes,
+    });
+    return WorkOrder.fromMap(m);
+  }
+
+  /// pending_approval → cancelled with reason.
+  Future<WorkOrder> rejectOrder({
+    required String id,
+    String? rejectedBy,
+    required String notes,
+  }) async {
+    final row = await _client
+        .from('work_orders')
+        .update({
+          'status': 'cancelled',
+          'cancelled_by': rejectedBy,
+          'cancelled_at': DateTime.now().toUtc().toIso8601String(),
+          'cancel_notes': notes,
+          'approval_notes': notes,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', id)
+        .select()
+        .single();
+    final m = Map<String, dynamic>.from(row);
+    await _client.from('work_order_events').insert({
+      'organization_id': m['organization_id'],
+      'work_order_id': id,
+      'action': 'rejected',
+      'stage': 'approval',
+      'from_status': 'pending_approval',
+      'to_status': 'cancelled',
+      'actor': rejectedBy,
+      'notes': notes,
+    });
+    return WorkOrder.fromMap(m);
+  }
+
   Future<List<WorkOrderPart>> listParts(String workOrderId) async {
     final rows = await _client
         .from('work_order_parts')
@@ -326,7 +421,6 @@ class WorkRepository {
     await _client.from('work_order_parts').delete().eq('id', partId);
   }
 
-  /// Deduct catalogue stock and mark WO part issued.
   Future<WorkOrderPart> issuePartFromStock({
     required String woPartId,
     String? performedBy,
@@ -338,7 +432,6 @@ class WorkRepository {
     return WorkOrderPart.fromMap(Map<String, dynamic>.from(row as Map));
   }
 
-  /// Draft a PO from pending external WO parts and link it to the WO.
   Future<PurchaseOrder> createPoFromExternalParts({
     required String organizationId,
     required String workOrderId,
@@ -356,8 +449,10 @@ class WorkRepository {
       throw Exception('No pending external parts to order');
     }
 
-    final number = await _client.rpc('next_po_number', params: {'p_org': organizationId});
-    final total = parts.fold<double>(0, (s, p) => s + p.qtyRequired * p.unitCost);
+    final number =
+        await _client.rpc('next_po_number', params: {'p_org': organizationId});
+    final total =
+        parts.fold<double>(0, (s, p) => s + p.qtyRequired * p.unitCost);
 
     final row = await _client
         .from('purchase_orders')
@@ -389,7 +484,6 @@ class WorkRepository {
         },
     ]);
 
-    // Soft-link parts to this draft PO (status stays pending until PO ordered)
     for (final p in parts) {
       await _client.from('work_order_parts').update({
         'purchase_order_id': po.id,
@@ -437,7 +531,13 @@ class WorkRepository {
         .from('work_orders')
         .select('id')
         .eq('organization_id', organizationId)
-        .inFilter('status', ['open', 'in_progress', 'on_hold']);
+        .inFilter('status', [
+      'open',
+      'in_progress',
+      'on_hold',
+      'pending_approval',
+      'awaiting_parts',
+    ]);
     return (rows as List).length;
   }
 
