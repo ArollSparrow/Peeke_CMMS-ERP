@@ -250,6 +250,86 @@ class WorkRepository {
     return WorkOrder.fromMap(Map<String, dynamic>.from(row));
   }
 
+  Future<WorkOrder> assignTechnician(String id, String technicianName) async {
+    final row = await _client
+        .from('work_orders')
+        .update({
+          'assigned_technician': technicianName,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', id)
+        .select()
+        .single();
+    // Explicit event (status may be unchanged)
+    final m = Map<String, dynamic>.from(row);
+    await _client.from('work_order_events').insert({
+      'organization_id': m['organization_id'],
+      'work_order_id': id,
+      'action': 'assigned',
+      'stage': 'assignment',
+      'to_status': m['status'],
+      'actor': technicianName,
+      'notes': 'Assigned technician',
+    });
+    return WorkOrder.fromMap(m);
+  }
+
+  Future<List<WorkOrderPart>> listParts(String workOrderId) async {
+    final rows = await _client
+        .from('work_order_parts')
+        .select()
+        .eq('work_order_id', workOrderId)
+        .order('created_at');
+    return (rows as List)
+        .map((e) => WorkOrderPart.fromMap(Map<String, dynamic>.from(e as Map)))
+        .toList();
+  }
+
+  Future<WorkOrderPart> addPart({
+    required String organizationId,
+    required String workOrderId,
+    required String partName,
+    String? sparePartId,
+    String? partNumber,
+    String source = 'internal',
+    double qtyRequired = 1,
+    double unitCost = 0,
+    String? notes,
+  }) async {
+    final row = await _client
+        .from('work_order_parts')
+        .insert({
+          'organization_id': organizationId,
+          'work_order_id': workOrderId,
+          'part_name': partName.trim(),
+          if (sparePartId != null) 'spare_part_id': sparePartId,
+          if (partNumber != null) 'part_number': partNumber,
+          'source': source,
+          'qty_required': qtyRequired,
+          'unit_cost': unitCost,
+          if (notes != null) 'notes': notes,
+        })
+        .select()
+        .single();
+    return WorkOrderPart.fromMap(Map<String, dynamic>.from(row));
+  }
+
+  Future<void> deletePart(String partId) async {
+    await _client.from('work_order_parts').delete().eq('id', partId);
+  }
+
+  Future<List<WorkOrderEvent>> listEvents(String workOrderId) async {
+    final rows = await _client
+        .from('work_order_events')
+        .select()
+        .eq('work_order_id', workOrderId)
+        .order('created_at', ascending: false)
+        .limit(50);
+    return (rows as List)
+        .map((e) => WorkOrderEvent.fromMap(Map<String, dynamic>.from(e as Map)))
+        .toList();
+  }
+
   Future<int> countOpenOrders(String organizationId) async {
     final rows = await _client
         .from('work_orders')
@@ -273,18 +353,34 @@ final workRepositoryProvider = Provider<WorkRepository>((ref) {
   return WorkRepository(ref.watch(supabaseClientProvider));
 });
 
+/// Status filter for WR list (`null` = all).
+final workRequestStatusFilterProvider =
+    StateProvider.autoDispose<String?>((ref) => null);
+
+/// Status filter for WO list (`null` = all).
+final workOrderStatusFilterProvider =
+    StateProvider.autoDispose<String?>((ref) => null);
+
 final workRequestsListProvider =
     FutureProvider.autoDispose<List<WorkRequest>>((ref) async {
   final org = ref.watch(activeOrganizationProvider);
   if (org == null) return [];
-  return ref.watch(workRepositoryProvider).listRequests(organizationId: org.id);
+  final status = ref.watch(workRequestStatusFilterProvider);
+  return ref.watch(workRepositoryProvider).listRequests(
+        organizationId: org.id,
+        status: status,
+      );
 });
 
 final workOrdersListProvider =
     FutureProvider.autoDispose<List<WorkOrder>>((ref) async {
   final org = ref.watch(activeOrganizationProvider);
   if (org == null) return [];
-  return ref.watch(workRepositoryProvider).listOrders(organizationId: org.id);
+  final status = ref.watch(workOrderStatusFilterProvider);
+  return ref.watch(workRepositoryProvider).listOrders(
+        organizationId: org.id,
+        status: status,
+      );
 });
 
 final workRequestByIdProvider =
@@ -295,6 +391,16 @@ final workRequestByIdProvider =
 final workOrderByIdProvider =
     FutureProvider.autoDispose.family<WorkOrder?, String>((ref, id) {
   return ref.watch(workRepositoryProvider).getOrder(id);
+});
+
+final workOrderPartsProvider =
+    FutureProvider.autoDispose.family<List<WorkOrderPart>, String>((ref, woId) {
+  return ref.watch(workRepositoryProvider).listParts(woId);
+});
+
+final workOrderEventsProvider =
+    FutureProvider.autoDispose.family<List<WorkOrderEvent>, String>((ref, woId) {
+  return ref.watch(workRepositoryProvider).listEvents(woId);
 });
 
 final openWorkOrdersCountProvider =
