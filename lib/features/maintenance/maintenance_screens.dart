@@ -472,6 +472,7 @@ class _PmPlanFormScreenState extends ConsumerState<PmPlanFormScreen> {
         );
         ref.invalidate(pmPlansListProvider);
         ref.invalidate(duePmCountProvider);
+        ref.invalidate(pmPlansBySystemProvider(_systemId!));
         if (!mounted) return;
         context.go('/maintenance/plans/${po.id}');
         return;
@@ -640,7 +641,8 @@ class _PmPlanFormScreenState extends ConsumerState<PmPlanFormScreen> {
 // ── Log job ──────────────────────────────────────────────────
 
 class LogMaintenanceJobScreen extends ConsumerStatefulWidget {
-  const LogMaintenanceJobScreen({super.key});
+  const LogMaintenanceJobScreen({super.key, this.preselectedSystemId});
+  final String? preselectedSystemId;
 
   @override
   ConsumerState<LogMaintenanceJobScreen> createState() => _LogMaintenanceJobScreenState();
@@ -655,6 +657,12 @@ class _LogMaintenanceJobScreenState extends ConsumerState<LogMaintenanceJobScree
   String? _technicianId;
   String _jobType = 'corrective';
   bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _systemId = widget.preselectedSystemId;
+  }
 
   @override
   void dispose() {
@@ -694,6 +702,7 @@ class _LogMaintenanceJobScreenState extends ConsumerState<LogMaintenanceJobScree
             clientName: sys?.clientName,
           );
       ref.invalidate(maintenanceRecordsProvider);
+      ref.invalidate(maintenanceRecordsBySystemProvider(_systemId!));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Maintenance job logged')),
