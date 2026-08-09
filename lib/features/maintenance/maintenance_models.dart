@@ -199,7 +199,7 @@ class MaintenanceRecord {
   const MaintenanceRecord({
     required this.id,
     required this.organizationId,
-    required this.systemId,
+    this.systemId,
     required this.title,
     this.pmPlanId,
     this.workOrderId,
@@ -221,7 +221,8 @@ class MaintenanceRecord {
 
   final String id;
   final String organizationId;
-  final String systemId;
+  /// Nullable: WO-originated job cards may not have a linked system row yet.
+  final String? systemId;
   final String title;
   final String? pmPlanId;
   final String? workOrderId;
@@ -243,7 +244,7 @@ class MaintenanceRecord {
   factory MaintenanceRecord.fromMap(Map<String, dynamic> m) => MaintenanceRecord(
         id: m['id'] as String,
         organizationId: m['organization_id'] as String,
-        systemId: m['system_id'] as String,
+        systemId: m['system_id'] as String?,
         title: m['title'] as String,
         pmPlanId: m['pm_plan_id'] as String?,
         workOrderId: m['work_order_id'] as String?,

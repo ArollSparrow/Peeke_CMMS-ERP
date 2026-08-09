@@ -21,6 +21,7 @@ import '../features/payments/payment_screens.dart';
 import '../features/platform/platform_providers.dart';
 import '../features/platform/platform_screens.dart';
 import '../features/procurement/procurement_screens.dart';
+import '../features/work/job_card_screen.dart';
 import '../features/work/work_lists_screens.dart';
 import '../features/work/work_order_detail_screen.dart';
 import '../features/work/work_order_form_screen.dart';
@@ -150,6 +151,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/work/orders/:id',
         builder: (context, state) => WorkOrderDetailScreen(orderId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/work/orders/:id/job-card',
+        builder: (context, state) =>
+            JobCardScreen(orderId: state.pathParameters['id']!),
       ),
       GoRoute(path: '/inventory', builder: (context, state) => const InventoryHubScreen()),
       GoRoute(
