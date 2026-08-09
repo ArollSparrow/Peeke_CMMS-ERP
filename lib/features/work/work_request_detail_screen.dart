@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../design/gloss_theme.dart';
 import '../auth/auth_providers.dart';
+import '../maintenance/maintenance_providers.dart';
 import 'work_providers.dart';
 
 class WorkRequestDetailScreen extends ConsumerWidget {
@@ -12,12 +13,75 @@ class WorkRequestDetailScreen extends ConsumerWidget {
 
   Future<void> _convert(BuildContext context, WidgetRef ref) async {
     final wr = await ref.read(workRepositoryProvider).getRequest(requestId);
-    if (wr == null) return;
+    if (wr == null || !context.mounted) return;
     final user = ref.read(currentUserProvider);
+
+    final techs = await ref.read(techniciansListProvider.future);
+    if (!context.mounted) return;
+
+    String? assigned;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: const Text('Create work order'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Convert ${wr.wrNumber ?? 'request'} to a work order.',
+                style: const TextStyle(color: GlossColors.muted, fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              if (techs.isEmpty)
+                const Text(
+                  'No technicians yet — assign later from the work order.',
+                  style: TextStyle(fontSize: 12, color: GlossColors.muted),
+                )
+              else
+                DropdownButtonFormField<String?>(
+                  value: assigned,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Assign technician (optional)',
+                  ),
+                  items: [
+                    const DropdownMenuItem(
+                      value: null,
+                      child: Text('— Assign later —'),
+                    ),
+                    ...techs.map(
+                      (t) => DropdownMenuItem(
+                        value: t.name,
+                        child: Text(t.name),
+                      ),
+                    ),
+                  ],
+                  onChanged: (v) => setLocal(() => assigned = v),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Create WO'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+
     try {
       final wo = await ref.read(workRepositoryProvider).convertRequestToOrder(
             wr,
             reviewedBy: user?.email,
+            assignedTechnician: assigned,
           );
       ref.invalidate(workRequestsListProvider);
       ref.invalidate(workOrdersListProvider);
@@ -26,7 +90,13 @@ class WorkRequestDetailScreen extends ConsumerWidget {
       ref.invalidate(pendingWorkRequestsCountProvider);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Converted to ${wo.woNumber}')),
+          SnackBar(
+            content: Text(
+              assigned == null
+                  ? 'Converted to ${wo.woNumber}'
+                  : 'Converted to ${wo.woNumber} · $assigned',
+            ),
+          ),
         );
         context.go('/work/orders/${wo.id}');
       }

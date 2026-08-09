@@ -64,7 +64,6 @@ class WorkHubScreen extends ConsumerWidget {
   }
 }
 
-/// White-encircled status chips (same pattern as PO queue).
 class _StatusChipBar extends StatelessWidget {
   const _StatusChipBar({
     required this.options,
@@ -111,12 +110,33 @@ class _StatusChipBar extends StatelessWidget {
   }
 }
 
+Color? _priorityColor(String priority) {
+  switch (priority) {
+    case 'critical':
+      return GlossColors.danger;
+    case 'high':
+      return const Color(0xFFE67E22);
+    default:
+      return null;
+  }
+}
+
+bool _matchesSearch(String query, List<String?> fields) {
+  final q = query.trim().toLowerCase();
+  if (q.isEmpty) return true;
+  for (final f in fields) {
+    if (f != null && f.toLowerCase().contains(q)) return true;
+  }
+  return false;
+}
+
 class WorkRequestsListScreen extends ConsumerWidget {
   const WorkRequestsListScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final filter = ref.watch(workRequestStatusFilterProvider);
+    final search = ref.watch(workRequestSearchProvider);
     final async = ref.watch(workRequestsListProvider);
     return Scaffold(
       appBar: AppBar(
@@ -130,6 +150,29 @@ class WorkRequestsListScreen extends ConsumerWidget {
       ),
       body: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Search number, client, description…',
+                prefixIcon: const Icon(Icons.search, size: 20),
+                isDense: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                suffixIcon: search.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () => ref
+                            .read(workRequestSearchProvider.notifier)
+                            .state = '',
+                      ),
+              ),
+              onChanged: (v) =>
+                  ref.read(workRequestSearchProvider.notifier).state = v,
+            ),
+          ),
           _StatusChipBar(
             options: WorkRequestStatuses.filterChips,
             selected: filter,
@@ -148,28 +191,67 @@ class WorkRequestsListScreen extends ConsumerWidget {
                     const Center(child: CircularProgressIndicator()),
                 error: (e, _) => ListView(children: [Text('$e')]),
                 data: (items) {
-                  if (items.isEmpty) {
+                  final filtered = items
+                      .where((wr) => _matchesSearch(search, [
+                            wr.wrNumber,
+                            wr.clientName,
+                            wr.description,
+                            wr.faultDescription,
+                            wr.systemType,
+                            wr.systemSerial,
+                            wr.status,
+                          ]))
+                      .toList();
+                  if (filtered.isEmpty) {
                     return ListView(children: [
                       const SizedBox(height: 48),
-                      const Center(child: Text('No work requests in this filter')),
-                      const SizedBox(height: 16),
                       Center(
-                        child: FilledButton(
-                          onPressed: () => context.push('/work/requests/new'),
-                          child: const Text('Create request'),
-                        ),
+                        child: Text(search.isEmpty
+                            ? 'No work requests in this filter'
+                            : 'No matches for "$search"'),
                       ),
+                      const SizedBox(height: 16),
+                      if (search.isEmpty)
+                        Center(
+                          child: FilledButton(
+                            onPressed: () =>
+                                context.push('/work/requests/new'),
+                            child: const Text('Create request'),
+                          ),
+                        ),
                     ]);
                   }
                   return ListView.separated(
                     padding: const EdgeInsets.all(12),
-                    itemCount: items.length,
+                    itemCount: filtered.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 8),
                     itemBuilder: (_, i) {
-                      final wr = items[i];
+                      final wr = filtered[i];
+                      final pColor = _priorityColor(wr.priority);
                       return Card(
                         child: ListTile(
-                          title: Text(wr.wrNumber ?? wr.id),
+                          title: Row(
+                            children: [
+                              Expanded(child: Text(wr.wrNumber ?? wr.id)),
+                              if (pColor != null)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: pColor.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    wr.priority,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: pColor,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
                           subtitle: Text(
                             '${wr.subtitle}\n${wr.description ?? ''}',
                             maxLines: 2,
@@ -182,7 +264,8 @@ class WorkRequestsListScreen extends ConsumerWidget {
                                 style: const TextStyle(fontSize: 11)),
                             visualDensity: VisualDensity.compact,
                           ),
-                          onTap: () => context.push('/work/requests/${wr.id}'),
+                          onTap: () =>
+                              context.push('/work/requests/${wr.id}'),
                         ),
                       );
                     },
@@ -207,6 +290,7 @@ class WorkOrdersListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final filter = ref.watch(workOrderStatusFilterProvider);
+    final search = ref.watch(workOrderSearchProvider);
     final async = ref.watch(workOrdersListProvider);
     return Scaffold(
       appBar: AppBar(
@@ -220,6 +304,29 @@ class WorkOrdersListScreen extends ConsumerWidget {
       ),
       body: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Search number, client, tech, description…',
+                prefixIcon: const Icon(Icons.search, size: 20),
+                isDense: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                suffixIcon: search.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () => ref
+                            .read(workOrderSearchProvider.notifier)
+                            .state = '',
+                      ),
+              ),
+              onChanged: (v) =>
+                  ref.read(workOrderSearchProvider.notifier).state = v,
+            ),
+          ),
           _StatusChipBar(
             options: WorkOrderStatuses.filterChips,
             selected: filter,
@@ -238,28 +345,67 @@ class WorkOrdersListScreen extends ConsumerWidget {
                     const Center(child: CircularProgressIndicator()),
                 error: (e, _) => ListView(children: [Text('$e')]),
                 data: (items) {
-                  if (items.isEmpty) {
-                    return ListView(children: const [
-                      SizedBox(height: 48),
-                      Center(child: Text('No work orders in this filter')),
-                      SizedBox(height: 8),
+                  final filtered = items
+                      .where((wo) => _matchesSearch(search, [
+                            wo.woNumber,
+                            wo.clientName,
+                            wo.description,
+                            wo.faultDescription,
+                            wo.assignedTechnician,
+                            wo.systemType,
+                            wo.systemSerial,
+                            wo.status,
+                          ]))
+                      .toList();
+                  if (filtered.isEmpty) {
+                    return ListView(children: [
+                      const SizedBox(height: 48),
                       Center(
-                        child: Text(
-                          'Convert a work request or create a WO directly.',
-                          style: TextStyle(color: GlossColors.muted),
-                        ),
+                        child: Text(search.isEmpty
+                            ? 'No work orders in this filter'
+                            : 'No matches for "$search"'),
                       ),
+                      const SizedBox(height: 8),
+                      if (search.isEmpty)
+                        const Center(
+                          child: Text(
+                            'Convert a work request or create a WO directly.',
+                            style: TextStyle(color: GlossColors.muted),
+                          ),
+                        ),
                     ]);
                   }
                   return ListView.separated(
                     padding: const EdgeInsets.all(12),
-                    itemCount: items.length,
+                    itemCount: filtered.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 8),
                     itemBuilder: (_, i) {
-                      final wo = items[i];
+                      final wo = filtered[i];
+                      final pColor = _priorityColor(wo.priority);
                       return Card(
                         child: ListTile(
-                          title: Text(wo.woNumber ?? wo.id),
+                          title: Row(
+                            children: [
+                              Expanded(child: Text(wo.woNumber ?? wo.id)),
+                              if (pColor != null)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: pColor.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    wo.priority,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: pColor,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
                           subtitle: Text(
                             '${wo.subtitle}\n${wo.description ?? ''}',
                             maxLines: 2,
@@ -272,7 +418,8 @@ class WorkOrdersListScreen extends ConsumerWidget {
                                 style: const TextStyle(fontSize: 11)),
                             visualDensity: VisualDensity.compact,
                           ),
-                          onTap: () => context.push('/work/orders/${wo.id}'),
+                          onTap: () =>
+                              context.push('/work/orders/${wo.id}'),
                         ),
                       );
                     },

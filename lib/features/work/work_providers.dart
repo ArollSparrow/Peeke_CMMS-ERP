@@ -217,16 +217,32 @@ class WorkRepository {
       reviewedBy: reviewedBy,
       workOrderId: wo.id,
     );
+    if (assignedTechnician != null && assignedTechnician.isNotEmpty) {
+      await _client.from('work_order_events').insert({
+        'organization_id': wo.organizationId,
+        'work_order_id': wo.id,
+        'action': 'assigned',
+        'stage': 'assignment',
+        'to_status': 'open',
+        'actor': reviewedBy,
+        'notes': 'Assigned $assignedTechnician on convert from WR',
+      });
+    }
     return wo;
   }
 
+  /// Status change with activity event (Slice E).
   Future<WorkOrder> updateOrderStatus(
     String id, {
     required String status,
     String? completedBy,
     String? notes,
     String? assignedTechnician,
+    String? fromStatus,
   }) async {
+    final existing = fromStatus == null ? await getOrder(id) : null;
+    final prev = fromStatus ?? existing?.status;
+
     final row = await _client
         .from('work_orders')
         .update({
@@ -248,7 +264,39 @@ class WorkRepository {
         .eq('id', id)
         .select()
         .single();
-    return WorkOrder.fromMap(Map<String, dynamic>.from(row));
+    final m = Map<String, dynamic>.from(row);
+
+    final action = switch (status) {
+      'in_progress' when prev == 'on_hold' || prev == 'awaiting_parts' =>
+        'resumed',
+      'in_progress' => 'started',
+      'on_hold' => 'held',
+      'awaiting_parts' => 'awaiting_parts',
+      'open' when prev == 'awaiting_parts' => 'parts_ready',
+      'completed' => 'completed',
+      'cancelled' => 'cancelled',
+      _ => status,
+    };
+    final stage = switch (status) {
+      'completed' => 'completion',
+      'cancelled' => 'cancellation',
+      'awaiting_parts' => 'procurement',
+      'on_hold' => 'execution',
+      'in_progress' => 'execution',
+      _ => 'status',
+    };
+    await _client.from('work_order_events').insert({
+      'organization_id': m['organization_id'],
+      'work_order_id': id,
+      'action': action,
+      'stage': stage,
+      if (prev != null) 'from_status': prev,
+      'to_status': status,
+      'actor': completedBy,
+      if (notes != null) 'notes': notes,
+    });
+
+    return WorkOrder.fromMap(m);
   }
 
   Future<WorkOrder> assignTechnician(String id, String technicianName) async {
@@ -274,7 +322,6 @@ class WorkRepository {
     return WorkOrder.fromMap(m);
   }
 
-  /// Optional gate: open → pending_approval.
   Future<WorkOrder> submitForApproval({
     required String id,
     String? actor,
@@ -304,7 +351,6 @@ class WorkRepository {
     return WorkOrder.fromMap(m);
   }
 
-  /// pending_approval → open (clears the gate).
   Future<WorkOrder> approveOrder({
     required String id,
     String? approvedBy,
@@ -336,7 +382,6 @@ class WorkRepository {
     return WorkOrder.fromMap(m);
   }
 
-  /// pending_approval → cancelled with reason.
   Future<WorkOrder> rejectOrder({
     required String id,
     String? rejectedBy,
@@ -560,6 +605,13 @@ final workRequestStatusFilterProvider =
 
 final workOrderStatusFilterProvider =
     StateProvider.autoDispose<String?>((ref) => null);
+
+/// Client-side search (Slice E) — filters already-fetched lists.
+final workRequestSearchProvider =
+    StateProvider.autoDispose<String>((ref) => '');
+
+final workOrderSearchProvider =
+    StateProvider.autoDispose<String>((ref) => '');
 
 final workRequestsListProvider =
     FutureProvider.autoDispose<List<WorkRequest>>((ref) async {
