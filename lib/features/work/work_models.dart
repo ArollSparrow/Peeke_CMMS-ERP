@@ -199,6 +199,7 @@ class WorkOrderPart {
     this.qtyRequired = 1,
     this.unitCost = 0,
     this.procurementStatus = 'pending',
+    this.purchaseOrderId,
     this.notes,
   });
 
@@ -212,6 +213,7 @@ class WorkOrderPart {
   final double qtyRequired;
   final double unitCost;
   final String procurementStatus;
+  final String? purchaseOrderId;
   final String? notes;
 
   factory WorkOrderPart.fromMap(Map<String, dynamic> m) {
@@ -226,11 +228,28 @@ class WorkOrderPart {
       qtyRequired: (m['qty_required'] as num?)?.toDouble() ?? 1,
       unitCost: (m['unit_cost'] as num?)?.toDouble() ?? 0,
       procurementStatus: m['procurement_status'] as String? ?? 'pending',
+      purchaseOrderId: m['purchase_order_id'] as String?,
       notes: m['notes'] as String?,
     );
   }
 
   bool get isExternal => source == 'external';
+
+  /// Internal + linked to catalogue + still pending → can deduct stock.
+  bool get canIssueFromStock =>
+      source == 'internal' &&
+      procurementStatus == 'pending' &&
+      sparePartId != null;
+
+  /// External + pending + not yet linked to any PO → eligible for Raise PO.
+  /// Prevents duplicate draft POs for the same lines.
+  bool get canRaisePo =>
+      source == 'external' &&
+      procurementStatus == 'pending' &&
+      purchaseOrderId == null;
+
+  /// Soft-linked to a draft (or later) PO but still pending status.
+  bool get hasLinkedPo => purchaseOrderId != null;
 }
 
 class WorkOrderEvent {
@@ -273,6 +292,9 @@ class WorkOrderEvent {
   }
 
   String get title {
+    if (action == 'issued' || action == 'received' || action == 'parts_ordered') {
+      return _label(action);
+    }
     if (toStatus != null) return _label(toStatus!);
     if (stage != null) return _label(stage!);
     return action;
@@ -294,7 +316,7 @@ class WorkPriorities {
 
 class WorkOrderStatuses {
   static const filterChips = [
-    null, // All
+    null,
     'open',
     'in_progress',
     'on_hold',

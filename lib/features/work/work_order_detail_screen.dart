@@ -1,16 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../design/gloss_theme.dart';
 import '../auth/auth_providers.dart';
+import '../inventory/inventory_models.dart';
+import '../inventory/inventory_providers.dart';
 import '../maintenance/maintenance_providers.dart';
-import '../org/org_providers.dart';
+import '../procurement/procurement_providers.dart';
 import 'work_models.dart';
 import 'work_providers.dart';
 
 class WorkOrderDetailScreen extends ConsumerWidget {
   const WorkOrderDetailScreen({super.key, required this.orderId});
   final String orderId;
+
+  void _invalidateAll(WidgetRef ref) {
+    ref.invalidate(workOrderByIdProvider(orderId));
+    ref.invalidate(workOrdersListProvider);
+    ref.invalidate(openWorkOrdersCountProvider);
+    ref.invalidate(workOrderEventsProvider(orderId));
+    ref.invalidate(workOrderPartsProvider(orderId));
+    ref.invalidate(workOrderLinkedPosProvider(orderId));
+    ref.invalidate(sparePartsListProvider);
+    ref.invalidate(purchaseOrdersListProvider);
+  }
 
   Future<void> _status(
     BuildContext context,
@@ -26,10 +40,7 @@ class WorkOrderDetailScreen extends ConsumerWidget {
             completedBy: user?.email,
             notes: notes,
           );
-      ref.invalidate(workOrderByIdProvider(orderId));
-      ref.invalidate(workOrdersListProvider);
-      ref.invalidate(openWorkOrdersCountProvider);
-      ref.invalidate(workOrderEventsProvider(orderId));
+      _invalidateAll(ref);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Status → $status')),
@@ -111,8 +122,7 @@ class WorkOrderDetailScreen extends ConsumerWidget {
     if (picked == null) return;
     try {
       await ref.read(workRepositoryProvider).assignTechnician(orderId, picked);
-      ref.invalidate(workOrderByIdProvider(orderId));
-      ref.invalidate(workOrderEventsProvider(orderId));
+      _invalidateAll(ref);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Assigned · $picked')),
@@ -127,38 +137,103 @@ class WorkOrderDetailScreen extends ConsumerWidget {
   }
 
   Future<void> _addPart(BuildContext context, WidgetRef ref, WorkOrder wo) async {
+    final catalogue = await ref.read(sparePartsListProvider.future);
+    if (!context.mounted) return;
+
+    SparePart? selectedCatalogue;
     final nameCtrl = TextEditingController();
     final qtyCtrl = TextEditingController(text: '1');
+    final costCtrl = TextEditingController(text: '0');
     var source = 'internal';
+
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
           title: const Text('Add required part'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(labelText: 'Part name *'),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: qtyCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Qty'),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                value: source,
-                decoration: const InputDecoration(labelText: 'Source'),
-                items: const [
-                  DropdownMenuItem(value: 'internal', child: Text('Internal (stock)')),
-                  DropdownMenuItem(value: 'external', child: Text('External (buy)')),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  value: source,
+                  decoration: const InputDecoration(labelText: 'Source'),
+                  items: const [
+                    DropdownMenuItem(
+                        value: 'internal', child: Text('Internal (from stock)')),
+                    DropdownMenuItem(
+                        value: 'external', child: Text('External (buy / PO)')),
+                  ],
+                  onChanged: (v) => setLocal(() {
+                    source = v ?? 'internal';
+                    if (source == 'external') selectedCatalogue = null;
+                  }),
+                ),
+                const SizedBox(height: 8),
+                if (source == 'internal' && catalogue.isNotEmpty) ...[
+                  DropdownButtonFormField<SparePart?>(
+                    value: selectedCatalogue,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Catalogue part (required to Issue)',
+                    ),
+                    items: [
+                      const DropdownMenuItem(
+                        value: null,
+                        child: Text('— Free text (cannot Issue) —'),
+                      ),
+                      ...catalogue.map(
+                        (p) => DropdownMenuItem(
+                          value: p,
+                          child: Text(
+                            '${p.name} (on hand ${p.quantityOnHand})',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    ],
+                    onChanged: (p) => setLocal(() {
+                      selectedCatalogue = p;
+                      if (p != null) {
+                        nameCtrl.text = p.name;
+                        costCtrl.text = (p.unitCost).toString();
+                      }
+                    }),
+                  ),
+                  const SizedBox(height: 8),
                 ],
-                onChanged: (v) => setLocal(() => source = v ?? 'internal'),
-              ),
-            ],
+                if (source == 'internal' && catalogue.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      'No catalogue parts yet. Add under Inventory, then pick here to enable Issue from stock. Free-text internal lines cannot be issued.',
+                      style: TextStyle(fontSize: 12, color: GlossColors.muted),
+                    ),
+                  ),
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: 'Part name *'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: qtyCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'Qty required'),
+                ),
+                if (source == 'external') ...[
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: costCtrl,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Unit cost (optional)',
+                      hintText: 'Used for PO total',
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -171,38 +246,36 @@ class WorkOrderDetailScreen extends ConsumerWidget {
         ),
       ),
     );
+
     if (ok != true) {
       nameCtrl.dispose();
       qtyCtrl.dispose();
+      costCtrl.dispose();
       return;
     }
     final name = nameCtrl.text.trim();
     final qty = double.tryParse(qtyCtrl.text.trim()) ?? 1;
+    final unitCost = double.tryParse(costCtrl.text.trim()) ?? 0;
+    final cat = selectedCatalogue;
     nameCtrl.dispose();
     qtyCtrl.dispose();
+    costCtrl.dispose();
     if (name.isEmpty) return;
+
     try {
       await ref.read(workRepositoryProvider).addPart(
             organizationId: wo.organizationId,
             workOrderId: orderId,
             partName: name,
+            sparePartId: cat?.id,
+            partNumber: cat?.partNumber,
             source: source,
             qtyRequired: qty,
+            unitCost: source == 'external'
+                ? unitCost
+                : (cat?.unitCost ?? unitCost),
           );
-      if (source == 'external') {
-        await ref.read(workRepositoryProvider).updateOrderStatus(
-              orderId,
-              status: wo.status,
-              notes: wo.notes,
-            );
-        // Flag procurement need without changing status
-        await ref.read(supabaseClientProvider).from('work_orders').update({
-          'needs_procurement': true,
-          'updated_at': DateTime.now().toUtc().toIso8601String(),
-        }).eq('id', orderId);
-      }
-      ref.invalidate(workOrderPartsProvider(orderId));
-      ref.invalidate(workOrderByIdProvider(orderId));
+      _invalidateAll(ref);
       if (context.mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('Part added')));
@@ -215,11 +288,139 @@ class WorkOrderDetailScreen extends ConsumerWidget {
     }
   }
 
+  Future<void> _issuePart(
+    BuildContext context,
+    WidgetRef ref,
+    WorkOrderPart part,
+  ) async {
+    final user = ref.read(currentUserProvider);
+    try {
+      await ref.read(workRepositoryProvider).issuePartFromStock(
+            woPartId: part.id,
+            performedBy: user?.email,
+          );
+      _invalidateAll(ref);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Issued ${part.partName} from stock')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Issue failed: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _raisePo(
+    BuildContext context,
+    WidgetRef ref,
+    WorkOrder wo,
+  ) async {
+    final vendors = await ref.read(vendorsListProvider.future);
+    if (!context.mounted) return;
+
+    String? vendorId;
+    String? vendorName;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: const Text('Raise purchase order'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Creates a draft PO with all pending external parts that are not yet linked to a PO. '
+                'Approve → Order → Receive in Procurement to put stock in and mark parts received.',
+                style: TextStyle(fontSize: 12, color: GlossColors.muted),
+              ),
+              const SizedBox(height: 12),
+              if (vendors.isEmpty)
+                const Text(
+                  'No vendors yet — PO will be created without a vendor. '
+                  'Add vendors under Procurement.',
+                  style: TextStyle(fontSize: 12),
+                )
+              else
+                DropdownButtonFormField<String?>(
+                  value: vendorId,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Vendor'),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('— None —')),
+                    ...vendors.map(
+                      (v) => DropdownMenuItem(value: v.id, child: Text(v.name)),
+                    ),
+                  ],
+                  onChanged: (id) => setLocal(() {
+                    vendorId = id;
+                    vendorName = null;
+                    if (id != null) {
+                      for (final v in vendors) {
+                        if (v.id == id) {
+                          vendorName = v.name;
+                          break;
+                        }
+                      }
+                    }
+                  }),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel')),
+            FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Create draft PO')),
+          ],
+        ),
+      ),
+    );
+    if (ok != true) return;
+
+    final user = ref.read(currentUserProvider);
+    try {
+      final po = await ref.read(workRepositoryProvider).createPoFromExternalParts(
+            organizationId: wo.organizationId,
+            workOrderId: orderId,
+            woNumber: wo.woNumber ?? orderId,
+            vendorId: vendorId,
+            vendorName: vendorName,
+            orderedBy: user?.email,
+          );
+      _invalidateAll(ref);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Draft ${po.poNumber} created'),
+            action: SnackBarAction(
+              label: 'Open',
+              onPressed: () => context.push('/procurement/orders/${po.id}'),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('PO failed: $e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(workOrderByIdProvider(orderId));
     final partsAsync = ref.watch(workOrderPartsProvider(orderId));
     final eventsAsync = ref.watch(workOrderEventsProvider(orderId));
+    final posAsync = ref.watch(workOrderLinkedPosProvider(orderId));
 
     return Scaffold(
       appBar: AppBar(
@@ -277,7 +478,6 @@ class WorkOrderDetailScreen extends ConsumerWidget {
                   title: Text('Needs procurement'),
                 ),
 
-              // —— Required parts ——
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -301,18 +501,21 @@ class WorkOrderDetailScreen extends ConsumerWidget {
                 loading: () => const LinearProgressIndicator(),
                 error: (e, _) => Text('$e'),
                 data: (parts) {
-                  if (parts.isEmpty) {
-                    return const Card(
-                      child: ListTile(
-                        dense: true,
-                        title: Text('No parts yet',
-                            style: TextStyle(color: GlossColors.muted)),
-                      ),
-                    );
-                  }
+                  final pendingExternal =
+                      parts.where((p) => p.canRaisePo).length;
                   return Column(
-                    children: parts
-                        .map(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (parts.isEmpty)
+                        const Card(
+                          child: ListTile(
+                            dense: true,
+                            title: Text('No parts yet',
+                                style: TextStyle(color: GlossColors.muted)),
+                          ),
+                        )
+                      else
+                        ...parts.map(
                           (p) => Card(
                             margin: const EdgeInsets.only(bottom: 6),
                             child: ListTile(
@@ -325,21 +528,93 @@ class WorkOrderDetailScreen extends ConsumerWidget {
                               ),
                               title: Text(p.partName),
                               subtitle: Text(
-                                'Qty ${p.qtyRequired} · ${p.source} · ${p.procurementStatus}',
+                                _partSubtitle(p),
                                 style: const TextStyle(
                                     color: GlossColors.muted, fontSize: 12),
                               ),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.delete_outline,
-                                    size: 20),
-                                onPressed: () async {
-                                  await ref
-                                      .read(workRepositoryProvider)
-                                      .deletePart(p.id);
-                                  ref.invalidate(
-                                      workOrderPartsProvider(orderId));
-                                },
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (p.canIssueFromStock)
+                                    TextButton(
+                                      onPressed: () =>
+                                          _issuePart(context, ref, p),
+                                      child: const Text('Issue'),
+                                    ),
+                                  if (p.procurementStatus == 'pending' &&
+                                      !p.hasLinkedPo)
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline,
+                                          size: 20),
+                                      onPressed: () async {
+                                        await ref
+                                            .read(workRepositoryProvider)
+                                            .deletePart(p.id);
+                                        _invalidateAll(ref);
+                                      },
+                                    ),
+                                ],
                               ),
+                            ),
+                          ),
+                        ),
+                      if (pendingExternal > 0) ...[
+                        const SizedBox(height: 8),
+                        FilledButton.tonalIcon(
+                          onPressed: () => _raisePo(context, ref, wo),
+                          icon: const Icon(Icons.request_quote_outlined),
+                          label: Text(
+                            'Raise PO for $pendingExternal external part'
+                            '${pendingExternal == 1 ? '' : 's'}',
+                          ),
+                        ),
+                      ],
+                    ],
+                  );
+                },
+              ),
+
+              const SizedBox(height: 16),
+              const Text(
+                'LINKED PURCHASE ORDERS',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: GlossColors.muted,
+                ),
+              ),
+              const SizedBox(height: 8),
+              posAsync.when(
+                loading: () => const LinearProgressIndicator(),
+                error: (e, _) => Text('$e'),
+                data: (pos) {
+                  if (pos.isEmpty) {
+                    return const Card(
+                      child: ListTile(
+                        dense: true,
+                        title: Text('No POs linked yet',
+                            style: TextStyle(color: GlossColors.muted)),
+                      ),
+                    );
+                  }
+                  return Column(
+                    children: pos
+                        .map(
+                          (po) => Card(
+                            margin: const EdgeInsets.only(bottom: 6),
+                            child: ListTile(
+                              dense: true,
+                              leading: const Icon(Icons.receipt_long_outlined,
+                                  color: GlossColors.accent),
+                              title: Text(po.poNumber),
+                              subtitle: Text(
+                                '${po.status} · ${po.vendorName ?? 'No vendor'}',
+                                style: const TextStyle(
+                                    color: GlossColors.muted, fontSize: 12),
+                              ),
+                              trailing: const Icon(Icons.chevron_right),
+                              onTap: () => context
+                                  .push('/procurement/orders/${po.id}'),
                             ),
                           ),
                         )
@@ -348,7 +623,6 @@ class WorkOrderDetailScreen extends ConsumerWidget {
                 },
               ),
 
-              // —— Activity ——
               const SizedBox(height: 16),
               const Text(
                 'ACTIVITY LOG',
@@ -453,6 +727,24 @@ class WorkOrderDetailScreen extends ConsumerWidget {
         },
       ),
     );
+  }
+
+  String _partSubtitle(WorkOrderPart p) {
+    final bits = <String>[
+      'Qty ${p.qtyRequired}',
+      p.source,
+      p.procurementStatus,
+    ];
+    if (p.unitCost > 0) {
+      bits.add('KES ${p.unitCost.toStringAsFixed(0)}');
+    }
+    if (p.source == 'internal' && p.sparePartId == null) {
+      bits.add('no catalogue link — cannot Issue');
+    }
+    if (p.hasLinkedPo && p.procurementStatus == 'pending') {
+      bits.add('draft PO linked');
+    }
+    return bits.join(' · ');
   }
 
   Widget _row(String label, String? value) {
