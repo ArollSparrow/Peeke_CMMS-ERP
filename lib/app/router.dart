@@ -13,6 +13,7 @@ import '../features/clients/system_detail_screen.dart';
 import '../features/clients/system_form_screen.dart';
 import '../features/clients/systems_list_screen.dart';
 import '../features/inventory/inventory_screens.dart';
+import '../features/maintenance/maintenance_record_detail_screen.dart';
 import '../features/maintenance/maintenance_screens.dart';
 import '../features/operations/operations_screens.dart';
 import '../features/org/create_org_screen.dart';
@@ -217,6 +218,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/maintenance/jobs/new', builder: (context, state) => const LogMaintenanceJobScreen()),
       GoRoute(path: '/maintenance/history', builder: (context, state) => const ServiceHistoryScreen()),
+      GoRoute(
+        path: '/maintenance/history/:id',
+        builder: (context, state) => MaintenanceRecordDetailScreen(
+          recordId: state.pathParameters['id']!,
+        ),
+      ),
       GoRoute(path: '/maintenance/technicians', builder: (context, state) => const TechniciansListScreen()),
       GoRoute(path: '/operations', builder: (context, state) => const OperationsHubScreen()),
       GoRoute(path: '/operations/record', builder: (context, state) => const RecordOperationScreen()),
