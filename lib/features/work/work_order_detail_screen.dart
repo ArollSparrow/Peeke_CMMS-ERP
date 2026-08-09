@@ -9,6 +9,7 @@ import '../inventory/inventory_providers.dart';
 import '../maintenance/maintenance_providers.dart';
 import '../org/org_providers.dart';
 import '../procurement/procurement_providers.dart';
+import 'job_card_screen.dart';
 import 'work_models.dart';
 import 'work_providers.dart';
 
@@ -25,6 +26,8 @@ class WorkOrderDetailScreen extends ConsumerWidget {
     ref.invalidate(workOrderLinkedPosProvider(orderId));
     ref.invalidate(sparePartsListProvider);
     ref.invalidate(purchaseOrdersListProvider);
+    ref.invalidate(jobCardByWoProvider(orderId));
+    ref.invalidate(maintenanceRecordsProvider);
   }
 
   Future<void> _status(
@@ -55,35 +58,240 @@ class WorkOrderDetailScreen extends ConsumerWidget {
     }
   }
 
+  /// Slice D: complete WO with optional job card + downtime.
   Future<void> _completeWithNotes(BuildContext context, WidgetRef ref) async {
+    final wo = await ref.read(workOrderByIdProvider(orderId).future);
+    if (wo == null || !context.mounted) return;
+
+    final workDoneCtrl = TextEditingController();
+    final findingsCtrl = TextEditingController();
     final notesCtrl = TextEditingController();
+    final downtimeCtrl = TextEditingController();
+    final hourMeterCtrl = TextEditingController();
+    var createJobCard = true;
+
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Complete work order'),
-        content: TextField(
-          controller: notesCtrl,
-          maxLines: 4,
-          decoration: const InputDecoration(
-            labelText: 'Completion notes',
-            hintText: 'Work done, findings…',
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: const Text('Complete work order'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: workDoneCtrl,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Work done *',
+                    hintText: 'What was performed…',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: findingsCtrl,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Findings (optional)',
+                    hintText: 'Root cause, observations…',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: notesCtrl,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Completion notes (optional)',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: hourMeterCtrl,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Hour meter (optional)',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: downtimeCtrl,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Downtime hours (optional)',
+                    hintText: 'e.g. 2.5',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Create job card'),
+                  subtitle: const Text(
+                    'Maintenance record linked to this WO (recommended)',
+                    style: TextStyle(fontSize: 12, color: GlossColors.muted),
+                  ),
+                  value: createJobCard,
+                  onChanged: (v) => setLocal(() => createJobCard = v),
+                ),
+              ],
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
+          actions: [
+            TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          FilledButton(
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Complete')),
-        ],
+              child: const Text('Complete'),
+            ),
+          ],
+        ),
       ),
     );
-    if (ok == true && context.mounted) {
-      await _status(context, ref, 'completed',
-          notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim());
+
+    if (ok != true || !context.mounted) {
+      workDoneCtrl.dispose();
+      findingsCtrl.dispose();
+      notesCtrl.dispose();
+      downtimeCtrl.dispose();
+      hourMeterCtrl.dispose();
+      return;
     }
+
+    final workDone = workDoneCtrl.text.trim();
+    final findings = findingsCtrl.text.trim();
+    final notes = notesCtrl.text.trim();
+    final downtimeHours = double.tryParse(downtimeCtrl.text.trim()) ?? 0;
+    final hourMeter = double.tryParse(hourMeterCtrl.text.trim());
+    workDoneCtrl.dispose();
+    findingsCtrl.dispose();
     notesCtrl.dispose();
+    downtimeCtrl.dispose();
+    hourMeterCtrl.dispose();
+
+    if (workDone.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Work done is required')),
+        );
+      }
+      return;
+    }
+
+    final user = ref.read(currentUserProvider);
+    final actor = user?.email;
+
+    try {
+      final completionNotes = [
+        if (workDone.isNotEmpty) workDone,
+        if (findings.isNotEmpty) 'Findings: $findings',
+        if (notes.isNotEmpty) notes,
+      ].join('\n');
+
+      await ref.read(workRepositoryProvider).updateOrderStatus(
+            orderId,
+            status: 'completed',
+            completedBy: actor,
+            notes: completionNotes.isEmpty ? null : completionNotes,
+          );
+
+      String? recordId;
+      if (createJobCard) {
+        final parts = await ref.read(workOrderPartsProvider(orderId).future);
+        final partsSummary = parts.isEmpty
+            ? null
+            : parts
+                .map((p) =>
+                    '${p.partName} × ${p.qtyRequired}${p.unitCost > 0 ? ' @ ${p.unitCost}' : ''}')
+                .join('; ');
+
+        final record =
+            await ref.read(maintenanceRepositoryProvider).createRecord(
+                  organizationId: wo.organizationId,
+                  systemId: wo.systemId,
+                  title:
+                      '${wo.woNumber ?? 'WO'} — ${wo.description ?? 'Job card'}',
+                  workOrderId: orderId,
+                  jobType: wo.jobType,
+                  findings: findings.isEmpty ? null : findings,
+                  workDone: workDone,
+                  partsUsed: partsSummary,
+                  hourMeter: hourMeter,
+                  downtimeHours: downtimeHours > 0 ? downtimeHours : 0,
+                  performedBy: wo.assignedTechnician ?? actor,
+                  notes: notes.isEmpty ? null : notes,
+                  systemType: wo.systemType,
+                  systemSerial: wo.systemSerial,
+                  clientName: wo.clientName,
+                );
+        recordId = record.id;
+      }
+
+      if (downtimeHours > 0) {
+        await ref.read(maintenanceRepositoryProvider).logDowntime(
+              organizationId: wo.organizationId,
+              systemId: wo.systemId,
+              workOrderId: orderId,
+              maintenanceRecordId: recordId,
+              hours: downtimeHours,
+              reason: findings.isNotEmpty
+                  ? findings
+                  : (wo.faultDescription ?? 'Maintenance downtime'),
+              category: 'maintenance',
+              loggedBy: actor,
+              systemType: wo.systemType,
+              systemSerial: wo.systemSerial,
+              clientName: wo.clientName,
+              notes: notes.isEmpty ? null : notes,
+            );
+      }
+
+      final client = ref.read(supabaseClientProvider);
+      await client.from('work_order_events').insert({
+        'organization_id': wo.organizationId,
+        'work_order_id': orderId,
+        'action': 'completed',
+        'stage': 'completion',
+        'from_status': 'in_progress',
+        'to_status': 'completed',
+        'actor': actor,
+        'notes': [
+          if (createJobCard) 'Job card created',
+          if (downtimeHours > 0) 'Downtime ${downtimeHours}h logged',
+        ].join(' · '),
+      });
+
+      _invalidateAll(ref);
+
+      if (context.mounted) {
+        final msg = [
+          'Work order completed',
+          if (createJobCard) '· job card created',
+          if (downtimeHours > 0) '· ${downtimeHours}h downtime',
+        ].join(' ');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(msg),
+            action: createJobCard
+                ? SnackBarAction(
+                    label: 'Job card',
+                    onPressed: () =>
+                        context.push('/work/orders/$orderId/job-card'),
+                  )
+                : null,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Complete failed: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _submitForApproval(BuildContext context, WidgetRef ref) async {
@@ -450,9 +658,7 @@ class WorkOrderDetailScreen extends ConsumerWidget {
   }
 
   Future<void> _raisePo(
-    BuildContext context,
-    WidgetRef ref,
-    WorkOrder wo,
+    BuildContext context, WidgetRef ref, WorkOrder wo,
   ) async {
     final vendors = await ref.read(vendorsListProvider.future);
     if (!context.mounted) return;
@@ -615,6 +821,16 @@ class WorkOrderDetailScreen extends ConsumerWidget {
                   leading: Icon(Icons.local_shipping_outlined),
                   title: Text('Needs procurement'),
                 ),
+
+              if (wo.status == 'completed') ...[
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () =>
+                      context.push('/work/orders/$orderId/job-card'),
+                  icon: const Icon(Icons.assignment_outlined, size: 18),
+                  label: const Text('View job card'),
+                ),
+              ],
 
               const SizedBox(height: 12),
               Row(
@@ -854,7 +1070,6 @@ class WorkOrderDetailScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
 
-              // pending_approval — gated via OrgCapabilities (open to all members today)
               if (wo.isPendingApproval && caps.canApproveWork) ...[
                 FilledButton(
                   onPressed: () => _approve(context, ref),
