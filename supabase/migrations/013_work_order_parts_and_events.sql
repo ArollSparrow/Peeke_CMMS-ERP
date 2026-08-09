@@ -1,0 +1,2 @@
+-- Applied on project: work_order_parts + work_order_events + status log trigger
+-- See Supabase migration 013_work_order_parts_and_events
