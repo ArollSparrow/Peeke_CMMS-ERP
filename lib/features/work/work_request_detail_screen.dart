@@ -39,23 +39,90 @@ class WorkRequestDetailScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _setStatus(BuildContext context, WidgetRef ref, String status) async {
+  Future<void> _approveOnly(BuildContext context, WidgetRef ref) async {
     final user = ref.read(currentUserProvider);
     try {
       await ref.read(workRepositoryProvider).updateRequestStatus(
             requestId,
-            status: status,
+            status: 'approved',
             reviewedBy: user?.email,
           );
       ref.invalidate(workRequestByIdProvider(requestId));
       ref.invalidate(workRequestsListProvider);
       ref.invalidate(pendingWorkRequestsCountProvider);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Marked $status')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Approved — convert when ready')),
+        );
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Failed: $e')));
+      }
+    }
+  }
+
+  Future<void> _reject(BuildContext context, WidgetRef ref) async {
+    final user = ref.read(currentUserProvider);
+    final notesCtrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reject work request'),
+        content: TextField(
+          controller: notesCtrl,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            labelText: 'Reason *',
+            hintText: 'Why this request is rejected',
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: GlossColors.danger),
+            child: const Text('Reject'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) {
+      notesCtrl.dispose();
+      return;
+    }
+    final notes = notesCtrl.text.trim();
+    notesCtrl.dispose();
+    if (notes.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Rejection reason is required')),
+        );
+      }
+      return;
+    }
+    try {
+      await ref.read(workRepositoryProvider).updateRequestStatus(
+            requestId,
+            status: 'rejected',
+            reviewedBy: user?.email,
+            reviewNotes: notes,
+          );
+      ref.invalidate(workRequestByIdProvider(requestId));
+      ref.invalidate(workRequestsListProvider);
+      ref.invalidate(pendingWorkRequestsCountProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Request rejected')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Failed: $e')));
       }
     }
   }
@@ -98,6 +165,8 @@ class WorkRequestDetailScreen extends ConsumerWidget {
               _row('Description', wr.description),
               _row('Fault', wr.faultDescription),
               _row('Requested by', wr.requestedBy),
+              _row('Reviewed by', wr.reviewedBy),
+              _row('Review notes', wr.reviewNotes),
               _row('Notes', wr.notes),
               if (wr.needsProcurement)
                 const ListTile(
@@ -120,8 +189,16 @@ class WorkRequestDetailScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   OutlinedButton(
-                    onPressed: () => _setStatus(context, ref, 'rejected'),
-                    child: const Text('Reject'),
+                    onPressed: () => _approveOnly(context, ref),
+                    child: const Text('Approve only'),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    onPressed: () => _reject(context, ref),
+                    child: const Text(
+                      'Reject',
+                      style: TextStyle(color: GlossColors.danger),
+                    ),
                   ),
                 ],
                 if (wr.status == 'approved')
