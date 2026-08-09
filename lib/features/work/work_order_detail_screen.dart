@@ -340,10 +340,15 @@ class WorkOrderDetailScreen extends ConsumerWidget {
                   ],
                   onChanged: (id) => setLocal(() {
                     vendorId = id;
-                    vendorName = vendors
-                        .where((v) => v.id == id)
-                        .map((v) => v.name)
-                        .firstOrNull;
+                    vendorName = null;
+                    if (id != null) {
+                      for (final v in vendors) {
+                        if (v.id == id) {
+                          vendorName = v.name;
+                          break;
+                        }
+                      }
+                    }
                   }),
                 ),
             ],
@@ -454,7 +459,6 @@ class WorkOrderDetailScreen extends ConsumerWidget {
                   title: Text('Needs procurement'),
                 ),
 
-              // —— Parts ——
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -551,7 +555,6 @@ class WorkOrderDetailScreen extends ConsumerWidget {
                 },
               ),
 
-              // —— Linked POs ——
               const SizedBox(height: 16),
               const Text(
                 'LINKED PURCHASE ORDERS',
@@ -601,7 +604,6 @@ class WorkOrderDetailScreen extends ConsumerWidget {
                 },
               ),
 
-              // —— Activity ——
               const SizedBox(height: 16),
               const Text(
                 'ACTIVITY LOG',
