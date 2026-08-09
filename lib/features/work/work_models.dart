@@ -187,10 +187,144 @@ class WorkOrder {
       status == 'open' || status == 'in_progress' || status == 'on_hold';
 }
 
+class WorkOrderPart {
+  const WorkOrderPart({
+    required this.id,
+    required this.organizationId,
+    required this.workOrderId,
+    required this.partName,
+    this.sparePartId,
+    this.partNumber,
+    this.source = 'internal',
+    this.qtyRequired = 1,
+    this.unitCost = 0,
+    this.procurementStatus = 'pending',
+    this.notes,
+  });
+
+  final String id;
+  final String organizationId;
+  final String workOrderId;
+  final String? sparePartId;
+  final String partName;
+  final String? partNumber;
+  final String source;
+  final double qtyRequired;
+  final double unitCost;
+  final String procurementStatus;
+  final String? notes;
+
+  factory WorkOrderPart.fromMap(Map<String, dynamic> m) {
+    return WorkOrderPart(
+      id: m['id'] as String,
+      organizationId: m['organization_id'] as String,
+      workOrderId: m['work_order_id'] as String,
+      sparePartId: m['spare_part_id'] as String?,
+      partName: m['part_name'] as String? ?? 'Part',
+      partNumber: m['part_number'] as String?,
+      source: m['source'] as String? ?? 'internal',
+      qtyRequired: (m['qty_required'] as num?)?.toDouble() ?? 1,
+      unitCost: (m['unit_cost'] as num?)?.toDouble() ?? 0,
+      procurementStatus: m['procurement_status'] as String? ?? 'pending',
+      notes: m['notes'] as String?,
+    );
+  }
+
+  bool get isExternal => source == 'external';
+}
+
+class WorkOrderEvent {
+  const WorkOrderEvent({
+    required this.id,
+    required this.workOrderId,
+    required this.action,
+    this.fromStatus,
+    this.toStatus,
+    this.stage,
+    this.actor,
+    this.notes,
+    this.createdAt,
+  });
+
+  final String id;
+  final String workOrderId;
+  final String action;
+  final String? fromStatus;
+  final String? toStatus;
+  final String? stage;
+  final String? actor;
+  final String? notes;
+  final DateTime? createdAt;
+
+  factory WorkOrderEvent.fromMap(Map<String, dynamic> m) {
+    return WorkOrderEvent(
+      id: m['id'] as String,
+      workOrderId: m['work_order_id'] as String,
+      action: m['action'] as String? ?? 'event',
+      fromStatus: m['from_status'] as String?,
+      toStatus: m['to_status'] as String?,
+      stage: m['stage'] as String?,
+      actor: m['actor'] as String?,
+      notes: m['notes'] as String?,
+      createdAt: m['created_at'] != null
+          ? DateTime.tryParse(m['created_at'].toString())
+          : null,
+    );
+  }
+
+  String get title {
+    if (toStatus != null) return _label(toStatus!);
+    if (stage != null) return _label(stage!);
+    return action;
+  }
+
+  static String _label(String s) => s
+      .split('_')
+      .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+      .join(' ');
+}
+
 class WorkJobTypes {
   static const values = ['breakdown', 'corrective', 'inspection', 'scheduled'];
 }
 
 class WorkPriorities {
   static const values = ['low', 'medium', 'high', 'critical'];
+}
+
+class WorkOrderStatuses {
+  static const filterChips = [
+    null, // All
+    'open',
+    'in_progress',
+    'on_hold',
+    'completed',
+    'cancelled',
+  ];
+
+  static String label(String? s) {
+    if (s == null) return 'All';
+    return s
+        .split('_')
+        .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+        .join(' ');
+  }
+}
+
+class WorkRequestStatuses {
+  static const filterChips = [
+    null,
+    'pending',
+    'approved',
+    'converted',
+    'rejected',
+  ];
+
+  static String label(String? s) {
+    if (s == null) return 'All';
+    return s
+        .split('_')
+        .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+        .join(' ');
+  }
 }
