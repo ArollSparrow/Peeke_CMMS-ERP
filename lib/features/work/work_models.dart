@@ -115,6 +115,9 @@ class WorkOrder {
     this.assignedTechnician,
     this.completedBy,
     this.completedAt,
+    this.approvedBy,
+    this.approvedAt,
+    this.approvalNotes,
     this.createdAt,
   });
 
@@ -140,6 +143,9 @@ class WorkOrder {
   final String? assignedTechnician;
   final String? completedBy;
   final DateTime? completedAt;
+  final String? approvedBy;
+  final DateTime? approvedAt;
+  final String? approvalNotes;
   final DateTime? createdAt;
 
   factory WorkOrder.fromMap(Map<String, dynamic> m) {
@@ -168,6 +174,11 @@ class WorkOrder {
       completedAt: m['completed_at'] != null
           ? DateTime.tryParse(m['completed_at'].toString())
           : null,
+      approvedBy: m['approved_by'] as String?,
+      approvedAt: m['approved_at'] != null
+          ? DateTime.tryParse(m['approved_at'].toString())
+          : null,
+      approvalNotes: m['approval_notes'] as String?,
       createdAt: m['created_at'] != null
           ? DateTime.tryParse(m['created_at'].toString())
           : null,
@@ -183,8 +194,20 @@ class WorkOrder {
     return parts.join(' · ');
   }
 
+  /// Executable / held work (not terminal, not waiting approval).
   bool get isOpen =>
       status == 'open' || status == 'in_progress' || status == 'on_hold';
+
+  /// Counts toward "active" KPI (includes gates).
+  bool get isActive =>
+      status == 'open' ||
+      status == 'in_progress' ||
+      status == 'on_hold' ||
+      status == 'pending_approval' ||
+      status == 'awaiting_parts';
+
+  bool get isPendingApproval => status == 'pending_approval';
+  bool get isAwaitingParts => status == 'awaiting_parts';
 }
 
 class WorkOrderPart {
@@ -235,21 +258,20 @@ class WorkOrderPart {
 
   bool get isExternal => source == 'external';
 
-  /// Internal + linked to catalogue + still pending → can deduct stock.
   bool get canIssueFromStock =>
       source == 'internal' &&
       procurementStatus == 'pending' &&
       sparePartId != null;
 
-  /// External + pending + not yet linked to any PO → eligible for Raise PO.
-  /// Prevents duplicate draft POs for the same lines.
   bool get canRaisePo =>
       source == 'external' &&
       procurementStatus == 'pending' &&
       purchaseOrderId == null;
 
-  /// Soft-linked to a draft (or later) PO but still pending status.
   bool get hasLinkedPo => purchaseOrderId != null;
+
+  bool get isReceived => procurementStatus == 'received';
+  bool get isOrdered => procurementStatus == 'ordered';
 }
 
 class WorkOrderEvent {
@@ -292,7 +314,12 @@ class WorkOrderEvent {
   }
 
   String get title {
-    if (action == 'issued' || action == 'received' || action == 'parts_ordered') {
+    if (action == 'issued' ||
+        action == 'received' ||
+        action == 'parts_ordered' ||
+        action == 'approved' ||
+        action == 'rejected' ||
+        action == 'submitted_for_approval') {
       return _label(action);
     }
     if (toStatus != null) return _label(toStatus!);
@@ -318,6 +345,8 @@ class WorkOrderStatuses {
   static const filterChips = [
     null,
     'open',
+    'pending_approval',
+    'awaiting_parts',
     'in_progress',
     'on_hold',
     'completed',
