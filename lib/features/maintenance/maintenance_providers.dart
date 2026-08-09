@@ -84,6 +84,9 @@ class MaintenanceRepository {
       'pending_completion_approval',
       'open',
       'assigned',
+      'pending_approval',
+      'awaiting_parts',
+      'on_hold',
     };
 
     final woCounts = <String, int>{};
@@ -182,7 +185,7 @@ class MaintenanceRepository {
     return (n as num?)?.toInt() ?? 0;
   }
 
-  // —— Maintenance records ——
+  // —— Maintenance records (job cards) ——
   Future<List<MaintenanceRecord>> listRecords(String orgId, {String? systemId}) async {
     var q = _client.from('maintenance_records').select().eq('organization_id', orgId);
     if (systemId != null) q = q.eq('system_id', systemId);
@@ -192,11 +195,24 @@ class MaintenanceRepository {
         .toList();
   }
 
+  Future<MaintenanceRecord?> getRecordByWorkOrderId(String workOrderId) async {
+    final row = await _client
+        .from('maintenance_records')
+        .select()
+        .eq('work_order_id', workOrderId)
+        .order('created_at', ascending: false)
+        .limit(1)
+        .maybeSingle();
+    if (row == null) return null;
+    return MaintenanceRecord.fromMap(Map<String, dynamic>.from(row));
+  }
+
   Future<MaintenanceRecord> createRecord({
     required String organizationId,
-    required String systemId,
+    String? systemId,
     required String title,
     String? pmPlanId,
+    String? workOrderId,
     String? technicianId,
     String jobType = 'corrective',
     String? findings,
@@ -214,9 +230,10 @@ class MaintenanceRepository {
         .from('maintenance_records')
         .insert({
           'organization_id': organizationId,
-          'system_id': systemId,
+          if (systemId != null) 'system_id': systemId,
           'title': title.trim(),
           if (pmPlanId != null) 'pm_plan_id': pmPlanId,
+          if (workOrderId != null) 'work_order_id': workOrderId,
           if (technicianId != null) 'technician_id': technicianId,
           'job_type': jobType,
           'status': 'completed',
@@ -235,6 +252,42 @@ class MaintenanceRepository {
         .select()
         .single();
     return MaintenanceRecord.fromMap(Map<String, dynamic>.from(row));
+  }
+
+  /// Optional downtime event linked to a WO / maintenance record.
+  Future<void> logDowntime({
+    required String organizationId,
+    String? systemId,
+    String? workOrderId,
+    String? maintenanceRecordId,
+    required double hours,
+    String? reason,
+    String? category,
+    String? loggedBy,
+    String? systemType,
+    String? systemSerial,
+    String? clientName,
+    String? notes,
+  }) async {
+    if (hours <= 0) return;
+    final ended = DateTime.now().toUtc();
+    final started = ended.subtract(Duration(minutes: (hours * 60).round()));
+    await _client.from('downtime_events').insert({
+      'organization_id': organizationId,
+      if (systemId != null) 'system_id': systemId,
+      if (workOrderId != null) 'work_order_id': workOrderId,
+      if (maintenanceRecordId != null)
+        'maintenance_record_id': maintenanceRecordId,
+      'started_at': started.toIso8601String(),
+      'ended_at': ended.toIso8601String(),
+      if (reason != null) 'reason': reason,
+      'category': category ?? 'maintenance',
+      if (loggedBy != null) 'logged_by': loggedBy,
+      if (systemType != null) 'system_type': systemType,
+      if (systemSerial != null) 'system_serial': systemSerial,
+      if (clientName != null) 'client_name': clientName,
+      if (notes != null) 'notes': notes,
+    });
   }
 }
 
