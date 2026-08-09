@@ -549,6 +549,44 @@ class WorkOrderDetailScreen extends ConsumerWidget {
     }
   }
 
+  /// Soft gate: warn if starting execution without an assigned technician.
+  Future<void> _startWork(BuildContext context, WidgetRef ref) async {
+    final wo = await ref.read(workOrderByIdProvider(orderId).future);
+    if (wo == null || !context.mounted) return;
+    final hasTech = wo.assignedTechnician != null &&
+        wo.assignedTechnician!.trim().isNotEmpty;
+    if (!hasTech) {
+      final choice = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('No technician assigned'),
+          content: const Text(
+            'Starting work without an assigned technician makes the activity log harder to audit. Assign someone first, or start anyway?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'cancel'),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'assign'),
+              child: const Text('Assign'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, 'start'),
+              child: const Text('Start anyway'),
+            ),
+          ],
+        ),
+      );
+      if (choice == 'assign') {
+        await _assignTech(context, ref);
+        return;
+      }
+      if (choice != 'start') return;
+    }
+    await _status(context, ref, 'in_progress');
+  }
 
   Future<void> _addPart(BuildContext context, WidgetRef ref, WorkOrder wo) async {
     final catalogue = await ref.read(sparePartsListProvider.future);
@@ -1174,14 +1212,14 @@ class WorkOrderDetailScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton(
-                  onPressed: () => _status(context, ref, 'in_progress'),
+                  onPressed: () => _startWork(context, ref),
                   child: const Text('Resume & start work'),
                 ),
               ],
 
               if (wo.status == 'open') ...[
                 FilledButton(
-                  onPressed: () => _status(context, ref, 'in_progress'),
+                  onPressed: () => _startWork(context, ref),
                   child: const Text('Start work'),
                 ),
                 const SizedBox(height: 8),
@@ -1211,7 +1249,7 @@ class WorkOrderDetailScreen extends ConsumerWidget {
 
               if (wo.status == 'on_hold')
                 FilledButton(
-                  onPressed: () => _status(context, ref, 'in_progress'),
+                  onPressed: () => _startWork(context, ref),
                   child: const Text('Resume'),
                 ),
 
