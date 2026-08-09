@@ -16,6 +16,7 @@ import '../features/inventory/inventory_screens.dart';
 import '../features/maintenance/downtime_list_screen.dart';
 import '../features/maintenance/maintenance_record_detail_screen.dart';
 import '../features/maintenance/maintenance_screens.dart';
+import '../features/maintenance/pm_plan_detail_screen.dart';
 import '../features/maintenance/service_history_screen.dart';
 import '../features/operations/operations_screens.dart';
 import '../features/org/create_org_screen.dart';
@@ -54,7 +55,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     authRefresh.value++;
   });
 
-  // Re-run redirects when recovery flag flips
   ref.listen(passwordRecoveryPendingProvider, (_, __) {
     authRefresh.value++;
   });
@@ -69,14 +69,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final loc = state.matchedLocation;
       final recovery = ref.read(passwordRecoveryPendingProvider);
 
-      // Recovery session: always force the set-password screen first.
       if (recovery) {
         if (loc != '/reset-password') return '/reset-password';
         return null;
       }
 
       if (loc == '/reset-password') {
-        // No recovery session — send signed-in users through gate, others to login
         if (signedIn) return '/gate';
         return '/login';
       }
