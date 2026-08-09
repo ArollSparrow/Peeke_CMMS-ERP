@@ -85,6 +85,138 @@ class WorkOrderDetailScreen extends ConsumerWidget {
     notesCtrl.dispose();
   }
 
+  Future<void> _submitForApproval(BuildContext context, WidgetRef ref) async {
+    final user = ref.read(currentUserProvider);
+    try {
+      await ref.read(workRepositoryProvider).submitForApproval(
+            id: orderId,
+            actor: user?.email,
+          );
+      _invalidateAll(ref);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Submitted for approval')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Failed: $e')));
+      }
+    }
+  }
+
+  Future<void> _approve(BuildContext context, WidgetRef ref) async {
+    final user = ref.read(currentUserProvider);
+    final notesCtrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Approve work order'),
+        content: TextField(
+          controller: notesCtrl,
+          maxLines: 2,
+          decoration: const InputDecoration(
+            labelText: 'Notes (optional)',
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Approve')),
+        ],
+      ),
+    );
+    if (ok != true) {
+      notesCtrl.dispose();
+      return;
+    }
+    final notes = notesCtrl.text.trim();
+    notesCtrl.dispose();
+    try {
+      await ref.read(workRepositoryProvider).approveOrder(
+            id: orderId,
+            approvedBy: user?.email,
+            notes: notes.isEmpty ? null : notes,
+          );
+      _invalidateAll(ref);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Approved — ready to execute')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Failed: $e')));
+      }
+    }
+  }
+
+  Future<void> _reject(BuildContext context, WidgetRef ref) async {
+    final user = ref.read(currentUserProvider);
+    final notesCtrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reject work order'),
+        content: TextField(
+          controller: notesCtrl,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            labelText: 'Reason *',
+            hintText: 'Why this WO is rejected',
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: GlossColors.danger),
+            child: const Text('Reject'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) {
+      notesCtrl.dispose();
+      return;
+    }
+    final notes = notesCtrl.text.trim();
+    notesCtrl.dispose();
+    if (notes.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Rejection reason is required')),
+        );
+      }
+      return;
+    }
+    try {
+      await ref.read(workRepositoryProvider).rejectOrder(
+            id: orderId,
+            rejectedBy: user?.email,
+            notes: notes,
+          );
+      _invalidateAll(ref);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Work order rejected')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Failed: $e')));
+      }
+    }
+  }
+
   Future<void> _assignTech(BuildContext context, WidgetRef ref) async {
     final techs = await ref.read(techniciansListProvider.future);
     if (!context.mounted) return;
@@ -471,6 +603,8 @@ class WorkOrderDetailScreen extends ConsumerWidget {
               _row('Fault', wo.faultDescription),
               _row('Technician', wo.assignedTechnician),
               _row('Requested by', wo.requestedBy),
+              _row('Approved by', wo.approvedBy),
+              _row('Approval notes', wo.approvalNotes),
               _row('Notes', wo.notes),
               if (wo.needsProcurement)
                 const ListTile(
@@ -503,6 +637,10 @@ class WorkOrderDetailScreen extends ConsumerWidget {
                 data: (parts) {
                   final pendingExternal =
                       parts.where((p) => p.canRaisePo).length;
+                  final allExternalReceived = parts
+                      .where((p) => p.isExternal)
+                      .every((p) => p.isReceived);
+                  final hasExternal = parts.any((p) => p.isExternal);
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -566,6 +704,32 @@ class WorkOrderDetailScreen extends ConsumerWidget {
                           label: Text(
                             'Raise PO for $pendingExternal external part'
                             '${pendingExternal == 1 ? '' : 's'}',
+                          ),
+                        ),
+                      ],
+                      if (wo.status == 'open' &&
+                          hasExternal &&
+                          !allExternalReceived &&
+                          pendingExternal == 0) ...[
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed: () =>
+                              _status(context, ref, 'awaiting_parts'),
+                          icon: const Icon(Icons.hourglass_top, size: 18),
+                          label: const Text('Mark awaiting parts'),
+                        ),
+                      ],
+                      if (wo.isAwaitingParts &&
+                          hasExternal &&
+                          allExternalReceived) ...[
+                        const SizedBox(height: 8),
+                        const Card(
+                          child: ListTile(
+                            dense: true,
+                            leading: Icon(Icons.check_circle_outline,
+                                color: GlossColors.accent),
+                            title: Text('All external parts received'),
+                            subtitle: Text('Resume when ready to start work'),
                           ),
                         ),
                       ],
@@ -685,6 +849,37 @@ class WorkOrderDetailScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 8),
+
+              // ── pending_approval gate ───────────────────────────
+              if (wo.isPendingApproval) ...[
+                FilledButton(
+                  onPressed: () => _approve(context, ref),
+                  child: const Text('Approve'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: () => _reject(context, ref),
+                  child: const Text(
+                    'Reject',
+                    style: TextStyle(color: GlossColors.danger),
+                  ),
+                ),
+              ],
+
+              // ── awaiting_parts ──────────────────────────────────
+              if (wo.isAwaitingParts) ...[
+                FilledButton(
+                  onPressed: () => _status(context, ref, 'open'),
+                  child: const Text('Parts ready — resume'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: () => _status(context, ref, 'in_progress'),
+                  child: const Text('Resume & start work'),
+                ),
+              ],
+
+              // ── open ────────────────────────────────────────────
               if (wo.status == 'open') ...[
                 FilledButton(
                   onPressed: () => _status(context, ref, 'in_progress'),
@@ -695,7 +890,15 @@ class WorkOrderDetailScreen extends ConsumerWidget {
                   onPressed: () => _status(context, ref, 'on_hold'),
                   child: const Text('Put on hold'),
                 ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () => _submitForApproval(context, ref),
+                  icon: const Icon(Icons.rate_review_outlined, size: 18),
+                  label: const Text('Submit for approval'),
+                ),
               ],
+
+              // ── in_progress ─────────────────────────────────────
               if (wo.status == 'in_progress') ...[
                 FilledButton(
                   onPressed: () => _completeWithNotes(context, ref),
@@ -707,12 +910,16 @@ class WorkOrderDetailScreen extends ConsumerWidget {
                   child: const Text('Put on hold'),
                 ),
               ],
+
+              // ── on_hold ─────────────────────────────────────────
               if (wo.status == 'on_hold')
                 FilledButton(
                   onPressed: () => _status(context, ref, 'in_progress'),
                   child: const Text('Resume'),
                 ),
-              if (wo.isOpen) ...[
+
+              // ── cancel (any non-terminal active) ────────────────
+              if (wo.isActive && !wo.isPendingApproval) ...[
                 const SizedBox(height: 8),
                 TextButton(
                   onPressed: () => _status(context, ref, 'cancelled'),
