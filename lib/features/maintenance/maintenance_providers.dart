@@ -594,3 +594,28 @@ final pmPlanLinkedWorkProvider = FutureProvider.autoDispose
   if (org == null) return [];
   return ref.watch(maintenanceRepositoryProvider).listLinkedWork(org.id, planId);
 });
+
+/// M5 — system-scoped slices for asset reliability surface.
+final maintenanceRecordsBySystemProvider = FutureProvider.autoDispose
+    .family<List<MaintenanceRecord>, String>((ref, systemId) async {
+  final org = ref.watch(activeOrganizationProvider);
+  if (org == null) return [];
+  return ref
+      .watch(maintenanceRepositoryProvider)
+      .listRecords(org.id, systemId: systemId);
+});
+
+final downtimeEventsBySystemProvider = FutureProvider.autoDispose
+    .family<List<DowntimeEvent>, String>((ref, systemId) async {
+  final org = ref.watch(activeOrganizationProvider);
+  if (org == null) return [];
+  return ref
+      .watch(maintenanceRepositoryProvider)
+      .listDowntimeEvents(org.id, systemId: systemId);
+});
+
+final pmPlansBySystemProvider =
+    FutureProvider.autoDispose.family<List<PmPlan>, String>((ref, systemId) async {
+  final all = await ref.watch(pmPlansListProvider.future);
+  return all.where((p) => p.systemId == systemId).toList();
+});
