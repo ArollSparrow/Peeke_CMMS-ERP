@@ -7,6 +7,7 @@ import '../auth/auth_providers.dart';
 import '../inventory/inventory_models.dart';
 import '../inventory/inventory_providers.dart';
 import '../maintenance/maintenance_providers.dart';
+import '../org/org_providers.dart';
 import '../procurement/procurement_providers.dart';
 import 'work_models.dart';
 import 'work_providers.dart';
@@ -107,6 +108,7 @@ class WorkOrderDetailScreen extends ConsumerWidget {
   }
 
   Future<void> _approve(BuildContext context, WidgetRef ref) async {
+    if (!ref.read(orgCapabilitiesProvider).canApproveWork) return;
     final user = ref.read(currentUserProvider);
     final notesCtrl = TextEditingController();
     final ok = await showDialog<bool>(
@@ -157,6 +159,7 @@ class WorkOrderDetailScreen extends ConsumerWidget {
   }
 
   Future<void> _reject(BuildContext context, WidgetRef ref) async {
+    if (!ref.read(orgCapabilitiesProvider).canApproveWork) return;
     final user = ref.read(currentUserProvider);
     final notesCtrl = TextEditingController();
     final ok = await showDialog<bool>(
@@ -553,6 +556,7 @@ class WorkOrderDetailScreen extends ConsumerWidget {
     final partsAsync = ref.watch(workOrderPartsProvider(orderId));
     final eventsAsync = ref.watch(workOrderEventsProvider(orderId));
     final posAsync = ref.watch(workOrderLinkedPosProvider(orderId));
+    final caps = ref.watch(orgCapabilitiesProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -850,8 +854,8 @@ class WorkOrderDetailScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
 
-              // ── pending_approval gate ───────────────────────────
-              if (wo.isPendingApproval) ...[
+              // pending_approval — gated via OrgCapabilities (open to all members today)
+              if (wo.isPendingApproval && caps.canApproveWork) ...[
                 FilledButton(
                   onPressed: () => _approve(context, ref),
                   child: const Text('Approve'),
@@ -865,8 +869,18 @@ class WorkOrderDetailScreen extends ConsumerWidget {
                   ),
                 ),
               ],
+              if (wo.isPendingApproval && !caps.canApproveWork)
+                const Card(
+                  child: ListTile(
+                    dense: true,
+                    title: Text('Awaiting approval'),
+                    subtitle: Text(
+                      'An owner or admin must approve this work order.',
+                      style: TextStyle(color: GlossColors.muted, fontSize: 12),
+                    ),
+                  ),
+                ),
 
-              // ── awaiting_parts ──────────────────────────────────
               if (wo.isAwaitingParts) ...[
                 FilledButton(
                   onPressed: () => _status(context, ref, 'open'),
@@ -879,7 +893,6 @@ class WorkOrderDetailScreen extends ConsumerWidget {
                 ),
               ],
 
-              // ── open ────────────────────────────────────────────
               if (wo.status == 'open') ...[
                 FilledButton(
                   onPressed: () => _status(context, ref, 'in_progress'),
@@ -898,7 +911,6 @@ class WorkOrderDetailScreen extends ConsumerWidget {
                 ),
               ],
 
-              // ── in_progress ─────────────────────────────────────
               if (wo.status == 'in_progress') ...[
                 FilledButton(
                   onPressed: () => _completeWithNotes(context, ref),
@@ -911,14 +923,12 @@ class WorkOrderDetailScreen extends ConsumerWidget {
                 ),
               ],
 
-              // ── on_hold ─────────────────────────────────────────
               if (wo.status == 'on_hold')
                 FilledButton(
                   onPressed: () => _status(context, ref, 'in_progress'),
                   child: const Text('Resume'),
                 ),
 
-              // ── cancel (any non-terminal active) ────────────────
               if (wo.isActive && !wo.isPendingApproval) ...[
                 const SizedBox(height: 8),
                 TextButton(
