@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../auth/auth_providers.dart';
 import '../org/org_providers.dart';
+import '../procurement/procurement_models.dart';
 import 'work_models.dart';
 
 class WorkRepository {
@@ -260,7 +261,6 @@ class WorkRepository {
         .eq('id', id)
         .select()
         .single();
-    // Explicit event (status may be unchanged)
     final m = Map<String, dynamic>.from(row);
     await _client.from('work_order_events').insert({
       'organization_id': m['organization_id'],
@@ -311,11 +311,113 @@ class WorkRepository {
         })
         .select()
         .single();
+
+    if (source == 'external') {
+      await _client.from('work_orders').update({
+        'needs_procurement': true,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', workOrderId);
+    }
+
     return WorkOrderPart.fromMap(Map<String, dynamic>.from(row));
   }
 
   Future<void> deletePart(String partId) async {
     await _client.from('work_order_parts').delete().eq('id', partId);
+  }
+
+  /// Deduct catalogue stock and mark WO part issued.
+  Future<WorkOrderPart> issuePartFromStock({
+    required String woPartId,
+    String? performedBy,
+  }) async {
+    final row = await _client.rpc('issue_wo_part', params: {
+      'p_wo_part_id': woPartId,
+      'p_performed_by': performedBy,
+    });
+    return WorkOrderPart.fromMap(Map<String, dynamic>.from(row as Map));
+  }
+
+  /// Draft a PO from pending external WO parts and link it to the WO.
+  Future<PurchaseOrder> createPoFromExternalParts({
+    required String organizationId,
+    required String workOrderId,
+    required String woNumber,
+    String? vendorId,
+    String? vendorName,
+    String? orderedBy,
+    List<WorkOrderPart>? externalParts,
+  }) async {
+    final parts = externalParts ??
+        (await listParts(workOrderId))
+            .where((p) => p.canRaisePo)
+            .toList();
+    if (parts.isEmpty) {
+      throw Exception('No pending external parts to order');
+    }
+
+    final number = await _client.rpc('next_po_number', params: {'p_org': organizationId});
+    final total = parts.fold<double>(0, (s, p) => s + p.qtyRequired * p.unitCost);
+
+    final row = await _client
+        .from('purchase_orders')
+        .insert({
+          'organization_id': organizationId,
+          'po_number': number as String,
+          'work_order_id': workOrderId,
+          if (vendorId != null) 'vendor_id': vendorId,
+          if (vendorName != null) 'vendor_name': vendorName,
+          if (orderedBy != null) 'ordered_by': orderedBy,
+          'notes': 'Raised from $woNumber',
+          'status': 'draft',
+          'total_amount': total,
+        })
+        .select()
+        .single();
+    final po = PurchaseOrder.fromMap(Map<String, dynamic>.from(row));
+
+    await _client.from('po_line_items').insert([
+      for (final p in parts)
+        {
+          'organization_id': organizationId,
+          'purchase_order_id': po.id,
+          'description': p.partName,
+          if (p.sparePartId != null) 'spare_part_id': p.sparePartId,
+          if (p.partNumber != null) 'part_number': p.partNumber,
+          'quantity': p.qtyRequired,
+          'unit_cost': p.unitCost,
+        },
+    ]);
+
+    // Soft-link parts to this draft PO (status stays pending until PO ordered)
+    for (final p in parts) {
+      await _client.from('work_order_parts').update({
+        'purchase_order_id': po.id,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', p.id);
+    }
+
+    await _client.from('work_order_events').insert({
+      'organization_id': organizationId,
+      'work_order_id': workOrderId,
+      'action': 'po_drafted',
+      'stage': 'procurement',
+      'actor': orderedBy,
+      'notes': 'Draft PO ${po.poNumber} for ${parts.length} external part(s)',
+    });
+
+    return po;
+  }
+
+  Future<List<PurchaseOrder>> listPurchaseOrdersForWo(String workOrderId) async {
+    final rows = await _client
+        .from('purchase_orders')
+        .select()
+        .eq('work_order_id', workOrderId)
+        .order('created_at', ascending: false);
+    return (rows as List)
+        .map((e) => PurchaseOrder.fromMap(Map<String, dynamic>.from(e as Map)))
+        .toList();
   }
 
   Future<List<WorkOrderEvent>> listEvents(String workOrderId) async {
@@ -353,11 +455,9 @@ final workRepositoryProvider = Provider<WorkRepository>((ref) {
   return WorkRepository(ref.watch(supabaseClientProvider));
 });
 
-/// Status filter for WR list (`null` = all).
 final workRequestStatusFilterProvider =
     StateProvider.autoDispose<String?>((ref) => null);
 
-/// Status filter for WO list (`null` = all).
 final workOrderStatusFilterProvider =
     StateProvider.autoDispose<String?>((ref) => null);
 
@@ -401,6 +501,11 @@ final workOrderPartsProvider =
 final workOrderEventsProvider =
     FutureProvider.autoDispose.family<List<WorkOrderEvent>, String>((ref, woId) {
   return ref.watch(workRepositoryProvider).listEvents(woId);
+});
+
+final workOrderLinkedPosProvider =
+    FutureProvider.autoDispose.family<List<PurchaseOrder>, String>((ref, woId) {
+  return ref.watch(workRepositoryProvider).listPurchaseOrdersForWo(woId);
 });
 
 final openWorkOrdersCountProvider =
