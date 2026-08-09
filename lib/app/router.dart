@@ -14,7 +14,7 @@ import '../features/clients/system_form_screen.dart';
 import '../features/clients/systems_list_screen.dart';
 import '../features/inventory/inventory_screens.dart';
 import '../features/maintenance/maintenance_record_detail_screen.dart';
-import '../features/maintenance/maintenance_screens.dart';
+import '../features/maintenance/maintenance_screens.dart' hide ServiceHistoryScreen;
 import '../features/maintenance/service_history_screen.dart';
 import '../features/operations/operations_screens.dart';
 import '../features/org/create_org_screen.dart';
