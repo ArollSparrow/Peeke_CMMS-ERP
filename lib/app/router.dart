@@ -216,7 +216,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/maintenance/plans/:id/edit',
         builder: (context, state) => PmPlanFormScreen(planId: state.pathParameters['id']),
       ),
-      GoRoute(path: '/maintenance/jobs/new', builder: (context, state) => const LogMaintenanceJobScreen()),
+      GoRoute(
+        path: '/maintenance/jobs/new',
+        builder: (context, state) => LogMaintenanceJobScreen(
+          preselectedSystemId: state.uri.queryParameters['systemId'],
+        ),
+      ),
       GoRoute(path: '/maintenance/history', builder: (context, state) => const ServiceHistoryScreen()),
       GoRoute(
         path: '/maintenance/history/:id',
