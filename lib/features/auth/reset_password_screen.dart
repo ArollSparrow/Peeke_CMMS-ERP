@@ -54,6 +54,8 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
       await ref.read(supabaseClientProvider).auth.updateUser(
             UserAttributes(password: _password.text),
           );
+      // Clear recovery gate so router can leave this screen.
+      ref.read(passwordRecoveryPendingProvider.notifier).state = false;
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Password updated. You are signed in.')),
@@ -141,6 +143,8 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                     onPressed: _busy
                         ? null
                         : () async {
+                            ref.read(passwordRecoveryPendingProvider.notifier).state =
+                                false;
                             await ref.read(supabaseClientProvider).auth.signOut();
                             if (context.mounted) context.go('/login');
                           },

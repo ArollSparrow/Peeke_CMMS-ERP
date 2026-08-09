@@ -50,6 +50,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     authRefresh.value++;
   });
 
+  // Re-run redirects when recovery flag flips
+  ref.listen(passwordRecoveryPendingProvider, (_, __) {
+    authRefresh.value++;
+  });
+
   ref.onDispose(authRefresh.dispose);
 
   return GoRouter(
@@ -58,9 +63,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final signedIn = ref.read(isSignedInProvider);
       final loc = state.matchedLocation;
+      final recovery = ref.read(passwordRecoveryPendingProvider);
 
-      // Password recovery: stay on reset screen until user finishes
-      if (loc == '/reset-password') return null;
+      // Recovery session: always force the set-password screen first.
+      if (recovery) {
+        if (loc != '/reset-password') return '/reset-password';
+        return null;
+      }
+
+      if (loc == '/reset-password') {
+        // No recovery session — send signed-in users through gate, others to login
+        if (signedIn) return '/gate';
+        return '/login';
+      }
 
       if (!signedIn && !_isAuthPublicPath(loc)) return '/login';
       if (signedIn && loc == '/login') return '/gate';
