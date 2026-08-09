@@ -234,12 +234,22 @@ class WorkOrderPart {
   }
 
   bool get isExternal => source == 'external';
+
+  /// Internal + linked to catalogue + still pending → can deduct stock.
   bool get canIssueFromStock =>
       source == 'internal' &&
       procurementStatus == 'pending' &&
       sparePartId != null;
+
+  /// External + pending + not yet linked to any PO → eligible for Raise PO.
+  /// Prevents duplicate draft POs for the same lines.
   bool get canRaisePo =>
-      source == 'external' && procurementStatus == 'pending';
+      source == 'external' &&
+      procurementStatus == 'pending' &&
+      purchaseOrderId == null;
+
+  /// Soft-linked to a draft (or later) PO but still pending status.
+  bool get hasLinkedPo => purchaseOrderId != null;
 }
 
 class WorkOrderEvent {

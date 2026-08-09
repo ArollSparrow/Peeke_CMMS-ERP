@@ -143,6 +143,7 @@ class WorkOrderDetailScreen extends ConsumerWidget {
     SparePart? selectedCatalogue;
     final nameCtrl = TextEditingController();
     final qtyCtrl = TextEditingController(text: '1');
+    final costCtrl = TextEditingController(text: '0');
     var source = 'internal';
 
     final ok = await showDialog<bool>(
@@ -174,12 +175,12 @@ class WorkOrderDetailScreen extends ConsumerWidget {
                     value: selectedCatalogue,
                     isExpanded: true,
                     decoration: const InputDecoration(
-                      labelText: 'Catalogue part (recommended)',
+                      labelText: 'Catalogue part (required to Issue)',
                     ),
                     items: [
                       const DropdownMenuItem(
                         value: null,
-                        child: Text('— Free text —'),
+                        child: Text('— Free text (cannot Issue) —'),
                       ),
                       ...catalogue.map(
                         (p) => DropdownMenuItem(
@@ -195,6 +196,7 @@ class WorkOrderDetailScreen extends ConsumerWidget {
                       selectedCatalogue = p;
                       if (p != null) {
                         nameCtrl.text = p.name;
+                        costCtrl.text = (p.unitCost).toString();
                       }
                     }),
                   ),
@@ -204,7 +206,7 @@ class WorkOrderDetailScreen extends ConsumerWidget {
                   const Padding(
                     padding: EdgeInsets.only(bottom: 8),
                     child: Text(
-                      'No catalogue parts yet. Add under Inventory, or type a name below.',
+                      'No catalogue parts yet. Add under Inventory, then pick here to enable Issue from stock. Free-text internal lines cannot be issued.',
                       style: TextStyle(fontSize: 12, color: GlossColors.muted),
                     ),
                   ),
@@ -215,9 +217,21 @@ class WorkOrderDetailScreen extends ConsumerWidget {
                 const SizedBox(height: 8),
                 TextField(
                   controller: qtyCtrl,
-                  keyboardType: TextInputType.number,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: const InputDecoration(labelText: 'Qty required'),
                 ),
+                if (source == 'external') ...[
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: costCtrl,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Unit cost (optional)',
+                      hintText: 'Used for PO total',
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -236,13 +250,16 @@ class WorkOrderDetailScreen extends ConsumerWidget {
     if (ok != true) {
       nameCtrl.dispose();
       qtyCtrl.dispose();
+      costCtrl.dispose();
       return;
     }
     final name = nameCtrl.text.trim();
     final qty = double.tryParse(qtyCtrl.text.trim()) ?? 1;
+    final unitCost = double.tryParse(costCtrl.text.trim()) ?? 0;
     final cat = selectedCatalogue;
     nameCtrl.dispose();
     qtyCtrl.dispose();
+    costCtrl.dispose();
     if (name.isEmpty) return;
 
     try {
@@ -254,7 +271,9 @@ class WorkOrderDetailScreen extends ConsumerWidget {
             partNumber: cat?.partNumber,
             source: source,
             qtyRequired: qty,
-            unitCost: cat?.unitCost ?? 0,
+            unitCost: source == 'external'
+                ? unitCost
+                : (cat?.unitCost ?? unitCost),
           );
       _invalidateAll(ref);
       if (context.mounted) {
@@ -316,7 +335,7 @@ class WorkOrderDetailScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Creates a draft PO with all pending external parts on this WO. '
+                'Creates a draft PO with all pending external parts that are not yet linked to a PO. '
                 'Approve → Order → Receive in Procurement to put stock in and mark parts received.',
                 style: TextStyle(fontSize: 12, color: GlossColors.muted),
               ),
@@ -509,8 +528,7 @@ class WorkOrderDetailScreen extends ConsumerWidget {
                               ),
                               title: Text(p.partName),
                               subtitle: Text(
-                                'Qty ${p.qtyRequired} · ${p.source} · ${p.procurementStatus}'
-                                '${p.sparePartId == null && !p.isExternal ? ' · no catalogue link' : ''}',
+                                _partSubtitle(p),
                                 style: const TextStyle(
                                     color: GlossColors.muted, fontSize: 12),
                               ),
@@ -523,7 +541,8 @@ class WorkOrderDetailScreen extends ConsumerWidget {
                                           _issuePart(context, ref, p),
                                       child: const Text('Issue'),
                                     ),
-                                  if (p.procurementStatus == 'pending')
+                                  if (p.procurementStatus == 'pending' &&
+                                      !p.hasLinkedPo)
                                     IconButton(
                                       icon: const Icon(Icons.delete_outline,
                                           size: 20),
@@ -708,6 +727,24 @@ class WorkOrderDetailScreen extends ConsumerWidget {
         },
       ),
     );
+  }
+
+  String _partSubtitle(WorkOrderPart p) {
+    final bits = <String>[
+      'Qty ${p.qtyRequired}',
+      p.source,
+      p.procurementStatus,
+    ];
+    if (p.unitCost > 0) {
+      bits.add('KES ${p.unitCost.toStringAsFixed(0)}');
+    }
+    if (p.source == 'internal' && p.sparePartId == null) {
+      bits.add('no catalogue link — cannot Issue');
+    }
+    if (p.hasLinkedPo && p.procurementStatus == 'pending') {
+      bits.add('draft PO linked');
+    }
+    return bits.join(' · ');
   }
 
   Widget _row(String label, String? value) {
