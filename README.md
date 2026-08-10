@@ -29,6 +29,7 @@ After a **green** Actions run on `feature/registration_module_grok`:
 - Multi-tenant: every org isolated via RLS
 - **BYO Paystack** for tenant customer payments ([ADR 001](docs/adr/001-tenant-payments-byo.md))
 - Riverpod-first, Gloss UI, **Cloudflare Pages** for web preview + production
+- **Mobile-first offline** (Android + iOS primary) — see [Roadmap](docs/ROADMAP.md)
 
 ## Backend
 
@@ -72,6 +73,7 @@ flutter run -d chrome
 
 ## Docs
 
+- **[Roadmap](docs/ROADMAP.md)** ← Phase 0–4 strategy (mobile-first + surgical import from Peeke™)
 - [Implementation strategy](docs/IMPLEMENTATION_STRATEGY.md)
 - [Foundation](docs/FOUNDATION.md)
 - [ADR 001 — BYO payments](docs/adr/001-tenant-payments-byo.md)
