@@ -1,7 +1,7 @@
 # Peeke CMMS-ERP Roadmap
 
 **Last updated:** 2026-08-10  
-**Status:** Phase 0 starting  
+**Status:** Phase 0 in progress  
 **Source of truth for platform priority and sequencing**
 
 This roadmap advances **Peeke_CMMS-ERP** by importing the high-value “surgical” maintenance depth already proven in the mature **Peeke™** project (`ArollSparrow/Peeke` + Supabase `ggvdgkaptatlfepgnjkx`), while strictly following a **mobile-first, offline-first** strategy.
@@ -53,6 +53,16 @@ This roadmap advances **Peeke_CMMS-ERP** by importing the high-value “surgical
 
 **Goal:** Clean, tenant-scoped domain model + local schema ready for offline mobile.
 
+### Flutter platform scaffolding (mobile-first)
+- [x] Repo prepared for Android + iOS (`.gitignore`, README, `scripts/setup_platforms.sh`)
+- [ ] Generate native folders locally (required once):
+  ```bash
+  bash scripts/setup_platforms.sh
+  # or: flutter create . --project-name peeke_cmms_erp --platforms=android,ios,web
+  ```
+- [ ] Commit generated `android/` and `ios/` folders to the repo
+- Web continues via existing Cloudflare Pages pipeline
+
 ### Backend (Supabase – Peeke CMMS-ERP `tappfahlaiixctyliesz`)
 1. Finalize multi-tenancy — harden RLS on every table.
 2. Import critical surgical details from Peeke™:
@@ -71,7 +81,7 @@ This roadmap advances **Peeke_CMMS-ERP** by importing the high-value “surgical
 - Choose and wire offline engine (**PowerSync recommended**).
 - Auth + organization membership + switching skeleton.
 
-**Deliverable:** Domain model locked, migrations applied, local schema designed, offline engine decided.
+**Deliverable:** Domain model locked, migrations applied, local schema designed, offline engine decided, Android + iOS platform folders present.
 
 ---
 
