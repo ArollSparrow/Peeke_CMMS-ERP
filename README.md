@@ -15,21 +15,14 @@
 | **Branch preview** | `https://<branch-with-slashes-as-hyphens>.peeke-cmms-erp.pages.dev` |
 | **Unique deploy** | Printed in **Actions** job summary / Cloudflare deployment (hash URL) |
 
-### Example (registration review branch)
-
-After a **green** Actions run on `feature/registration_module_grok`:
-
-- Branch alias: https://feature-registration-module-grok.peeke-cmms-erp.pages.dev  
-- Or open **Actions → Deploy Web → Cloudflare Pages → latest run → Summary** for the exact deployment URL.
-
-> Preview URLs only exist **after** CI has deployed that branch. Pushing code alone is not enough if the workflow never ran for that branch.
+> Preview URLs only exist **after** CI has deployed that branch.
 
 ## Locked decisions
 
 - Multi-tenant: every org isolated via RLS
 - **BYO Paystack** for tenant customer payments ([ADR 001](docs/adr/001-tenant-payments-byo.md))
 - Riverpod-first, Gloss UI, **Cloudflare Pages** for web preview + production
-- **Mobile-first offline** (Android + iOS primary) — see [Roadmap](docs/ROADMAP.md)
+- **Mobile-first offline** (Android + iOS primary, Web secondary) — see [Roadmap](docs/ROADMAP.md)
 
 ## Backend
 
@@ -40,18 +33,51 @@ After a **green** Actions run on `feature/registration_module_grok`:
 | URL | `https://tappfahlaiixctyliesz.supabase.co` |
 | Region | `eu-central-1` |
 
-## Deploy setup (one-time)
+## Platforms (Mobile-first)
+
+| Priority | Platform | Status | Notes |
+|----------|----------|--------|-------|
+| 1 | **Android** | Generate locally | Primary field app |
+| 1 | **iOS** | Generate locally | Primary field app |
+| 2 | **Web** | Auto-created by `build.sh` / CI | Office users |
+| 3 | Desktop | Optional later | Only if demand appears |
+
+### One-time platform generation (required for Android + iOS)
+
+The repo is intentionally lib-first. Native project folders are created with Flutter:
+
+```bash
+git clone https://github.com/ArollSparrow/Peeke_CMMS-ERP.git
+cd Peeke_CMMS-ERP
+
+# Generate Android + iOS + Web platform folders (safe if some already exist)
+flutter create . --project-name peeke_cmms_erp --platforms=android,ios,web
+
+flutter pub get
+```
+
+Then run on a device/emulator:
+
+```bash
+# Android
+flutter run -d android
+
+# iOS (macOS + Xcode required)
+flutter run -d ios
+
+# Web
+flutter run -d chrome
+```
+
+> After the first `flutter create`, commit the generated `android/` and `ios/` folders (recommended) so the whole team shares the same native baseline. `.gitignore` already excludes build artifacts, keystores, Pods, etc.
+
+## Deploy setup (Web / Cloudflare Pages)
 
 GitHub Actions workflow: `.github/workflows/deploy-cloudflare-pages.yml`
 
-**Triggers**
+**Triggers:** push to any branch, PRs into `main`, `workflow_dispatch`. `main` → production.
 
-- Every **push** to any branch (including `feature/*_grok`) → Pages deploy  
-- **Pull requests** into `main` → preview deploy  
-- **workflow_dispatch** → manual run  
-- `main` → production environment on project `peeke-cmms-erp`
-
-Add **repository secrets** (Settings → Secrets and variables → Actions):
+**Required secrets:**
 
 | Secret | Value |
 |--------|--------|
@@ -59,17 +85,7 @@ Add **repository secrets** (Settings → Secrets and variables → Actions):
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account id |
 | `SUPABASE_ANON_KEY` | Anon key from Supabase project `tappfahlaiixctyliesz` |
 
-Optional variable: `SUPABASE_URL` (defaults to clean-slate URL in the workflow).
-
-## Run locally
-
-```bash
-git clone https://github.com/ArollSparrow/Peeke_CMMS-ERP.git
-cd Peeke_CMMS-ERP
-flutter create . --project-name peeke_cmms_erp
-flutter pub get
-flutter run -d chrome
-```
+Optional: `SUPABASE_URL` (defaults to the clean-slate URL in the workflow).
 
 ## Docs
 
