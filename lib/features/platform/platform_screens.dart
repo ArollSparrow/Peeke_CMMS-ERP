@@ -3,13 +3,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../design/gloss_theme.dart';
+import '../../infra/friendly_error.dart';
 import '../auth/auth_providers.dart';
 import 'platform_models.dart';
 import 'platform_providers.dart';
 
 /// Post-login gate: platform admin → /platform only; tenants → /home.
+/// Also attaches any pending org invites for this email.
 class PostAuthGateScreen extends ConsumerWidget {
   const PostAuthGateScreen({super.key});
+
+  Future<void> _acceptInvites(WidgetRef ref) async {
+    try {
+      await ref.read(supabaseClientProvider).rpc('accept_pending_org_invites');
+    } catch (_) {
+      // Non-fatal — user can still enter the app
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -20,13 +30,15 @@ class PostAuthGateScreen extends ConsumerWidget {
         body: Center(child: CircularProgressIndicator()),
       ),
       error: (_, __) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          await _acceptInvites(ref);
           if (context.mounted) context.go('/home');
         });
         return const Scaffold(body: Center(child: CircularProgressIndicator()));
       },
       data: (isAdmin) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          if (!isAdmin) await _acceptInvites(ref);
           if (!context.mounted) return;
           context.go(isAdmin ? '/platform' : '/home');
         });
@@ -131,7 +143,9 @@ class PlatformHomeScreen extends ConsumerWidget {
               icon: Icons.key_outlined,
               title: 'Platform Paystack',
               subtitle: pay?.isConfigured == true
-                  ? (pay!.isLive ? 'Live keys configured' : 'Test keys configured')
+                  ? (pay!.isLive
+                      ? 'Live keys configured'
+                      : 'Test keys configured')
                   : 'Keys for collecting tenant subscriptions',
               badge: pay?.isEnabled == true ? 'On' : 'Setup',
               onTap: () => context.push('/platform/payments'),
@@ -153,7 +167,7 @@ class PlatformTenantsScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Tenants')),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => Center(child: Text(friendlyError(e))),
         data: (items) {
           if (items.isEmpty) {
             return const Center(
@@ -237,7 +251,9 @@ class _PlatformSubscriptionsScreenState
         child: subs.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => ListView(children: [
-            Padding(padding: const EdgeInsets.all(24), child: Text('$e'))
+            Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(friendlyError(e)))
           ]),
           data: (items) {
             if (items.isEmpty) {
@@ -375,8 +391,8 @@ class _PlatformSubscriptionsScreenState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(friendlyError(e))));
       }
     }
   }
@@ -452,7 +468,7 @@ class _PlatformPaymentSettingsScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$e')));
+            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     } finally {
       if (mounted) setState(() => _loading = false);
