@@ -7,6 +7,7 @@ on:
     paths:
       - "lib/**"
       - "android/**"
+      - "assets/branding/**"
       - "pubspec.yaml"
       - ".github/workflows/build-android-apk.yml"
 
@@ -32,6 +33,9 @@ jobs:
 
       - name: Pub get
         run: flutter pub get
+
+      - name: Apply launcher icons
+        run: dart run flutter_launcher_icons
 
       - name: Build debug APK
         run: |
