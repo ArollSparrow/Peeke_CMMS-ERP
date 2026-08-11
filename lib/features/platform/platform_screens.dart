@@ -8,7 +8,6 @@ import 'platform_models.dart';
 import 'platform_providers.dart';
 
 /// Post-login gate: platform admin → /platform only; tenants → /home.
-/// Roles are fully isolated (no owner → tenant CMMS shortcut).
 class PostAuthGateScreen extends ConsumerWidget {
   const PostAuthGateScreen({super.key});
 
@@ -50,10 +49,10 @@ class PlatformHomeScreen extends ConsumerWidget {
 
     final tenantCount = tenants.valueOrNull?.length;
     final activeCount = tenants.valueOrNull
-            ?.where((t) =>
-                t.subscriptionStatus == 'active' ||
-                t.subscriptionStatus == 'trialing')
-            .length;
+        ?.where((t) =>
+            t.subscriptionStatus == 'active' ||
+            t.subscriptionStatus == 'trialing')
+        .length;
 
     return Scaffold(
       appBar: AppBar(
@@ -80,16 +79,19 @@ class PlatformHomeScreen extends ConsumerWidget {
             const Text(
               'Platform owner',
               style: TextStyle(
-                  fontSize: 22, fontWeight: FontWeight.w700, color: GlossColors.ink),
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: GlossColors.navy),
             ),
             const SizedBox(height: 4),
-            Text(user?.email ?? '', style: const TextStyle(color: GlossColors.muted)),
+            Text(user?.email ?? '',
+                style: const TextStyle(color: GlossColors.teal)),
             const SizedBox(height: 8),
             const Text(
               'This console is isolated from tenant CMMS. '
               'Tenants register with a separate email, confirm ownership via inbox, '
               'then create their organization. You collect SaaS subscriptions here.',
-              style: TextStyle(color: GlossColors.muted, fontSize: 13),
+              style: TextStyle(color: GlossColors.teal, fontSize: 13),
             ),
             const SizedBox(height: 20),
             Row(children: [
@@ -181,7 +183,7 @@ class PlatformTenantsScreen extends ConsumerWidget {
                       if (t.planName != null) t.planName!,
                       if (t.subscriptionStatus != null) t.subscriptionStatus!,
                     ].join(' · '),
-                    style: const TextStyle(color: GlossColors.muted, fontSize: 12),
+                    style: const TextStyle(color: GlossColors.teal, fontSize: 12),
                   ),
                   trailing: Chip(
                     label: Text(t.status, style: const TextStyle(fontSize: 11)),
@@ -242,15 +244,6 @@ class _PlatformSubscriptionsScreenState
               return ListView(children: const [
                 SizedBox(height: 48),
                 Center(child: Text('No subscriptions assigned yet')),
-                Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text(
-                    'When a tenant creates an organization they start on trial. '
-                    'Assign a paid plan here when ready.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: GlossColors.muted),
-                  ),
-                ),
               ]);
             }
             return ListView.separated(
@@ -269,7 +262,8 @@ class _PlatformSubscriptionsScreenState
                         if (s.amount != null)
                           '${s.currency} ${s.amount!.toStringAsFixed(0)}/${s.billingInterval}',
                       ].join(' · '),
-                      style: const TextStyle(color: GlossColors.muted, fontSize: 12),
+                      style:
+                          const TextStyle(color: GlossColors.teal, fontSize: 12),
                     ),
                     trailing: Chip(
                       label: Text(s.status, style: const TextStyle(fontSize: 11)),
@@ -330,7 +324,13 @@ class _PlatformSubscriptionsScreenState
               DropdownButtonFormField<String>(
                 value: status,
                 decoration: const InputDecoration(labelText: 'Status'),
-                items: const ['trialing', 'active', 'past_due', 'cancelled', 'expired']
+                items: const [
+                  'trialing',
+                  'active',
+                  'past_due',
+                  'cancelled',
+                  'expired'
+                ]
                     .map((s) => DropdownMenuItem(value: s, child: Text(s)))
                     .toList(),
                 onChanged: (v) => setLocal(() => status = v ?? 'trialing'),
@@ -375,7 +375,8 @@ class _PlatformSubscriptionsScreenState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
       }
     }
   }
@@ -400,7 +401,7 @@ class _PlatformPaymentSettingsScreenState
   bool _loading = false;
   bool _hydrated = false;
   bool _showSecret = false;
-  String? _maskedSecret;
+  bool _hasSecretKey = false;
 
   @override
   void dispose() {
@@ -418,7 +419,7 @@ class _PlatformPaymentSettingsScreenState
     _currency = s.currency;
     _isLive = s.isLive;
     _isEnabled = s.isEnabled;
-    _maskedSecret = PlatformPaymentSettings.maskKey(s.secretKey);
+    _hasSecretKey = s.hasSecretKey;
   }
 
   Future<void> _save() async {
@@ -428,10 +429,17 @@ class _PlatformPaymentSettingsScreenState
             isLive: _isLive,
             isEnabled: _isEnabled,
             publicKey: _publicKey.text,
-            secretKey: _secretKey.text.trim().isEmpty ? null : _secretKey.text,
             currency: _currency,
             businessName: _business.text,
           );
+
+      final secret = _secretKey.text.trim();
+      if (secret.isNotEmpty) {
+        await ref
+            .read(platformRepositoryProvider)
+            .setPlatformSecrets(secretKey: secret);
+      }
+
       ref.invalidate(platformPaymentSettingsProvider);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -443,7 +451,8 @@ class _PlatformPaymentSettingsScreenState
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -469,8 +478,8 @@ class _PlatformPaymentSettingsScreenState
           const Text(
             'These are Peeke’s merchant keys — used only to collect '
             'subscription fees from tenant organizations. '
-            'Tenant customer payments use each org’s own keys under Payments.',
-            style: TextStyle(color: GlossColors.muted, fontSize: 13),
+            'Secret keys are stored server-side and never returned to the app.',
+            style: TextStyle(color: GlossColors.teal, fontSize: 13),
           ),
           const SizedBox(height: 16),
           SwitchListTile(
@@ -509,14 +518,15 @@ class _PlatformPaymentSettingsScreenState
             controller: _secretKey,
             obscureText: !_showSecret,
             decoration: InputDecoration(
-              labelText: _maskedSecret != null && _maskedSecret != 'Not set'
+              labelText: _hasSecretKey
                   ? 'Secret key (leave blank to keep)'
                   : 'Secret key *',
-              helperText: _maskedSecret != null && _maskedSecret != 'Not set'
-                  ? 'Stored: $_maskedSecret'
-                  : null,
+              helperText: _hasSecretKey
+                  ? 'A secret is already stored on the server'
+                  : 'Never returned to the app after save',
               suffixIcon: IconButton(
-                icon: Icon(_showSecret ? Icons.visibility_off : Icons.visibility),
+                icon: Icon(
+                    _showSecret ? Icons.visibility_off : Icons.visibility),
                 onPressed: () => setState(() => _showSecret = !_showSecret),
               ),
             ),
@@ -553,19 +563,22 @@ class _Kpi extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: GlossColors.card,
+        color: GlossColors.sky,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: GlossColors.border),
+        border: Border.all(color: GlossColors.teal),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: GlossColors.accent),
+          Icon(icon, size: 20, color: GlossColors.teal),
           const SizedBox(height: 10),
           Text(value,
               style: const TextStyle(
-                  fontSize: 22, fontWeight: FontWeight.w700, color: GlossColors.ink)),
-          Text(label, style: const TextStyle(fontSize: 12, color: GlossColors.muted)),
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: GlossColors.navy)),
+          Text(label,
+              style: const TextStyle(fontSize: 12, color: GlossColors.teal)),
         ],
       ),
     );
@@ -584,7 +597,7 @@ class _Label extends StatelessWidget {
         fontSize: 12,
         fontWeight: FontWeight.w700,
         letterSpacing: 0.6,
-        color: GlossColors.muted,
+        color: GlossColors.teal,
       ),
     );
   }
@@ -610,7 +623,7 @@ class _Tile extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
-        leading: Icon(icon, color: GlossColors.accent),
+        leading: Icon(icon, color: GlossColors.teal),
         title: Text(title),
         subtitle: Text(subtitle),
         trailing: Row(
@@ -618,13 +631,15 @@ class _Tile extends StatelessWidget {
           children: [
             if (badge != null)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: GlossColors.pageBg,
+                  color: GlossColors.sky,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(badge!,
-                    style: const TextStyle(fontSize: 12, color: GlossColors.muted)),
+                    style:
+                        const TextStyle(fontSize: 12, color: GlossColors.navy)),
               ),
             const SizedBox(width: 4),
             const Icon(Icons.chevron_right),
