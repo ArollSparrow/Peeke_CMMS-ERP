@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../design/gloss_theme.dart';
+import '../../infra/friendly_error.dart';
 import 'auth_providers.dart';
 
 enum _AuthMode { signIn, register, forgot }
@@ -120,7 +121,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           break;
       }
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyError(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -146,7 +147,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       setState(() =>
           _info = 'Confirmation email resent to $email. Check inbox and spam.');
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyError(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -217,7 +218,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Logo carries the product name — no extra "Peeke CMMS-ERP" title
                   Center(
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(20),
