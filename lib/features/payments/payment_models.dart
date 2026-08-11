@@ -5,13 +5,13 @@ class PaymentSettings {
     this.provider = 'paystack',
     this.isLive = false,
     this.publicKey,
-    this.secretKey,
-    this.webhookSecret,
     this.currency = 'KES',
     this.businessName,
     this.isEnabled = false,
     this.lastVerifiedAt,
     this.notes,
+    this.hasSecretKey = false,
+    this.hasWebhookSecret = false,
   });
 
   final String id;
@@ -19,13 +19,15 @@ class PaymentSettings {
   final String provider;
   final bool isLive;
   final String? publicKey;
-  final String? secretKey;
-  final String? webhookSecret;
   final String currency;
   final String? businessName;
   final bool isEnabled;
   final DateTime? lastVerifiedAt;
   final String? notes;
+
+  /// Server-side flags only — secrets never leave the database to the client.
+  final bool hasSecretKey;
+  final bool hasWebhookSecret;
 
   factory PaymentSettings.fromMap(Map<String, dynamic> m) => PaymentSettings(
         id: m['id'] as String,
@@ -33,8 +35,6 @@ class PaymentSettings {
         provider: m['provider'] as String? ?? 'paystack',
         isLive: m['is_live'] as bool? ?? false,
         publicKey: m['public_key'] as String?,
-        secretKey: m['secret_key'] as String?,
-        webhookSecret: m['webhook_secret'] as String?,
         currency: m['currency'] as String? ?? 'KES',
         businessName: m['business_name'] as String?,
         isEnabled: m['is_enabled'] as bool? ?? false,
@@ -42,10 +42,11 @@ class PaymentSettings {
             ? DateTime.tryParse(m['last_verified_at'].toString())
             : null,
         notes: m['notes'] as String?,
+        hasSecretKey: m['has_secret_key'] as bool? ?? false,
+        hasWebhookSecret: m['has_webhook_secret'] as bool? ?? false,
       );
 
   bool get hasPublicKey => publicKey != null && publicKey!.trim().isNotEmpty;
-  bool get hasSecretKey => secretKey != null && secretKey!.trim().isNotEmpty;
   bool get isConfigured => hasPublicKey && hasSecretKey;
 
   String get statusLabel {
@@ -54,7 +55,6 @@ class PaymentSettings {
     return isLive ? 'Live' : 'Test mode';
   }
 
-  /// Mask secret for display: sk_test_••••last4
   static String maskKey(String? key) {
     if (key == null || key.isEmpty) return 'Not set';
     if (key.length <= 8) return '••••••••';
@@ -93,7 +93,8 @@ class PaymentTransaction {
   final DateTime? paidAt;
   final DateTime? createdAt;
 
-  factory PaymentTransaction.fromMap(Map<String, dynamic> m) => PaymentTransaction(
+  factory PaymentTransaction.fromMap(Map<String, dynamic> m) =>
+      PaymentTransaction(
         id: m['id'] as String,
         organizationId: m['organization_id'] as String,
         reference: m['reference'] as String,
@@ -105,7 +106,11 @@ class PaymentTransaction {
         customerName: m['customer_name'] as String?,
         description: m['description'] as String?,
         clientId: m['client_id'] as String?,
-        paidAt: m['paid_at'] != null ? DateTime.tryParse(m['paid_at'].toString()) : null,
-        createdAt: m['created_at'] != null ? DateTime.tryParse(m['created_at'].toString()) : null,
+        paidAt: m['paid_at'] != null
+            ? DateTime.tryParse(m['paid_at'].toString())
+            : null,
+        createdAt: m['created_at'] != null
+            ? DateTime.tryParse(m['created_at'].toString())
+            : null,
       );
 }
