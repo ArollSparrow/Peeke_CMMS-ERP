@@ -31,11 +31,11 @@ flutter:
   assets:
     - assets/branding/
 
-# Official launcher icon: sky-blue Peeke wordmark (locked 2026-08-11)
+# Official launcher icon — colors sampled from logo asset
 flutter_launcher_icons:
   android: true
   ios: true
   image_path: assets/branding/peeke_icon.png
-  adaptive_icon_background: "#E8F4FC"
+  adaptive_icon_background: "#D3EFFD"
   adaptive_icon_foreground: assets/branding/peeke_icon.png
   remove_alpha_ios: true
