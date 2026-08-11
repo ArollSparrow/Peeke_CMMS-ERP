@@ -157,7 +157,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   String get _title {
     switch (_mode) {
       case _AuthMode.register:
-        return 'Register as a tenant (new email)';
+        return 'Register as a tenant';
       case _AuthMode.forgot:
         return 'Reset your password';
       case _AuthMode.signIn:
@@ -178,7 +178,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Recovery link lands with a session → send user to set new password.
     ref.listen(authStateProvider, (prev, next) {
       final event = next.valueOrNull?.event;
       if (event == AuthChangeEvent.passwordRecovery && context.mounted) {
@@ -187,124 +186,231 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     return Scaffold(
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 400),
-          child: Card(
-            margin: const EdgeInsets.all(24),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
+      backgroundColor: GlossColors.sky,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    'Peeke CMMS-ERP',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: GlossColors.ink,
+                  // Brand header
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: Image.asset(
+                      'assets/branding/peeke_icon.png',
+                      height: 120,
+                      width: 120,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        height: 120,
+                        width: 120,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: GlossColors.card,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: GlossColors.border),
                         ),
+                        child: const Text(
+                          'Peeke',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w700,
+                            color: GlossColors.navy,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Peeke CMMS-ERP',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: GlossColors.navy,
+                      letterSpacing: -0.3,
+                    ),
                   ),
                   const SizedBox(height: 4),
-                  Text(_title, style: const TextStyle(color: GlossColors.muted)),
-                  const SizedBox(height: 8),
-                  if (_mode == _AuthMode.register)
-                    const Text(
-                      'Use a work email you control. We send a confirmation link — '
-                      'you must open it before creating an organization (proves ownership).',
-                      style: TextStyle(color: GlossColors.muted, fontSize: 12),
+                  const Text(
+                    'Multi-tenant maintenance & operations',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: GlossColors.muted,
                     ),
-                  if (_mode == _AuthMode.forgot)
-                    const Text(
-                      'Enter the email for your account (platform owner or tenant). '
-                      'We will send a one-time link so you can choose a new password.',
-                      style: TextStyle(color: GlossColors.muted, fontSize: 12),
-                    ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _email,
-                    keyboardType: TextInputType.emailAddress,
-                    autofillHints: const [AutofillHints.email],
-                    decoration: const InputDecoration(labelText: 'Email'),
                   ),
-                  if (_mode != _AuthMode.forgot) ...[
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _password,
-                      obscureText: !_showPassword,
-                      autofillHints: _mode == _AuthMode.register
-                          ? const [AutofillHints.newPassword]
-                          : const [AutofillHints.password],
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _showPassword
-                                ? Icons.visibility_off
-                                : Icons.visibility,
+                  const SizedBox(height: 6),
+                  Text(
+                    'by Peeke Automation',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: GlossColors.teal.withValues(alpha: 0.95),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Auth card
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            _title,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: GlossColors.navy,
+                            ),
                           ),
-                          onPressed: () =>
-                              setState(() => _showPassword = !_showPassword),
-                        ),
+                          const SizedBox(height: 8),
+                          if (_mode == _AuthMode.register)
+                            const Text(
+                              'Use a work email you control. We send a confirmation link — '
+                              'you must open it before creating an organization.',
+                              style: TextStyle(
+                                color: GlossColors.muted,
+                                fontSize: 12,
+                              ),
+                            ),
+                          if (_mode == _AuthMode.forgot)
+                            const Text(
+                              'Enter the email for your account. We will send a one-time '
+                              'link so you can choose a new password.',
+                              style: TextStyle(
+                                color: GlossColors.muted,
+                                fontSize: 12,
+                              ),
+                            ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _email,
+                            keyboardType: TextInputType.emailAddress,
+                            autofillHints: const [AutofillHints.email],
+                            decoration:
+                                const InputDecoration(labelText: 'Email'),
+                          ),
+                          if (_mode != _AuthMode.forgot) ...[
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: _password,
+                              obscureText: !_showPassword,
+                              autofillHints: _mode == _AuthMode.register
+                                  ? const [AutofillHints.newPassword]
+                                  : const [AutofillHints.password],
+                              decoration: InputDecoration(
+                                labelText: 'Password',
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _showPassword
+                                        ? Icons.visibility_off
+                                        : Icons.visibility,
+                                    color: GlossColors.muted,
+                                  ),
+                                  onPressed: () => setState(
+                                      () => _showPassword = !_showPassword),
+                                ),
+                              ),
+                            ),
+                          ],
+                          if (_mode == _AuthMode.register) ...[
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: _confirm,
+                              obscureText: !_showPassword,
+                              autofillHints: const [AutofillHints.newPassword],
+                              decoration: const InputDecoration(
+                                labelText: 'Confirm password',
+                              ),
+                              onSubmitted: (_) => _busy ? null : _submit(),
+                            ),
+                          ],
+                          if (_error != null) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              _error!,
+                              style: const TextStyle(color: GlossColors.danger),
+                            ),
+                          ],
+                          if (_info != null) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              _info!,
+                              style:
+                                  const TextStyle(color: GlossColors.success),
+                            ),
+                          ],
+                          const SizedBox(height: 20),
+                          FilledButton(
+                            onPressed: _busy ? null : _submit,
+                            child: _busy
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Text(_primaryLabel),
+                          ),
+                          if (_mode == _AuthMode.signIn) ...[
+                            TextButton(
+                              onPressed: _busy
+                                  ? null
+                                  : () => _setMode(_AuthMode.forgot),
+                              child: const Text('Forgot password?'),
+                            ),
+                            TextButton(
+                              onPressed: _busy
+                                  ? null
+                                  : () => _setMode(_AuthMode.register),
+                              child: const Text(
+                                  'Need a tenant account? Register'),
+                            ),
+                            TextButton(
+                              onPressed: _busy ? null : _resendConfirmation,
+                              child: const Text('Resend confirmation email'),
+                            ),
+                          ],
+                          if (_mode == _AuthMode.register)
+                            TextButton(
+                              onPressed: _busy
+                                  ? null
+                                  : () => _setMode(_AuthMode.signIn),
+                              child: const Text(
+                                  'Already have an account? Sign in'),
+                            ),
+                          if (_mode == _AuthMode.forgot)
+                            TextButton(
+                              onPressed: _busy
+                                  ? null
+                                  : () => _setMode(_AuthMode.signIn),
+                              child: const Text('Back to sign in'),
+                            ),
+                        ],
                       ),
                     ),
-                  ],
-                  if (_mode == _AuthMode.register) ...[
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _confirm,
-                      obscureText: !_showPassword,
-                      autofillHints: const [AutofillHints.newPassword],
-                      decoration: const InputDecoration(
-                        labelText: 'Confirm password',
-                      ),
-                      onSubmitted: (_) => _busy ? null : _submit(),
-                    ),
-                  ],
-                  if (_error != null) ...[
-                    const SizedBox(height: 12),
-                    Text(_error!, style: const TextStyle(color: GlossColors.danger)),
-                  ],
-                  if (_info != null) ...[
-                    const SizedBox(height: 12),
-                    Text(_info!, style: const TextStyle(color: Color(0xFF16A34A))),
-                  ],
-                  const SizedBox(height: 20),
-                  FilledButton(
-                    onPressed: _busy ? null : _submit,
-                    child: _busy
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(_primaryLabel),
                   ),
-                  if (_mode == _AuthMode.signIn) ...[
-                    TextButton(
-                      onPressed: _busy ? null : () => _setMode(_AuthMode.forgot),
-                      child: const Text('Forgot password?'),
+
+                  const SizedBox(height: 20),
+                  const Text(
+                    '© Peeke Automation · Peeke CMMS-ERP',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: GlossColors.muted,
                     ),
-                    TextButton(
-                      onPressed:
-                          _busy ? null : () => _setMode(_AuthMode.register),
-                      child: const Text('Need a tenant account? Register'),
-                    ),
-                    TextButton(
-                      onPressed: _busy ? null : _resendConfirmation,
-                      child: const Text('Resend confirmation email'),
-                    ),
-                  ],
-                  if (_mode == _AuthMode.register)
-                    TextButton(
-                      onPressed: _busy ? null : () => _setMode(_AuthMode.signIn),
-                      child: const Text('Already have an account? Sign in'),
-                    ),
-                  if (_mode == _AuthMode.forgot)
-                    TextButton(
-                      onPressed: _busy ? null : () => _setMode(_AuthMode.signIn),
-                      child: const Text('Back to sign in'),
-                    ),
+                  ),
                 ],
               ),
             ),
