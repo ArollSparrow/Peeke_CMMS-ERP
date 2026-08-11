@@ -217,13 +217,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Logo carries the product name — no extra "Peeke CMMS-ERP" title
                   Center(
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(20),
                       child: Image.asset(
                         'assets/branding/peeke_icon.png',
-                        height: 120,
-                        width: 120,
+                        height: 140,
+                        width: 140,
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => const Text(
                           'Peeke',
@@ -236,23 +237,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Peeke CMMS-ERP',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: GlossColors.navy,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 12),
                   const Text(
                     'Peeke Automation',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: GlossColors.teal,
                     ),
@@ -338,7 +328,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     Text(
                       _error!,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: GlossColors.danger),
+                      style: const TextStyle(color: GlossColors.navy),
                     ),
                   ],
                   if (_info != null) ...[
@@ -411,7 +401,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   const SizedBox(height: 24),
                   const Text(
-                    '© Peeke Automation · Peeke CMMS-ERP',
+                    '© Peeke Automation',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 11,
