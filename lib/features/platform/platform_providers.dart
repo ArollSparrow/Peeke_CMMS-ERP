@@ -4,6 +4,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../auth/auth_providers.dart';
 import 'platform_models.dart';
 
+const _platformPaySelect =
+    'id, provider, is_live, public_key, currency, business_name, is_enabled, last_verified_at, notes, updated_at';
+
 /// True when the signed-in user is in platform_admins.
 final isPlatformAdminProvider = FutureProvider.autoDispose<bool>((ref) async {
   final user = ref.watch(currentUserProvider);
@@ -27,7 +30,8 @@ class PlatformRepository {
         .select()
         .order('created_at', ascending: false);
     final orgs = (rows as List)
-        .map((e) => TenantOrgSummary.fromMap(Map<String, dynamic>.from(e as Map)))
+        .map((e) =>
+            TenantOrgSummary.fromMap(Map<String, dynamic>.from(e as Map)))
         .toList();
 
     final subs = await _client.from('organization_subscriptions').select(
@@ -39,22 +43,20 @@ class PlatformRepository {
       byOrg[m['organization_id'] as String] = m;
     }
 
-    return orgs
-        .map((o) {
-          final s = byOrg[o.id];
-          if (s == null) return o;
-          final plan = s['subscription_plans'] as Map<String, dynamic>?;
-          return TenantOrgSummary(
-            id: o.id,
-            name: o.name,
-            slug: o.slug,
-            status: o.status,
-            createdAt: o.createdAt,
-            subscriptionStatus: s['status'] as String?,
-            planName: plan?['name'] as String?,
-          );
-        })
-        .toList();
+    return orgs.map((o) {
+      final s = byOrg[o.id];
+      if (s == null) return o;
+      final plan = s['subscription_plans'] as Map<String, dynamic>?;
+      return TenantOrgSummary(
+        id: o.id,
+        name: o.name,
+        slug: o.slug,
+        status: o.status,
+        createdAt: o.createdAt,
+        subscriptionStatus: s['status'] as String?,
+        planName: plan?['name'] as String?,
+      );
+    }).toList();
   }
 
   Future<List<SubscriptionPlan>> listPlans() async {
@@ -108,18 +110,29 @@ class PlatformRepository {
   Future<PlatformPaymentSettings?> getPlatformPaymentSettings() async {
     final row = await _client
         .from('platform_payment_settings')
-        .select()
+        .select(_platformPaySelect)
         .eq('provider', 'paystack')
         .maybeSingle();
     if (row == null) return null;
-    return PlatformPaymentSettings.fromMap(Map<String, dynamic>.from(row));
+
+    final flags = await _client.rpc(
+      'platform_payment_secret_flags',
+      params: {'p_provider': 'paystack'},
+    );
+
+    final map = Map<String, dynamic>.from(row);
+    if (flags is List && flags.isNotEmpty) {
+      final f = Map<String, dynamic>.from(flags.first as Map);
+      map['has_secret_key'] = f['has_secret_key'] == true;
+      map['has_webhook_secret'] = f['has_webhook_secret'] == true;
+    }
+    return PlatformPaymentSettings.fromMap(map);
   }
 
   Future<PlatformPaymentSettings> upsertPlatformPaymentSettings({
     required bool isLive,
     required bool isEnabled,
     String? publicKey,
-    String? secretKey,
     String currency = 'KES',
     String? businessName,
   }) async {
@@ -136,15 +149,12 @@ class PlatformRepository {
         'business_name':
             businessName.trim().isEmpty ? null : businessName.trim(),
     };
-    if (secretKey != null && secretKey.trim().isNotEmpty) {
-      patch['secret_key'] = secretKey.trim();
-    }
 
     if (existing == null) {
       final row = await _client
           .from('platform_payment_settings')
           .insert(patch)
-          .select()
+          .select(_platformPaySelect)
           .single();
       return PlatformPaymentSettings.fromMap(Map<String, dynamic>.from(row));
     }
@@ -153,9 +163,25 @@ class PlatformRepository {
         .from('platform_payment_settings')
         .update(patch)
         .eq('id', existing.id)
-        .select()
+        .select(_platformPaySelect)
         .single();
     return PlatformPaymentSettings.fromMap(Map<String, dynamic>.from(row));
+  }
+
+  Future<void> setPlatformSecrets({
+    String? secretKey,
+    String? webhookSecret,
+  }) async {
+    await _client.rpc(
+      'set_platform_payment_secrets',
+      params: {
+        'p_provider': 'paystack',
+        if (secretKey != null && secretKey.trim().isNotEmpty)
+          'p_secret_key': secretKey.trim(),
+        if (webhookSecret != null && webhookSecret.trim().isNotEmpty)
+          'p_webhook_secret': webhookSecret.trim(),
+      },
+    );
   }
 }
 
