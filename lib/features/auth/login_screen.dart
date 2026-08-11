@@ -14,7 +14,6 @@ String authRedirectTo(String path) {
   if (kIsWeb) {
     return '${Uri.base.origin}$path';
   }
-  // Mobile / desktop: point at production web until deep links are configured.
   return 'https://peeke-cmms-erp.pages.dev$path';
 }
 
@@ -196,7 +195,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Brand header
                   ClipRRect(
                     borderRadius: BorderRadius.circular(20),
                     child: Image.asset(
@@ -251,12 +249,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: GlossColors.teal.withValues(alpha: 0.95),
+                      color: GlossColors.teal.withOpacity(0.95),
                     ),
                   ),
                   const SizedBox(height: 24),
-
-                  // Auth card
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
@@ -401,7 +397,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 20),
                   const Text(
                     '© Peeke Automation · Peeke CMMS-ERP',
