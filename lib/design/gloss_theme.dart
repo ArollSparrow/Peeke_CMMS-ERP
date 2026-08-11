@@ -1,20 +1,26 @@
 import 'package:flutter/material.dart';
 
-/// Peeke CMMS-ERP — strict 3-color system (logo-aligned).
+/// Peeke CMMS-ERP — strict 3-color system sampled from the official logo asset.
 ///
-/// 1. [sky]   `#E8F4FC` — every screen background
-/// 2. [navy]  `#0B1F3A` — primary text, buttons, strong UI
-/// 3. [teal]  `#2A9D8F` — accents, links, secondary text
+/// Sampled from `assets/branding/peeke_icon.png` (2026-08-11):
+/// 1. [sky]  `#D3EFFD` — logo field + every screen background
+/// 2. [navy] `#272A6D` — "Peeke" wordmark (primary text / buttons)
+/// 3. [teal] `#55AAAC` — network nodes + "CMMS-ERP" (accents / links)
 ///
 /// Provider: Peeke Automation
 class GlossColors {
   GlossColors._();
 
-  static const Color sky = Color(0xFFE8F4FC);
-  static const Color navy = Color(0xFF0B1F3A);
-  static const Color teal = Color(0xFF2A9D8F);
+  /// Logo background (exact sample avg)
+  static const Color sky = Color(0xFFD3EFFD);
 
-  // Aliases (no extra hues)
+  /// Logo wordmark navy / indigo
+  static const Color navy = Color(0xFF272A6D);
+
+  /// Logo network + CMMS-ERP teal/cyan
+  static const Color teal = Color(0xFF55AAAC);
+
+  // Aliases — no extra hues
   static const Color pageBg = sky;
   static const Color card = sky;
   static const Color ink = navy;
