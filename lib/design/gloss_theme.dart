@@ -1,35 +1,28 @@
 import 'package:flutter/material.dart';
 
-/// Peeke CMMS-ERP brand tokens — aligned with launcher icon (2026-08-11).
+/// Peeke CMMS-ERP — strict 3-color system (logo-aligned).
+///
+/// 1. [sky]   `#E8F4FC` — every screen background
+/// 2. [navy]  `#0B1F3A` — primary text, buttons, strong UI
+/// 3. [teal]  `#2A9D8F` — accents, links, secondary text
+///
 /// Provider: Peeke Automation
 class GlossColors {
   GlossColors._();
 
-  /// Light sky field (icon background)
   static const Color sky = Color(0xFFE8F4FC);
-
-  /// Page / scaffold
-  static const Color pageBg = Color(0xFFF0F7FC);
-
-  /// Cards & surfaces
-  static const Color card = Color(0xFFFFFFFF);
-
-  /// Deep navy — primary mark / headings
   static const Color navy = Color(0xFF0B1F3A);
-
-  /// Alias for body text
-  static const Color ink = navy;
-
-  /// Soft teal — accent / systems
   static const Color teal = Color(0xFF2A9D8F);
 
-  /// Primary interactive accent
+  // Aliases (no extra hues)
+  static const Color pageBg = sky;
+  static const Color card = sky;
+  static const Color ink = navy;
   static const Color accent = teal;
-
-  static const Color muted = Color(0xFF5B6B7C);
-  static const Color border = Color(0xFFD6E4F0);
-  static const Color danger = Color(0xFFDC2626);
-  static const Color success = Color(0xFF16A34A);
+  static const Color muted = teal;
+  static const Color border = teal;
+  static const Color danger = navy;
+  static const Color success = teal;
 }
 
 class GlossTheme {
@@ -38,51 +31,62 @@ class GlossTheme {
   static ThemeData get light {
     final base = ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: GlossColors.navy,
+      brightness: Brightness.light,
+      colorScheme: const ColorScheme.light(
         primary: GlossColors.navy,
+        onPrimary: GlossColors.sky,
         secondary: GlossColors.teal,
-        surface: GlossColors.card,
-        brightness: Brightness.light,
+        onSecondary: GlossColors.sky,
+        surface: GlossColors.sky,
+        onSurface: GlossColors.navy,
+        error: GlossColors.navy,
+        onError: GlossColors.sky,
       ),
-      scaffoldBackgroundColor: GlossColors.pageBg,
+      scaffoldBackgroundColor: GlossColors.sky,
     );
 
     return base.copyWith(
       appBarTheme: const AppBarTheme(
-        backgroundColor: GlossColors.card,
+        backgroundColor: GlossColors.sky,
         foregroundColor: GlossColors.navy,
         elevation: 0,
         centerTitle: false,
       ),
       cardTheme: CardThemeData(
-        color: GlossColors.card,
+        color: GlossColors.sky,
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: GlossColors.border),
+          side: const BorderSide(color: GlossColors.teal),
         ),
+      ),
+      dividerColor: GlossColors.teal,
+      textTheme: base.textTheme.apply(
+        bodyColor: GlossColors.navy,
+        displayColor: GlossColors.navy,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: GlossColors.card,
+        fillColor: GlossColors.sky,
+        labelStyle: const TextStyle(color: GlossColors.navy),
+        floatingLabelStyle: const TextStyle(color: GlossColors.teal),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: GlossColors.border),
+          borderSide: const BorderSide(color: GlossColors.teal),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: GlossColors.border),
+          borderSide: const BorderSide(color: GlossColors.teal),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: GlossColors.teal, width: 1.5),
+          borderSide: const BorderSide(color: GlossColors.navy, width: 1.5),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: GlossColors.navy,
-          foregroundColor: Colors.white,
+          foregroundColor: GlossColors.sky,
           minimumSize: const Size.fromHeight(48),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -94,6 +98,7 @@ class GlossTheme {
           foregroundColor: GlossColors.teal,
         ),
       ),
+      iconTheme: const IconThemeData(color: GlossColors.navy),
     );
   }
 }
