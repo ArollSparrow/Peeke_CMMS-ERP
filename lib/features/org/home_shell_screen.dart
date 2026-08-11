@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../design/gloss_theme.dart';
+import '../../infra/friendly_error.dart';
 import '../auth/auth_providers.dart';
 import '../clients/client_providers.dart';
 import '../inventory/inventory_providers.dart';
@@ -52,7 +53,7 @@ class HomeShellScreen extends ConsumerWidget {
       ),
       body: orgsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, _) => Center(child: Text(friendlyError(e))),
         data: (orgs) {
           if (orgs.isEmpty) {
             return _EmptyOrg(onCreate: () => context.push('/org/create'));
@@ -76,13 +77,17 @@ class HomeShellScreen extends ConsumerWidget {
               children: [
                 Text(active?.name ?? 'Organization',
                     style: const TextStyle(
-                        fontSize: 22, fontWeight: FontWeight.w700, color: GlossColors.ink)),
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        color: GlossColors.navy)),
                 const SizedBox(height: 4),
-                Text(user?.email ?? '', style: const TextStyle(color: GlossColors.muted)),
+                Text(user?.email ?? '',
+                    style: const TextStyle(color: GlossColors.teal)),
                 if (active != null) ...[
                   const SizedBox(height: 4),
                   Text('Slug · ${active.slug}',
-                      style: const TextStyle(color: GlossColors.muted, fontSize: 12)),
+                      style: const TextStyle(
+                          color: GlossColors.teal, fontSize: 12)),
                 ],
                 const SizedBox(height: 20),
                 Row(children: [
@@ -127,6 +132,13 @@ class HomeShellScreen extends ConsumerWidget {
                 const SizedBox(height: 24),
                 const _SectionLabel('Modules'),
                 const SizedBox(height: 8),
+                _ModuleTile(
+                  icon: Icons.group_outlined,
+                  title: 'Team',
+                  subtitle: 'Members & invites',
+                  badge: 'Live',
+                  onTap: () => context.push('/org/team'),
+                ),
                 _ModuleTile(
                   icon: Icons.app_registration_outlined,
                   title: 'Registration',
@@ -180,22 +192,11 @@ class HomeShellScreen extends ConsumerWidget {
                   icon: Icons.business,
                   title: 'Clients',
                   subtitle: 'Profiles, sites, SLA',
-                  badge: clientCount == null ? null : (clientCount == 0 ? 'Empty' : '$clientCount'),
+                  badge: clientCount == null
+                      ? null
+                      : (clientCount == 0 ? 'Empty' : '$clientCount'),
                   onTap: () => context.push('/clients'),
                 ),
-                const SizedBox(height: 24),
-                const _SectionLabel('Build progress'),
-                const SizedBox(height: 8),
-                const _ProgressCard(items: [
-                  _ProgressItem(done: true, title: 'Phase 0 — Foundation', detail: 'Auth, org, RLS, home shell'),
-                  _ProgressItem(done: true, title: 'Phase 1 — Registration', detail: 'Clients, systems, attach flow'),
-                  _ProgressItem(done: true, title: 'Phase 2 — Work loop', detail: 'WR → WO, status machine, KPIs'),
-                  _ProgressItem(done: true, title: 'Phase 3 — Inventory', detail: 'Parts, receive, issue, adjust'),
-                  _ProgressItem(done: true, title: 'Phase 4 — Procurement', detail: 'Vendors, PO, receive to stock'),
-                  _ProgressItem(done: true, title: 'Phase 5 — Maintenance', detail: 'Technicians, PM plans, log job, history'),
-                  _ProgressItem(done: true, title: 'Phase 6 — Operations', detail: 'Start/stop, fueling, breakdown, meters'),
-                  _ProgressItem(done: true, title: 'Phase 7 — BYO payments', detail: 'Tenant Paystack credentials + ledger'),
-                ]),
                 const SizedBox(height: 24),
                 const _SectionLabel('Your organizations'),
                 const SizedBox(height: 8),
@@ -206,10 +207,13 @@ class HomeShellScreen extends ConsumerWidget {
                         subtitle: Text('${o.slug} · ${o.status}'),
                         selected: active?.id == o.id,
                         onTap: () {
-                          ref.read(activeOrganizationIdProvider.notifier).state = o.id;
+                          ref
+                              .read(activeOrganizationIdProvider.notifier)
+                              .state = o.id;
                         },
                         trailing: active?.id == o.id
-                            ? const Icon(Icons.check_circle, color: GlossColors.accent)
+                            ? const Icon(Icons.check_circle,
+                                color: GlossColors.teal)
                             : null,
                       ),
                     )),
@@ -238,18 +242,22 @@ class _EmptyOrg extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.apartment, size: 48, color: GlossColors.muted),
+            const Icon(Icons.apartment, size: 48, color: GlossColors.teal),
             const SizedBox(height: 16),
             const Text('No organization yet',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: GlossColors.navy)),
             const SizedBox(height: 8),
             const Text(
               'Your organization is the tenant boundary for data, users, and payments.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: GlossColors.muted),
+              style: TextStyle(color: GlossColors.teal),
             ),
             const SizedBox(height: 24),
-            FilledButton(onPressed: onCreate, child: const Text('Create organization')),
+            FilledButton(
+                onPressed: onCreate, child: const Text('Create organization')),
           ],
         ),
       ),
@@ -265,12 +273,19 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(text.toUpperCase(),
         style: const TextStyle(
-            fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.6, color: GlossColors.muted));
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.6,
+            color: GlossColors.teal));
   }
 }
 
 class _KpiCard extends StatelessWidget {
-  const _KpiCard({required this.label, required this.value, required this.icon, this.onTap});
+  const _KpiCard(
+      {required this.label,
+      required this.value,
+      required this.icon,
+      this.onTap});
   final String label;
   final String value;
   final IconData icon;
@@ -279,7 +294,7 @@ class _KpiCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: GlossColors.card,
+      color: GlossColors.sky,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
@@ -288,18 +303,22 @@ class _KpiCard extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: GlossColors.border),
+            border: Border.all(color: GlossColors.teal),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, size: 20, color: GlossColors.accent),
+              Icon(icon, size: 20, color: GlossColors.teal),
               const SizedBox(height: 10),
               Text(value,
                   style: const TextStyle(
-                      fontSize: 22, fontWeight: FontWeight.w700, color: GlossColors.ink)),
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: GlossColors.navy)),
               const SizedBox(height: 2),
-              Text(label, style: const TextStyle(fontSize: 12, color: GlossColors.muted)),
+              Text(label,
+                  style:
+                      const TextStyle(fontSize: 12, color: GlossColors.teal)),
             ],
           ),
         ),
@@ -331,7 +350,8 @@ class _ModuleTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         enabled: enabled,
-        leading: Icon(icon, color: enabled ? GlossColors.accent : GlossColors.muted),
+        leading:
+            Icon(icon, color: enabled ? GlossColors.teal : GlossColors.navy),
         title: Text(title),
         subtitle: Text(subtitle),
         trailing: Row(
@@ -339,56 +359,23 @@ class _ModuleTile extends StatelessWidget {
           children: [
             if (badge != null)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: GlossColors.pageBg,
+                  color: GlossColors.sky,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text(badge!, style: const TextStyle(fontSize: 12, color: GlossColors.muted)),
+                child: Text(badge!,
+                    style: const TextStyle(
+                        fontSize: 12, color: GlossColors.navy)),
               ),
-            if (enabled) ...[const SizedBox(width: 4), const Icon(Icons.chevron_right)],
+            if (enabled) ...[
+              const SizedBox(width: 4),
+              const Icon(Icons.chevron_right)
+            ],
           ],
         ),
         onTap: enabled ? onTap : null,
-      ),
-    );
-  }
-}
-
-class _ProgressItem {
-  const _ProgressItem({required this.done, required this.title, required this.detail});
-  final bool done;
-  final String title;
-  final String detail;
-}
-
-class _ProgressCard extends StatelessWidget {
-  const _ProgressCard({required this.items});
-  final List<_ProgressItem> items;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Column(
-          children: [
-            for (final item in items)
-              ListTile(
-                dense: true,
-                leading: Icon(
-                  item.done ? Icons.check_circle : Icons.radio_button_unchecked,
-                  color: item.done ? const Color(0xFF16A34A) : GlossColors.muted,
-                  size: 22,
-                ),
-                title: Text(item.title,
-                    style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: item.done ? GlossColors.ink : GlossColors.muted)),
-                subtitle: Text(item.detail),
-              ),
-          ],
-        ),
       ),
     );
   }
