@@ -21,10 +21,12 @@ class PaymentsHubScreen extends ConsumerWidget {
           Card(
             child: ListTile(
               leading: Icon(
-                settings?.isConfigured == true ? Icons.check_circle : Icons.warning_amber_outlined,
+                settings?.isConfigured == true
+                    ? Icons.check_circle
+                    : Icons.warning_amber_outlined,
                 color: settings?.isConfigured == true
-                    ? const Color(0xFF16A34A)
-                    : GlossColors.muted,
+                    ? GlossColors.teal
+                    : GlossColors.navy,
               ),
               title: Text(settings?.statusLabel ?? 'Not configured'),
               subtitle: Text(
@@ -37,15 +39,15 @@ class PaymentsHubScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           _t(context, Icons.key_outlined, 'Payment credentials',
-              'BYO Paystack public + secret keys', '/payments/settings'),
+              'BYO Paystack public key + secret (server-held)', '/payments/settings'),
           _t(context, Icons.receipt_long_outlined, 'Transactions',
               'Payments logged against this org', '/payments/transactions'),
           const SizedBox(height: 16),
           const Text(
             'Peeke is the platform only. Each organization uses its own '
             'Paystack (or Stripe) merchant account. Customer charges settle '
-            'to the tenant — not to Peeke.',
-            style: TextStyle(color: GlossColors.muted, fontSize: 13),
+            'to the tenant — not to Peeke. Secret keys never leave the server.',
+            style: TextStyle(color: GlossColors.teal, fontSize: 13),
           ),
         ],
       ),
@@ -55,7 +57,7 @@ class PaymentsHubScreen extends ConsumerWidget {
   Widget _t(BuildContext c, IconData i, String t, String s, String r) => Card(
         margin: const EdgeInsets.only(bottom: 8),
         child: ListTile(
-          leading: Icon(i, color: GlossColors.accent),
+          leading: Icon(i, color: GlossColors.teal),
           title: Text(t),
           subtitle: Text(s),
           trailing: const Icon(Icons.chevron_right),
@@ -68,7 +70,8 @@ class PaymentSettingsScreen extends ConsumerStatefulWidget {
   const PaymentSettingsScreen({super.key});
 
   @override
-  ConsumerState<PaymentSettingsScreen> createState() => _PaymentSettingsScreenState();
+  ConsumerState<PaymentSettingsScreen> createState() =>
+      _PaymentSettingsScreenState();
 }
 
 class _PaymentSettingsScreenState extends ConsumerState<PaymentSettingsScreen> {
@@ -83,7 +86,8 @@ class _PaymentSettingsScreenState extends ConsumerState<PaymentSettingsScreen> {
   bool _loading = false;
   bool _hydrated = false;
   bool _showSecret = false;
-  String? _existingSecretMasked;
+  bool _hasSecretKey = false;
+  bool _hasWebhookSecret = false;
 
   @override
   void dispose() {
@@ -104,8 +108,9 @@ class _PaymentSettingsScreenState extends ConsumerState<PaymentSettingsScreen> {
     _currency = s.currency;
     _isLive = s.isLive;
     _isEnabled = s.isEnabled;
-    _existingSecretMasked = PaymentSettings.maskKey(s.secretKey);
-    // secret field left blank — only send if user types a new value
+    _hasSecretKey = s.hasSecretKey;
+    _hasWebhookSecret = s.hasWebhookSecret;
+    // Secret fields stay empty — write-only; never loaded from server.
   }
 
   Future<void> _save() async {
@@ -118,13 +123,22 @@ class _PaymentSettingsScreenState extends ConsumerState<PaymentSettingsScreen> {
             isLive: _isLive,
             isEnabled: _isEnabled,
             publicKey: _publicKey.text,
-            secretKey: _secretKey.text.trim().isEmpty ? null : _secretKey.text,
-            webhookSecret: _webhook.text.trim().isEmpty ? null : _webhook.text,
             currency: _currency,
             businessName: _business.text,
             notes: _notes.text,
             touchVerified: _publicKey.text.trim().isNotEmpty,
           );
+
+      final secret = _secretKey.text.trim();
+      final webhook = _webhook.text.trim();
+      if (secret.isNotEmpty || webhook.isNotEmpty) {
+        await ref.read(paymentRepositoryProvider).setSecrets(
+              organizationId: org.id,
+              secretKey: secret.isEmpty ? null : secret,
+              webhookSecret: webhook.isEmpty ? null : webhook,
+            );
+      }
+
       ref.invalidate(paymentSettingsProvider);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -133,10 +147,12 @@ class _PaymentSettingsScreenState extends ConsumerState<PaymentSettingsScreen> {
       setState(() {
         _hydrated = false;
         _secretKey.clear();
+        _webhook.clear();
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -161,26 +177,30 @@ class _PaymentSettingsScreenState extends ConsumerState<PaymentSettingsScreen> {
         children: [
           const Text(
             'Use keys from your own Paystack dashboard. '
-            'Test keys start with pk_test_ / sk_test_; live keys with pk_live_ / sk_live_.',
-            style: TextStyle(color: GlossColors.muted, fontSize: 13),
+            'Test keys start with pk_test_ / sk_test_; live keys with pk_live_ / sk_live_. '
+            'Secret keys are stored server-side only and are never shown again.',
+            style: TextStyle(color: GlossColors.teal, fontSize: 13),
           ),
           const SizedBox(height: 16),
           SwitchListTile(
             title: const Text('Enable payments'),
-            subtitle: const Text('Allow collecting customer payments with these keys'),
+            subtitle: const Text(
+                'Allow collecting customer payments with these keys'),
             value: _isEnabled,
             onChanged: (v) => setState(() => _isEnabled = v),
           ),
           SwitchListTile(
             title: const Text('Live mode'),
-            subtitle: Text(_isLive ? 'Using live merchant keys' : 'Using test keys'),
+            subtitle:
+                Text(_isLive ? 'Using live merchant keys' : 'Using test keys'),
             value: _isLive,
             onChanged: (v) => setState(() => _isLive = v),
           ),
           const SizedBox(height: 8),
           TextFormField(
             controller: _business,
-            decoration: const InputDecoration(labelText: 'Business name (optional)'),
+            decoration:
+                const InputDecoration(labelText: 'Business name (optional)'),
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
@@ -204,15 +224,16 @@ class _PaymentSettingsScreenState extends ConsumerState<PaymentSettingsScreen> {
             controller: _secretKey,
             obscureText: !_showSecret,
             decoration: InputDecoration(
-              labelText: _existingSecretMasked != null && _existingSecretMasked != 'Not set'
+              labelText: _hasSecretKey
                   ? 'Secret key (leave blank to keep current)'
                   : 'Secret key *',
-              hintText: _existingSecretMasked ?? 'sk_test_… or sk_live_…',
-              helperText: _existingSecretMasked != null && _existingSecretMasked != 'Not set'
-                  ? 'Stored: $_existingSecretMasked'
-                  : null,
+              hintText: 'sk_test_… or sk_live_…',
+              helperText: _hasSecretKey
+                  ? 'A secret is already stored on the server'
+                  : 'Required for charges — never returned to the app',
               suffixIcon: IconButton(
-                icon: Icon(_showSecret ? Icons.visibility_off : Icons.visibility),
+                icon: Icon(
+                    _showSecret ? Icons.visibility_off : Icons.visibility),
                 onPressed: () => setState(() => _showSecret = !_showSecret),
               ),
             ),
@@ -220,9 +241,14 @@ class _PaymentSettingsScreenState extends ConsumerState<PaymentSettingsScreen> {
           const SizedBox(height: 12),
           TextFormField(
             controller: _webhook,
-            decoration: const InputDecoration(
-              labelText: 'Webhook secret (optional)',
-              hintText: 'For future webhook verification',
+            decoration: InputDecoration(
+              labelText: _hasWebhookSecret
+                  ? 'Webhook secret (leave blank to keep current)'
+                  : 'Webhook secret (optional)',
+              hintText: 'For webhook signature verification',
+              helperText: _hasWebhookSecret
+                  ? 'A webhook secret is already stored on the server'
+                  : null,
             ),
           ),
           const SizedBox(height: 12),
@@ -233,10 +259,11 @@ class _PaymentSettingsScreenState extends ConsumerState<PaymentSettingsScreen> {
           ),
           const SizedBox(height: 16),
           const Text(
-            'Security: secret keys are only writable by organization admins. '
-            'Prefer verifying charges via a server-side function in production; '
-            'never commit keys to git.',
-            style: TextStyle(color: GlossColors.muted, fontSize: 12),
+            'Security: only organization admins can save credentials. '
+            'Secret keys are written through a server function and cannot '
+            'be read back by the app. Prefer verifying charges via Edge '
+            'Functions in production.',
+            style: TextStyle(color: GlossColors.navy, fontSize: 12),
           ),
         ],
       ),
@@ -246,7 +273,10 @@ class _PaymentSettingsScreenState extends ConsumerState<PaymentSettingsScreen> {
           child: FilledButton(
             onPressed: _loading ? null : _save,
             child: _loading
-                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2))
                 : const Text('Save credentials'),
           ),
         ),
@@ -270,7 +300,9 @@ class PaymentTransactionsScreen extends ConsumerWidget {
         },
         child: async.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => ListView(children: [Padding(padding: const EdgeInsets.all(24), child: Text('$e'))]),
+          error: (e, _) => ListView(children: [
+            Padding(padding: const EdgeInsets.all(24), child: Text('$e'))
+          ]),
           data: (items) {
             if (items.isEmpty) {
               return ListView(children: const [
@@ -282,7 +314,7 @@ class PaymentTransactionsScreen extends ConsumerWidget {
                     'When you collect payments with your Paystack keys, '
                     'records will appear here.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: GlossColors.muted),
+                    style: TextStyle(color: GlossColors.teal),
                   ),
                 ),
               ]);
@@ -302,7 +334,8 @@ class PaymentTransactionsScreen extends ConsumerWidget {
                         if (t.customerEmail != null) t.customerEmail!,
                         if (t.description != null) t.description!,
                       ].join(' · '),
-                      style: const TextStyle(color: GlossColors.muted, fontSize: 12),
+                      style:
+                          const TextStyle(color: GlossColors.teal, fontSize: 12),
                     ),
                     trailing: Chip(
                       label: Text(t.status, style: const TextStyle(fontSize: 11)),
