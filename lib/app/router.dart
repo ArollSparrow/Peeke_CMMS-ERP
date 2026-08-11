@@ -21,6 +21,7 @@ import '../features/maintenance/service_history_screen.dart';
 import '../features/operations/operations_screens.dart';
 import '../features/org/create_org_screen.dart';
 import '../features/org/home_shell_screen.dart';
+import '../features/org/org_team_screen.dart';
 import '../features/payments/payment_screens.dart';
 import '../features/platform/platform_providers.dart';
 import '../features/platform/platform_screens.dart';
@@ -114,6 +115,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/home', builder: (context, state) => const HomeShellScreen()),
       GoRoute(path: '/org/create', builder: (context, state) => const CreateOrgScreen()),
+      GoRoute(path: '/org/team', builder: (context, state) => const OrgTeamScreen()),
       GoRoute(path: '/registration', builder: (context, state) => const RegistrationHubScreen()),
       GoRoute(path: '/clients', builder: (context, state) => const ClientsListScreen()),
       GoRoute(path: '/clients/new', builder: (context, state) => const ClientFormScreen()),
