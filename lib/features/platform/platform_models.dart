@@ -101,20 +101,24 @@ class PlatformPaymentSettings {
     this.provider = 'paystack',
     this.isLive = false,
     this.publicKey,
-    this.secretKey,
     this.currency = 'KES',
     this.businessName,
     this.isEnabled = false,
+    this.hasSecretKey = false,
+    this.hasWebhookSecret = false,
   });
 
   final String id;
   final String provider;
   final bool isLive;
   final String? publicKey;
-  final String? secretKey;
   final String currency;
   final String? businessName;
   final bool isEnabled;
+
+  /// Server-side flags only — secrets never leave the database to the client.
+  final bool hasSecretKey;
+  final bool hasWebhookSecret;
 
   factory PlatformPaymentSettings.fromMap(Map<String, dynamic> m) =>
       PlatformPaymentSettings(
@@ -122,20 +126,15 @@ class PlatformPaymentSettings {
         provider: m['provider'] as String? ?? 'paystack',
         isLive: m['is_live'] as bool? ?? false,
         publicKey: m['public_key'] as String?,
-        secretKey: m['secret_key'] as String?,
         currency: m['currency'] as String? ?? 'KES',
         businessName: m['business_name'] as String?,
         isEnabled: m['is_enabled'] as bool? ?? false,
+        hasSecretKey: m['has_secret_key'] as bool? ?? false,
+        hasWebhookSecret: m['has_webhook_secret'] as bool? ?? false,
       );
 
   bool get isConfigured =>
-      (publicKey?.isNotEmpty ?? false) && (secretKey?.isNotEmpty ?? false);
-
-  static String maskKey(String? key) {
-    if (key == null || key.isEmpty) return 'Not set';
-    if (key.length <= 8) return '••••••••';
-    return '${key.substring(0, 8)}••••${key.substring(key.length - 4)}';
-  }
+      (publicKey?.isNotEmpty ?? false) && hasSecretKey;
 }
 
 class TenantOrgSummary {
