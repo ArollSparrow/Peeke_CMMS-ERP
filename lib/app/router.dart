@@ -40,9 +40,73 @@ bool _isAuthPublicPath(String loc) =>
     loc == '/login' || loc == '/reset-password';
 
 bool _isTenantAppPath(String loc) {
-  if (loc == '/login' || loc == '/gate' || loc == '/reset-password') return false;
+  if (loc == '/login' || loc == '/gate' || loc == '/reset-password') {
+    return false;
+  }
   if (_isPlatformPath(loc)) return false;
   return true;
+}
+
+/// Paths the app actually serves (prefix match for nested routes).
+bool _isKnownAppPath(String loc) {
+  const exact = {
+    '/login',
+    '/reset-password',
+    '/gate',
+    '/platform',
+    '/platform/tenants',
+    '/platform/subscriptions',
+    '/platform/payments',
+    '/home',
+    '/org/create',
+    '/org/team',
+    '/registration',
+    '/clients',
+    '/clients/new',
+    '/systems',
+    '/systems/new',
+    '/work',
+    '/work/requests',
+    '/work/requests/new',
+    '/work/orders',
+    '/work/orders/new',
+    '/inventory',
+    '/inventory/parts',
+    '/inventory/parts/new',
+    '/procurement',
+    '/procurement/vendors',
+    '/procurement/vendors/new',
+    '/procurement/orders',
+    '/procurement/orders/new',
+    '/maintenance',
+    '/maintenance/plans',
+    '/maintenance/plans/new',
+    '/maintenance/jobs/new',
+    '/maintenance/history',
+    '/maintenance/downtime',
+    '/maintenance/technicians',
+    '/operations',
+    '/operations/record',
+    '/operations/fueling',
+    '/operations/breakdown',
+    '/operations/records',
+    '/payments',
+    '/payments/settings',
+    '/payments/transactions',
+  };
+  if (exact.contains(loc)) return true;
+  // Dynamic segments
+  if (loc.startsWith('/clients/')) return true;
+  if (loc.startsWith('/systems/')) return true;
+  if (loc.startsWith('/work/requests/')) return true;
+  if (loc.startsWith('/work/orders/')) return true;
+  if (loc.startsWith('/inventory/parts/')) return true;
+  if (loc.startsWith('/procurement/vendors/')) return true;
+  if (loc.startsWith('/procurement/orders/')) return true;
+  if (loc.startsWith('/maintenance/plans/')) return true;
+  if (loc.startsWith('/maintenance/history/')) return true;
+  if (loc.startsWith('/platform/')) return true;
+  return false;
 }
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -65,10 +129,29 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/login',
     refreshListenable: authRefresh,
+    // Invite / recovery links can land on garbage paths (e.g. "sb").
+    // Never show a hard error page — send them to login/gate.
+    errorBuilder: (context, state) => const LoginScreen(),
     redirect: (context, state) {
       final signedIn = ref.read(isSignedInProvider);
-      final loc = state.matchedLocation;
+      // Prefer full path; fall back to matchedLocation
+      final loc = state.uri.path.isEmpty ? state.matchedLocation : state.uri.path;
       final recovery = ref.read(passwordRecoveryPendingProvider);
+
+      // Auth callback noise / unknown short paths → login (or gate if session)
+      if (loc == '/' ||
+          loc == '/sb' ||
+          loc.isEmpty ||
+          (!_isKnownAppPath(loc) && !loc.startsWith('/'))) {
+        return signedIn ? '/gate' : '/login';
+      }
+      if (!_isKnownAppPath(loc) &&
+          loc != '/login' &&
+          loc != '/gate' &&
+          loc != '/reset-password') {
+        // Unknown real path (e.g. /sb from broken parse)
+        return signedIn ? '/gate' : '/login';
+      }
 
       if (recovery) {
         if (loc != '/reset-password') return '/reset-password';
@@ -100,9 +183,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/reset-password',
         builder: (context, state) => const ResetPasswordScreen(),
       ),
-      GoRoute(path: '/gate', builder: (context, state) => const PostAuthGateScreen()),
-      GoRoute(path: '/platform', builder: (context, state) => const PlatformHomeScreen()),
-      GoRoute(path: '/platform/tenants', builder: (context, state) => const PlatformTenantsScreen()),
+      GoRoute(
+          path: '/gate',
+          builder: (context, state) => const PostAuthGateScreen()),
+      GoRoute(
+          path: '/platform',
+          builder: (context, state) => const PlatformHomeScreen()),
+      GoRoute(
+          path: '/platform/tenants',
+          builder: (context, state) => const PlatformTenantsScreen()),
       GoRoute(
         path: '/platform/subscriptions',
         builder: (context, state) => PlatformSubscriptionsScreen(
@@ -113,21 +202,35 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/platform/payments',
         builder: (context, state) => const PlatformPaymentSettingsScreen(),
       ),
-      GoRoute(path: '/home', builder: (context, state) => const HomeShellScreen()),
-      GoRoute(path: '/org/create', builder: (context, state) => const CreateOrgScreen()),
-      GoRoute(path: '/org/team', builder: (context, state) => const OrgTeamScreen()),
-      GoRoute(path: '/registration', builder: (context, state) => const RegistrationHubScreen()),
-      GoRoute(path: '/clients', builder: (context, state) => const ClientsListScreen()),
-      GoRoute(path: '/clients/new', builder: (context, state) => const ClientFormScreen()),
+      GoRoute(
+          path: '/home', builder: (context, state) => const HomeShellScreen()),
+      GoRoute(
+          path: '/org/create',
+          builder: (context, state) => const CreateOrgScreen()),
+      GoRoute(
+          path: '/org/team', builder: (context, state) => const OrgTeamScreen()),
+      GoRoute(
+          path: '/registration',
+          builder: (context, state) => const RegistrationHubScreen()),
+      GoRoute(
+          path: '/clients',
+          builder: (context, state) => const ClientsListScreen()),
+      GoRoute(
+          path: '/clients/new',
+          builder: (context, state) => const ClientFormScreen()),
       GoRoute(
         path: '/clients/:id',
-        builder: (context, state) => ClientDetailScreen(clientId: state.pathParameters['id']!),
+        builder: (context, state) =>
+            ClientDetailScreen(clientId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/clients/:id/edit',
-        builder: (context, state) => ClientFormScreen(clientId: state.pathParameters['id']),
+        builder: (context, state) =>
+            ClientFormScreen(clientId: state.pathParameters['id']),
       ),
-      GoRoute(path: '/systems', builder: (context, state) => const SystemsListScreen()),
+      GoRoute(
+          path: '/systems',
+          builder: (context, state) => const SystemsListScreen()),
       GoRoute(
         path: '/systems/new',
         builder: (context, state) => SystemFormScreen(
@@ -136,56 +239,83 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/systems/:id',
-        builder: (context, state) => SystemDetailScreen(systemId: state.pathParameters['id']!),
+        builder: (context, state) =>
+            SystemDetailScreen(systemId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/systems/:id/edit',
-        builder: (context, state) => SystemFormScreen(systemId: state.pathParameters['id']),
+        builder: (context, state) =>
+            SystemFormScreen(systemId: state.pathParameters['id']),
       ),
-      GoRoute(path: '/work', builder: (context, state) => const WorkHubScreen()),
-      GoRoute(path: '/work/requests', builder: (context, state) => const WorkRequestsListScreen()),
-      GoRoute(path: '/work/requests/new', builder: (context, state) => const WorkRequestFormScreen()),
+      GoRoute(
+          path: '/work', builder: (context, state) => const WorkHubScreen()),
+      GoRoute(
+          path: '/work/requests',
+          builder: (context, state) => const WorkRequestsListScreen()),
+      GoRoute(
+          path: '/work/requests/new',
+          builder: (context, state) => const WorkRequestFormScreen()),
       GoRoute(
         path: '/work/requests/:id',
-        builder: (context, state) => WorkRequestDetailScreen(requestId: state.pathParameters['id']!),
+        builder: (context, state) =>
+            WorkRequestDetailScreen(requestId: state.pathParameters['id']!),
       ),
-      GoRoute(path: '/work/orders', builder: (context, state) => const WorkOrdersListScreen()),
-      GoRoute(path: '/work/orders/new', builder: (context, state) => const WorkOrderFormScreen()),
+      GoRoute(
+          path: '/work/orders',
+          builder: (context, state) => const WorkOrdersListScreen()),
+      GoRoute(
+          path: '/work/orders/new',
+          builder: (context, state) => const WorkOrderFormScreen()),
       GoRoute(
         path: '/work/orders/:id',
-        builder: (context, state) => WorkOrderDetailScreen(orderId: state.pathParameters['id']!),
+        builder: (context, state) =>
+            WorkOrderDetailScreen(orderId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/work/orders/:id/job-card',
         builder: (context, state) =>
             JobCardScreen(orderId: state.pathParameters['id']!),
       ),
-      GoRoute(path: '/inventory', builder: (context, state) => const InventoryHubScreen()),
+      GoRoute(
+          path: '/inventory',
+          builder: (context, state) => const InventoryHubScreen()),
       GoRoute(
         path: '/inventory/parts',
         builder: (context, state) => SparePartsListScreen(
           lowOnly: state.uri.queryParameters['low'] == '1',
         ),
       ),
-      GoRoute(path: '/inventory/parts/new', builder: (context, state) => const SparePartFormScreen()),
+      GoRoute(
+          path: '/inventory/parts/new',
+          builder: (context, state) => const SparePartFormScreen()),
       GoRoute(
         path: '/inventory/parts/:id',
-        builder: (context, state) => SparePartDetailScreen(partId: state.pathParameters['id']!),
+        builder: (context, state) =>
+            SparePartDetailScreen(partId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/inventory/parts/:id/edit',
-        builder: (context, state) => SparePartFormScreen(partId: state.pathParameters['id']),
+        builder: (context, state) =>
+            SparePartFormScreen(partId: state.pathParameters['id']),
       ),
-      GoRoute(path: '/procurement', builder: (context, state) => const ProcurementHubScreen()),
-      GoRoute(path: '/procurement/vendors', builder: (context, state) => const VendorsListScreen()),
-      GoRoute(path: '/procurement/vendors/new', builder: (context, state) => const VendorFormScreen()),
+      GoRoute(
+          path: '/procurement',
+          builder: (context, state) => const ProcurementHubScreen()),
+      GoRoute(
+          path: '/procurement/vendors',
+          builder: (context, state) => const VendorsListScreen()),
+      GoRoute(
+          path: '/procurement/vendors/new',
+          builder: (context, state) => const VendorFormScreen()),
       GoRoute(
         path: '/procurement/vendors/:id',
-        builder: (context, state) => VendorDetailScreen(vendorId: state.pathParameters['id']!),
+        builder: (context, state) =>
+            VendorDetailScreen(vendorId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/procurement/vendors/:id/edit',
-        builder: (context, state) => VendorFormScreen(vendorId: state.pathParameters['id']),
+        builder: (context, state) =>
+            VendorFormScreen(vendorId: state.pathParameters['id']),
       ),
       GoRoute(
         path: '/procurement/orders',
@@ -202,8 +332,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) =>
             PurchaseOrderDetailScreen(orderId: state.pathParameters['id']!),
       ),
-      GoRoute(path: '/maintenance', builder: (context, state) => const MaintenanceHubScreen()),
-      GoRoute(path: '/maintenance/plans', builder: (context, state) => const PmPlansListScreen()),
+      GoRoute(
+          path: '/maintenance',
+          builder: (context, state) => const MaintenanceHubScreen()),
+      GoRoute(
+          path: '/maintenance/plans',
+          builder: (context, state) => const PmPlansListScreen()),
       GoRoute(
         path: '/maintenance/plans/new',
         builder: (context, state) => PmPlanFormScreen(
@@ -212,11 +346,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/maintenance/plans/:id',
-        builder: (context, state) => PmPlanDetailScreen(planId: state.pathParameters['id']!),
+        builder: (context, state) =>
+            PmPlanDetailScreen(planId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/maintenance/plans/:id/edit',
-        builder: (context, state) => PmPlanFormScreen(planId: state.pathParameters['id']),
+        builder: (context, state) =>
+            PmPlanFormScreen(planId: state.pathParameters['id']),
       ),
       GoRoute(
         path: '/maintenance/jobs/new',
@@ -224,28 +360,46 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           preselectedSystemId: state.uri.queryParameters['systemId'],
         ),
       ),
-      GoRoute(path: '/maintenance/history', builder: (context, state) => const ServiceHistoryScreen()),
+      GoRoute(
+          path: '/maintenance/history',
+          builder: (context, state) => const ServiceHistoryScreen()),
       GoRoute(
         path: '/maintenance/history/:id',
         builder: (context, state) => MaintenanceRecordDetailScreen(
           recordId: state.pathParameters['id']!,
         ),
       ),
-      GoRoute(path: '/maintenance/downtime', builder: (context, state) => const DowntimeListScreen()),
-      GoRoute(path: '/maintenance/technicians', builder: (context, state) => const TechniciansListScreen()),
-      GoRoute(path: '/operations', builder: (context, state) => const OperationsHubScreen()),
-      GoRoute(path: '/operations/record', builder: (context, state) => const RecordOperationScreen()),
+      GoRoute(
+          path: '/maintenance/downtime',
+          builder: (context, state) => const DowntimeListScreen()),
+      GoRoute(
+          path: '/maintenance/technicians',
+          builder: (context, state) => const TechniciansListScreen()),
+      GoRoute(
+          path: '/operations',
+          builder: (context, state) => const OperationsHubScreen()),
+      GoRoute(
+          path: '/operations/record',
+          builder: (context, state) => const RecordOperationScreen()),
       GoRoute(
         path: '/operations/fueling',
-        builder: (context, state) => const RecordOperationScreen(fuelingOnly: true),
+        builder: (context, state) =>
+            const RecordOperationScreen(fuelingOnly: true),
       ),
       GoRoute(
         path: '/operations/breakdown',
-        builder: (context, state) => const RecordOperationScreen(breakdownOnly: true),
+        builder: (context, state) =>
+            const RecordOperationScreen(breakdownOnly: true),
       ),
-      GoRoute(path: '/operations/records', builder: (context, state) => const OperationRecordsScreen()),
-      GoRoute(path: '/payments', builder: (context, state) => const PaymentsHubScreen()),
-      GoRoute(path: '/payments/settings', builder: (context, state) => const PaymentSettingsScreen()),
+      GoRoute(
+          path: '/operations/records',
+          builder: (context, state) => const OperationRecordsScreen()),
+      GoRoute(
+          path: '/payments',
+          builder: (context, state) => const PaymentsHubScreen()),
+      GoRoute(
+          path: '/payments/settings',
+          builder: (context, state) => const PaymentSettingsScreen()),
       GoRoute(
         path: '/payments/transactions',
         builder: (context, state) => const PaymentTransactionsScreen(),
