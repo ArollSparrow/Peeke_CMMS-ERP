@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../design/gloss_theme.dart';
@@ -89,6 +90,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
   bool _busy = false;
   String? _message;
   String? _error;
+  String? _actionLink;
 
   @override
   void dispose() {
@@ -108,6 +110,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
       _busy = true;
       _error = null;
       _message = null;
+      _actionLink = null;
     });
     try {
       final client = ref.read(supabaseClientProvider);
@@ -139,22 +142,28 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
       } else {
         final status = map['status']?.toString();
         final msg = map['message']?.toString();
-        if (status == 'email_sent') {
-          setState(() => _message = msg ??
-              'Invite sent. They must set a password, then sign in to join.');
-        } else if (status == 'pending_signin') {
-          setState(() => _message = msg ??
-              'Invite pending — they must sign in once to join the org.');
-        } else {
-          setState(() => _message = msg ??
-              'Invite saved for $email (pending until they set password & sign in).');
-        }
+        final link = map['action_link']?.toString();
+        setState(() {
+          _message = msg ?? 'Invite saved for $email';
+          _actionLink = (link != null && link.isNotEmpty) ? link : null;
+        });
         _email.clear();
       }
     } catch (e) {
       setState(() => _error = friendlyError(e));
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _copyLink() async {
+    final link = _actionLink;
+    if (link == null) return;
+    await Clipboard.setData(ClipboardData(text: link));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invite link copied — share via WhatsApp/SMS')),
+      );
     }
   }
 
@@ -248,9 +257,9 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [
           const Text(
-            'Invite by work email. Invitees must open the link, create a password, '
-            'then sign in — only then do they appear as members. '
-            'Until then they stay under Pending invites.',
+            'Invite by work email. Built-in Supabase email only reaches project team '
+            'addresses — for others, copy the invite link and share it. '
+            'They set a password, sign in, then become members.',
             style: TextStyle(color: GlossColors.teal, fontSize: 13),
           ),
           const SizedBox(height: 16),
@@ -293,6 +302,24 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
             if (_message != null) ...[
               const SizedBox(height: 8),
               Text(_message!, style: const TextStyle(color: GlossColors.teal)),
+            ],
+            if (_actionLink != null) ...[
+              const SizedBox(height: 12),
+              const Text(
+                'Share this link (WhatsApp / SMS):',
+                style: TextStyle(
+                    fontWeight: FontWeight.w600, color: GlossColors.navy),
+              ),
+              const SizedBox(height: 6),
+              SelectableText(
+                _actionLink!,
+                style: const TextStyle(fontSize: 12, color: GlossColors.teal),
+              ),
+              TextButton.icon(
+                onPressed: _copyLink,
+                icon: const Icon(Icons.copy, size: 18),
+                label: const Text('Copy invite link'),
+              ),
             ],
             const SizedBox(height: 24),
           ] else
