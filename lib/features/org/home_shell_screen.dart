@@ -30,6 +30,10 @@ class HomeShellScreen extends ConsumerWidget {
     final duePm = ref.watch(duePmCountProvider).valueOrNull;
     final opsToday = ref.watch(opsTodayCountProvider).valueOrNull;
     final paySettings = ref.watch(paymentSettingsProvider).valueOrNull;
+    final pendingInvites =
+        ref.watch(myPendingInviteCountProvider).valueOrNull ?? 0;
+    final isInvited = ref.watch(isInvitedUserProvider);
+    final inviteLanding = ref.watch(teamInviteLandingProvider);
 
     final clientCount = clientsAsync.valueOrNull?.length;
     final payBadge = paySettings == null
@@ -56,7 +60,22 @@ class HomeShellScreen extends ConsumerWidget {
         error: (e, _) => Center(child: Text(friendlyError(e))),
         data: (orgs) {
           if (orgs.isEmpty) {
-            return _EmptyOrg(onCreate: () => context.push('/org/create'));
+            final blockTenantCreate =
+                pendingInvites > 0 || isInvited || inviteLanding;
+            return _EmptyOrg(
+              blockTenantCreate: blockTenantCreate,
+              pendingInvites: pendingInvites,
+              onCreate: () => context.push('/org/create'),
+              onRetryJoin: () async {
+                try {
+                  await ref
+                      .read(supabaseClientProvider)
+                      .rpc('accept_pending_org_invites');
+                } catch (_) {}
+                ref.invalidate(myOrganizationsProvider);
+                ref.invalidate(myPendingInviteCountProvider);
+              },
+            );
           }
 
           return RefreshIndicator(
@@ -217,10 +236,12 @@ class HomeShellScreen extends ConsumerWidget {
                             : null,
                       ),
                     )),
-                OutlinedButton(
-                  onPressed: () => context.push('/org/create'),
-                  child: const Text('Create another organization'),
-                ),
+                // Only true tenants (no pending invite-only path) may add another org
+                if (!isInvited || orgs.isNotEmpty)
+                  OutlinedButton(
+                    onPressed: () => context.push('/org/create'),
+                    child: const Text('Create another organization'),
+                  ),
               ],
             ),
           );
@@ -231,11 +252,59 @@ class HomeShellScreen extends ConsumerWidget {
 }
 
 class _EmptyOrg extends StatelessWidget {
-  const _EmptyOrg({required this.onCreate});
+  const _EmptyOrg({
+    required this.onCreate,
+    required this.onRetryJoin,
+    this.blockTenantCreate = false,
+    this.pendingInvites = 0,
+  });
+
   final VoidCallback onCreate;
+  final VoidCallback onRetryJoin;
+  final bool blockTenantCreate;
+  final int pendingInvites;
 
   @override
   Widget build(BuildContext context) {
+    if (blockTenantCreate) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.group_add_outlined,
+                  size: 48, color: GlossColors.teal),
+              const SizedBox(height: 16),
+              const Text(
+                'Joining your team',
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: GlossColors.navy),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                pendingInvites > 0
+                    ? 'You have a pending invitation. Tap below to join — '
+                        'this account will not create a new tenant organization.'
+                    : 'This account was invited to an organization. '
+                        'Tap below to accept membership. '
+                        'To start your own tenant, register with a different email.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: GlossColors.teal),
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: onRetryJoin,
+                child: const Text('Accept team invite'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
