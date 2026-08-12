@@ -5,11 +5,12 @@ import 'package:go_router/go_router.dart';
 import '../../design/gloss_theme.dart';
 import '../../infra/friendly_error.dart';
 import '../auth/auth_providers.dart';
+import '../org/org_providers.dart';
 import 'platform_models.dart';
 import 'platform_providers.dart';
 
 /// Post-login gate: platform admin → /platform only; tenants → /home.
-/// Also attaches any pending org invites for this email.
+/// Attaches pending org invites so invitees become members, not new tenants.
 class PostAuthGateScreen extends ConsumerWidget {
   const PostAuthGateScreen({super.key});
 
@@ -17,8 +18,10 @@ class PostAuthGateScreen extends ConsumerWidget {
     try {
       await ref.read(supabaseClientProvider).rpc('accept_pending_org_invites');
     } catch (_) {
-      // Non-fatal — user can still enter the app
+      // Non-fatal
     }
+    ref.invalidate(myOrganizationsProvider);
+    ref.invalidate(myPendingInviteCountProvider);
   }
 
   @override
