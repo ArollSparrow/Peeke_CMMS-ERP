@@ -19,10 +19,6 @@ Future<void> main() async {
   await Supabase.initialize(
     url: SupabaseEnv.url,
     anonKey: SupabaseEnv.anonKey,
-    authOptions: const FlutterAuthClientOptions(
-      // Detect session from URL (invite + recovery redirects)
-      detectSessionInUri: true,
-    ),
   );
 
   runApp(
