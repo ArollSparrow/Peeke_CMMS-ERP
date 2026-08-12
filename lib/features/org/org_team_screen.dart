@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../design/gloss_theme.dart';
 import '../../infra/friendly_error.dart';
 import '../auth/auth_providers.dart';
+import '../auth/login_screen.dart' show authRedirectTo;
 import 'org_providers.dart';
 
 class OrgMemberRow {
@@ -11,12 +12,10 @@ class OrgMemberRow {
     required this.id,
     required this.userId,
     required this.role,
-    this.email,
   });
   final String id;
   final String userId;
   final String role;
-  final String? email;
 }
 
 class OrgInviteRow {
@@ -111,22 +110,48 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
       _message = null;
     });
     try {
-      final result = await ref.read(supabaseClientProvider).rpc(
-        'invite_or_add_org_member',
-        params: {
-          'p_organization_id': org.id,
-          'p_email': email,
-          'p_role': _role,
+      final client = ref.read(supabaseClientProvider);
+      final res = await client.functions.invoke(
+        'invite-org-member',
+        body: {
+          'organization_id': org.id,
+          'email': email,
+          'role': _role,
+          'redirect_to': authRedirectTo('/gate'),
         },
       );
+
+      final data = res.data;
+      Map<String, dynamic>? map;
+      if (data is Map) {
+        map = Map<String, dynamic>.from(data);
+      }
+
       ref.invalidate(orgMembersProvider);
       ref.invalidate(orgInvitesProvider);
-      setState(() {
+
+      if (map == null) {
+        setState(() => _message = 'Invite processed.');
+      } else if (map['error'] != null && map['status'] == null) {
+        setState(() => _error = map!['error'].toString());
+      } else {
+        final status = map['status']?.toString();
+        final msg = map['message']?.toString();
+        if (status == 'email_sent') {
+          setState(() => _message = msg ??
+              'Invite email sent to $email. Ask them to check inbox and spam.');
+        } else if (status == 'added') {
+          setState(() => _message =
+              msg ?? 'They already had an account and were added to the org.');
+        } else if (status == 'invite_failed') {
+          setState(() => _message =
+              'Invite saved for $email, but email may not have sent. '
+              'Ask them to Register with this exact email, then Sign in.');
+        } else {
+          setState(() => _message = msg ?? 'Invite saved for $email.');
+        }
         _email.clear();
-        _message = result == 'added'
-            ? 'Member added (they already had an account).'
-            : 'Invite saved. When they register with this email and sign in, they join automatically.';
-      });
+      }
     } catch (e) {
       setState(() => _error = friendlyError(e));
     } finally {
@@ -148,9 +173,8 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [
           const Text(
-            'Invite colleagues by work email. If they already have an account, '
-            'they are added immediately. Otherwise a pending invite waits until '
-            'they register and sign in.',
+            'Invite by work email. New people get a Supabase invite email '
+            '(check spam). Existing accounts are added immediately.',
             style: TextStyle(color: GlossColors.teal, fontSize: 13),
           ),
           const SizedBox(height: 16),
@@ -184,7 +208,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: GlossColors.sky),
                     )
-                  : const Text('Invite / add member'),
+                  : const Text('Send invite'),
             ),
             if (_error != null) ...[
               const SizedBox(height: 8),
