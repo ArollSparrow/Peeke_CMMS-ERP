@@ -111,7 +111,6 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     });
     try {
       final client = ref.read(supabaseClientProvider);
-      // /login is a real SPA route; avoids Cloudflare 404 on deep links
       final res = await client.functions.invoke(
         'invite-org-member',
         body: {
@@ -134,7 +133,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
       if (map == null) {
         setState(() => _message = 'Invite processed.');
       } else if (map['error'] != null &&
-          map['status'] != 'invite_failed' &&
+          map['status'] != 'invite_saved' &&
           map['status'] == null) {
         setState(() => _error = map!['error'].toString());
       } else {
@@ -142,16 +141,13 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
         final msg = map['message']?.toString();
         if (status == 'email_sent') {
           setState(() => _message = msg ??
-              'Invite email sent to $email. Check inbox and spam.');
-        } else if (status == 'added') {
-          setState(() => _message =
-              msg ?? 'They already had an account and were added.');
-        } else if (status == 'invite_failed') {
-          setState(() => _message =
-              'Invite saved for $email. Email may not have sent — '
-              'ask them to Register with this email, then Sign in.');
+              'Invite sent. They must set a password, then sign in to join.');
+        } else if (status == 'pending_signin') {
+          setState(() => _message = msg ??
+              'Invite pending — they must sign in once to join the org.');
         } else {
-          setState(() => _message = msg ?? 'Invite saved for $email.');
+          setState(() => _message = msg ??
+              'Invite saved for $email (pending until they set password & sign in).');
         }
         _email.clear();
       }
@@ -252,8 +248,9 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [
           const Text(
-            'Invite by work email. New people get an invite link to the app login. '
-            'Existing accounts are added immediately. Admins can cancel invites or remove members.',
+            'Invite by work email. Invitees must open the link, create a password, '
+            'then sign in — only then do they appear as members. '
+            'Until then they stay under Pending invites.',
             style: TextStyle(color: GlossColors.teal, fontSize: 13),
           ),
           const SizedBox(height: 16),
