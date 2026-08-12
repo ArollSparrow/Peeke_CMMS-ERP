@@ -35,6 +35,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   String? _info;
 
   @override
+  void initState() {
+    super.initState();
+    if (kIsWeb && uriIndicatesInvite(Uri.base)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(teamInviteLandingProvider.notifier).state = true;
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _email.dispose();
     _password.dispose();
@@ -43,6 +54,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _setMode(_AuthMode mode) {
+    final inviteOnly = ref.read(teamInviteLandingProvider);
+    if (inviteOnly && mode == _AuthMode.register) {
+      setState(() {
+        _error =
+            'You were invited to join a team. Sign in with the email that '
+            'received the invite — do not register a new tenant on this path.';
+      });
+      return;
+    }
     setState(() {
       _mode = mode;
       _error = null;
@@ -84,6 +104,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           break;
 
         case _AuthMode.register:
+          if (ref.read(teamInviteLandingProvider)) {
+            setState(() => _error =
+                'Team invites use Sign in only. Do not register as a tenant here.');
+            break;
+          }
           if (_password.text.length < 8) {
             setState(() => _error = 'Password must be at least 8 characters');
             break;
@@ -153,14 +178,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  String get _title {
+  String _title(bool inviteOnly) {
     switch (_mode) {
       case _AuthMode.register:
         return 'Register as a tenant';
       case _AuthMode.forgot:
         return 'Reset your password';
       case _AuthMode.signIn:
-        return 'Sign in to continue';
+        return inviteOnly
+            ? 'Join your team — sign in'
+            : 'Sign in to continue';
     }
   }
 
@@ -199,10 +226,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final inviteOnly = ref.watch(teamInviteLandingProvider);
+
     ref.listen(authStateProvider, (prev, next) {
       final event = next.valueOrNull?.event;
       if (event == AuthChangeEvent.passwordRecovery && context.mounted) {
         context.go('/reset-password');
+      }
+      final user = next.valueOrNull?.session?.user;
+      if (user != null) {
+        final meta = user.userMetadata;
+        if (meta != null &&
+            (meta['invited_organization_id'] != null ||
+                meta['invited_at'] != null)) {
+          ref.read(teamInviteLandingProvider.notifier).state = true;
+        }
       }
     });
 
@@ -249,7 +287,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   const SizedBox(height: 28),
                   Text(
-                    _title,
+                    _title(inviteOnly),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 16,
@@ -258,6 +296,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
+                  if (inviteOnly && _mode == _AuthMode.signIn)
+                    const Text(
+                      'You were invited to join an existing organization. '
+                      'Use the same email as the invite, enter the password you set, '
+                      'and sign in. You will not create a new tenant.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: GlossColors.teal,
+                        fontSize: 12,
+                      ),
+                    ),
                   if (_mode == _AuthMode.register)
                     const Text(
                       'Use a work email you control. We send a confirmation link — '
@@ -369,19 +418,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           foregroundColor: GlossColors.teal),
                       child: const Text('Forgot password?'),
                     ),
-                    TextButton(
-                      onPressed:
-                          _busy ? null : () => _setMode(_AuthMode.register),
-                      style: TextButton.styleFrom(
-                          foregroundColor: GlossColors.navy),
-                      child: const Text('Need a tenant account? Register'),
-                    ),
-                    TextButton(
-                      onPressed: _busy ? null : _resendConfirmation,
-                      style: TextButton.styleFrom(
-                          foregroundColor: GlossColors.teal),
-                      child: const Text('Resend confirmation email'),
-                    ),
+                    if (!inviteOnly)
+                      TextButton(
+                        onPressed: _busy
+                            ? null
+                            : () => _setMode(_AuthMode.register),
+                        style: TextButton.styleFrom(
+                            foregroundColor: GlossColors.navy),
+                        child:
+                            const Text('Need a tenant account? Register'),
+                      ),
+                    if (!inviteOnly)
+                      TextButton(
+                        onPressed: _busy ? null : _resendConfirmation,
+                        style: TextButton.styleFrom(
+                            foregroundColor: GlossColors.teal),
+                        child: const Text('Resend confirmation email'),
+                      ),
                   ],
                   if (_mode == _AuthMode.register)
                     TextButton(
