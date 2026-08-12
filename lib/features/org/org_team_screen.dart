@@ -111,13 +111,14 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     });
     try {
       final client = ref.read(supabaseClientProvider);
+      // /login is a real SPA route; avoids Cloudflare 404 on deep links
       final res = await client.functions.invoke(
         'invite-org-member',
         body: {
           'organization_id': org.id,
           'email': email,
           'role': _role,
-          'redirect_to': authRedirectTo('/gate'),
+          'redirect_to': authRedirectTo('/login'),
         },
       );
 
@@ -132,21 +133,23 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
 
       if (map == null) {
         setState(() => _message = 'Invite processed.');
-      } else if (map['error'] != null && map['status'] == null) {
+      } else if (map['error'] != null &&
+          map['status'] != 'invite_failed' &&
+          map['status'] == null) {
         setState(() => _error = map!['error'].toString());
       } else {
         final status = map['status']?.toString();
         final msg = map['message']?.toString();
         if (status == 'email_sent') {
           setState(() => _message = msg ??
-              'Invite email sent to $email. Ask them to check inbox and spam.');
+              'Invite email sent to $email. Check inbox and spam.');
         } else if (status == 'added') {
           setState(() => _message =
-              msg ?? 'They already had an account and were added to the org.');
+              msg ?? 'They already had an account and were added.');
         } else if (status == 'invite_failed') {
           setState(() => _message =
-              'Invite saved for $email, but email may not have sent. '
-              'Ask them to Register with this exact email, then Sign in.');
+              'Invite saved for $email. Email may not have sent — '
+              'ask them to Register with this email, then Sign in.');
         } else {
           setState(() => _message = msg ?? 'Invite saved for $email.');
         }
@@ -159,12 +162,88 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     }
   }
 
+  Future<void> _revokeInvite(OrgInviteRow invite) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel invite?'),
+        content: Text('Revoke pending invite for ${invite.email}?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Keep')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Cancel invite')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await ref.read(supabaseClientProvider).rpc(
+        'revoke_org_invite',
+        params: {'p_invite_id': invite.id},
+      );
+      ref.invalidate(orgInvitesProvider);
+      if (mounted) {
+        setState(() => _message = 'Invite cancelled for ${invite.email}');
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = friendlyError(e));
+    }
+  }
+
+  Future<void> _removeMember(OrgMemberRow member) async {
+    final org = ref.read(activeOrganizationProvider);
+    final me = ref.read(currentUserProvider)?.id;
+    if (org == null) return;
+    if (member.userId == me) {
+      setState(() => _error = 'You cannot remove yourself from here.');
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove member?'),
+        content: Text(
+          'Remove this ${member.role} from ${org.name}? '
+          'They will lose access to org data immediately.',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Keep')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Remove')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await ref.read(supabaseClientProvider).rpc(
+        'remove_org_member',
+        params: {
+          'p_organization_id': org.id,
+          'p_user_id': member.userId,
+        },
+      );
+      ref.invalidate(orgMembersProvider);
+      if (mounted) {
+        setState(() => _message = 'Member removed');
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = friendlyError(e));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final members = ref.watch(orgMembersProvider);
     final invites = ref.watch(orgInvitesProvider);
     final caps = ref.watch(orgCapabilitiesProvider);
     final canInvite = caps.isElevated;
+    final me = ref.watch(currentUserProvider)?.id;
 
     return Scaffold(
       backgroundColor: GlossColors.sky,
@@ -173,8 +252,8 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [
           const Text(
-            'Invite by work email. New people get a Supabase invite email '
-            '(check spam). Existing accounts are added immediately.',
+            'Invite by work email. New people get an invite link to the app login. '
+            'Existing accounts are added immediately. Admins can cancel invites or remove members.',
             style: TextStyle(color: GlossColors.teal, fontSize: 13),
           ),
           const SizedBox(height: 16),
@@ -223,7 +302,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
             const Padding(
               padding: EdgeInsets.only(bottom: 16),
               child: Text(
-                'Only owners and admins can invite members.',
+                'Only owners and admins can manage the team.',
                 style: TextStyle(color: GlossColors.teal),
               ),
             ),
@@ -251,13 +330,23 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                     Card(
                       child: ListTile(
                         title: Text(
-                          m.userId.length > 8
-                              ? '…${m.userId.substring(m.userId.length - 8)}'
-                              : m.userId,
+                          m.userId == me
+                              ? 'You'
+                              : (m.userId.length > 8
+                                  ? '…${m.userId.substring(m.userId.length - 8)}'
+                                  : m.userId),
                           style: const TextStyle(color: GlossColors.navy),
                         ),
                         subtitle: Text(m.role,
                             style: const TextStyle(color: GlossColors.teal)),
+                        trailing: canInvite && m.userId != me
+                            ? IconButton(
+                                tooltip: 'Remove',
+                                icon: const Icon(Icons.person_remove_outlined),
+                                color: GlossColors.navy,
+                                onPressed: () => _removeMember(m),
+                              )
+                            : null,
                       ),
                     ),
                 ],
@@ -290,6 +379,14 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                       child: ListTile(
                         title: Text(i.email),
                         subtitle: Text('${i.role} · ${i.status}'),
+                        trailing: canInvite
+                            ? IconButton(
+                                tooltip: 'Cancel invite',
+                                icon: const Icon(Icons.cancel_outlined),
+                                color: GlossColors.navy,
+                                onPressed: () => _revokeInvite(i),
+                              )
+                            : null,
                       ),
                     ),
                 ],
