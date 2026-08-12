@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/auth/accept_invite_screen.dart';
 import '../features/auth/auth_providers.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/reset_password_screen.dart';
@@ -37,21 +38,26 @@ bool _isPlatformPath(String loc) =>
     loc == '/platform' || loc.startsWith('/platform/');
 
 bool _isAuthPublicPath(String loc) =>
-    loc == '/login' || loc == '/reset-password';
+    loc == '/login' ||
+    loc == '/reset-password' ||
+    loc == '/accept-invite';
 
 bool _isTenantAppPath(String loc) {
-  if (loc == '/login' || loc == '/gate' || loc == '/reset-password') {
+  if (loc == '/login' ||
+      loc == '/gate' ||
+      loc == '/reset-password' ||
+      loc == '/accept-invite') {
     return false;
   }
   if (_isPlatformPath(loc)) return false;
   return true;
 }
 
-/// Paths the app actually serves (prefix match for nested routes).
 bool _isKnownAppPath(String loc) {
   const exact = {
     '/login',
     '/reset-password',
+    '/accept-invite',
     '/gate',
     '/platform',
     '/platform/tenants',
@@ -95,7 +101,6 @@ bool _isKnownAppPath(String loc) {
     '/payments/transactions',
   };
   if (exact.contains(loc)) return true;
-  // Dynamic segments
   if (loc.startsWith('/clients/')) return true;
   if (loc.startsWith('/systems/')) return true;
   if (loc.startsWith('/work/requests/')) return true;
@@ -115,12 +120,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   ref.listen(authStateProvider, (_, __) {
     authRefresh.value++;
   });
-
   ref.listen(isPlatformAdminProvider, (_, __) {
     authRefresh.value++;
   });
-
   ref.listen(passwordRecoveryPendingProvider, (_, __) {
+    authRefresh.value++;
+  });
+  ref.listen(invitePasswordPendingProvider, (_, __) {
     authRefresh.value++;
   });
 
@@ -129,27 +135,32 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/login',
     refreshListenable: authRefresh,
-    // Invite / recovery links can land on garbage paths (e.g. "sb").
-    // Never show a hard error page — send them to login/gate.
     errorBuilder: (context, state) => const LoginScreen(),
     redirect: (context, state) {
       final signedIn = ref.read(isSignedInProvider);
-      // Prefer full path; fall back to matchedLocation
-      final loc = state.uri.path.isEmpty ? state.matchedLocation : state.uri.path;
+      final loc =
+          state.uri.path.isEmpty ? state.matchedLocation : state.uri.path;
       final recovery = ref.read(passwordRecoveryPendingProvider);
+      final invitePw = ref.read(invitePasswordPendingProvider);
 
-      // Auth callback noise / unknown short paths → login (or gate if session)
+      // Team invite: force dedicated screen (not login / register)
+      if (invitePw) {
+        if (loc != '/accept-invite') return '/accept-invite';
+        return null;
+      }
+
       if (loc == '/' ||
           loc == '/sb' ||
           loc.isEmpty ||
           (!_isKnownAppPath(loc) && !loc.startsWith('/'))) {
+        if (invitePw) return '/accept-invite';
         return signedIn ? '/gate' : '/login';
       }
       if (!_isKnownAppPath(loc) &&
           loc != '/login' &&
           loc != '/gate' &&
-          loc != '/reset-password') {
-        // Unknown real path (e.g. /sb from broken parse)
+          loc != '/reset-password' &&
+          loc != '/accept-invite') {
         return signedIn ? '/gate' : '/login';
       }
 
@@ -159,8 +170,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       if (loc == '/reset-password') {
-        if (signedIn) return '/gate';
-        return '/login';
+        if (!signedIn) return '/login';
+        // stay while recovery pending; after save goes to gate
+        return null;
+      }
+
+      if (loc == '/accept-invite') {
+        // Stay while invite session; after complete → gate
+        return null;
       }
 
       if (!signedIn && !_isAuthPublicPath(loc)) return '/login';
@@ -182,6 +199,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/reset-password',
         builder: (context, state) => const ResetPasswordScreen(),
+      ),
+      GoRoute(
+        path: '/accept-invite',
+        builder: (context, state) => const AcceptInviteScreen(),
       ),
       GoRoute(
           path: '/gate',
