@@ -140,7 +140,6 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
           map['status'] == null) {
         setState(() => _error = map!['error'].toString());
       } else {
-        final status = map['status']?.toString();
         final msg = map['message']?.toString();
         final link = map['action_link']?.toString();
         setState(() {
@@ -162,7 +161,8 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     await Clipboard.setData(ClipboardData(text: link));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invite link copied — share via WhatsApp/SMS')),
+        const SnackBar(
+            content: Text('Invite link copied — share via WhatsApp/SMS')),
       );
     }
   }
@@ -257,9 +257,9 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [
           const Text(
-            'Invite by work email. Built-in Supabase email only reaches project team '
-            'addresses — for others, copy the invite link and share it. '
-            'They set a password, sign in, then become members.',
+            'Invite by work email. Testing uses Supabase built-in mail (~2/hour). '
+            'Invitee sets a password, then must Sign in — only then they become members. '
+            'If mail is delayed, copy the invite link and share it.',
             style: TextStyle(color: GlossColors.teal, fontSize: 13),
           ),
           const SizedBox(height: 16),
