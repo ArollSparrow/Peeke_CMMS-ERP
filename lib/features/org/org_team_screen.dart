@@ -120,7 +120,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
           'organization_id': org.id,
           'email': email,
           'role': _role,
-          'redirect_to': authRedirectTo('/login'),
+          'redirect_to': authRedirectTo('/accept-invite'),
         },
       );
 
@@ -257,9 +257,9 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [
           const Text(
-            'Invite by work email. Testing uses Supabase built-in mail (~2/hour). '
-            'Invitee sets a password, then must Sign in — only then they become members. '
-            'If mail is delayed, copy the invite link and share it.',
+            'Invite by work email (~2 emails/hour on built-in mail). '
+            'Invitees open Accept invitation → Join your team (name + password). '
+            'They never use tenant Register. Copy the link if mail is delayed.',
             style: TextStyle(color: GlossColors.teal, fontSize: 13),
           ),
           const SizedBox(height: 16),
