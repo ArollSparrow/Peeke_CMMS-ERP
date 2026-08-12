@@ -6,7 +6,6 @@ final supabaseClientProvider = Provider<SupabaseClient>((ref) {
   return Supabase.instance.client;
 });
 
-/// Emits auth state changes (sign-in / sign-out).
 final authStateProvider = StreamProvider<AuthState>((ref) {
   final client = ref.watch(supabaseClientProvider);
   return client.auth.onAuthStateChange;
@@ -22,14 +21,12 @@ final isSignedInProvider = Provider<bool>((ref) {
   return ref.watch(currentUserProvider) != null;
 });
 
-/// True when Supabase has confirmed the user's email (ownership proof).
 final isEmailConfirmedProvider = Provider<bool>((ref) {
   final user = ref.watch(currentUserProvider);
   if (user == null) return false;
   return user.emailConfirmedAt != null;
 });
 
-/// Set when user opens a password-recovery email link.
 final passwordRecoveryPendingProvider = StateProvider<bool>((ref) {
   if (kIsWeb && uriIndicatesPasswordRecovery(Uri.base)) {
     return true;
@@ -37,26 +34,27 @@ final passwordRecoveryPendingProvider = StateProvider<bool>((ref) {
   return false;
 });
 
-/// Sticky flag: user arrived via team invite (URL or session metadata).
-/// Hides "Register as a tenant" so invitees do not self-serve a new org.
+/// True while invitee must finish /accept-invite (set password + name).
+final invitePasswordPendingProvider = StateProvider<bool>((ref) {
+  if (kIsWeb && uriIndicatesInvite(Uri.base)) return true;
+  return false;
+});
+
 final teamInviteLandingProvider = StateProvider<bool>((ref) {
   if (kIsWeb && uriIndicatesInvite(Uri.base)) return true;
   return false;
 });
 
-/// True if signed-in user was created via Auth invite (metadata).
 final isInvitedUserProvider = Provider<bool>((ref) {
   final user = ref.watch(currentUserProvider);
   if (user == null) return false;
   final meta = user.userMetadata;
   if (meta == null) return false;
   if (meta['invited_organization_id'] != null) return true;
-  // Supabase may set invited_at on invite flow
   if (meta['invited_at'] != null) return true;
   return false;
 });
 
-/// Pending org invites for current user email (SECURITY DEFINER count).
 final myPendingInviteCountProvider =
     FutureProvider.autoDispose<int>((ref) async {
   final user = ref.watch(currentUserProvider);
@@ -75,7 +73,6 @@ final myPendingInviteCountProvider =
 bool uriIndicatesPasswordRecovery(Uri uri) {
   final qp = uri.queryParameters['type'];
   if (qp == 'recovery') return true;
-
   final frag = uri.fragment;
   if (frag.isEmpty) return false;
   try {
@@ -86,11 +83,13 @@ bool uriIndicatesPasswordRecovery(Uri uri) {
   return false;
 }
 
-/// Invite callback from Supabase Auth email link.
 bool uriIndicatesInvite(Uri uri) {
   final qp = uri.queryParameters['type'];
   if (qp == 'invite') return true;
-
+  // Path-based redirect from our app
+  if (uri.path == '/accept-invite' || uri.path.endsWith('/accept-invite')) {
+    return true;
+  }
   final frag = uri.fragment;
   if (frag.isEmpty) return false;
   try {
