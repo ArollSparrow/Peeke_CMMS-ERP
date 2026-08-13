@@ -2,7 +2,8 @@
 
 **Supabase:** `tappfahlaiixctyliesz` (Peeke CMMS-ERP)  
 **Repo:** `ArollSparrow/Peeke_CMMS-ERP`  
-**Started:** 2026-08-01
+**Started:** 2026-08-01  
+**Last status update:** 2026-08-13
 
 ## Goal
 
@@ -47,17 +48,18 @@ Ship a multi-tenant CMMS/ERP platform where:
 
 ---
 
-## Phases
+## Phases (clean-slate numbering)
 
-### Phase 0 — Foundation ✅ DONE
+### Phase 0 — Foundation ✅ DONE (plus live multi-tenant proof)
 
-Auth, org, RLS, home shell. First tenant: Peeke Automation.
+Auth, org create, RLS, home shell, branding.  
+**2026-08:** Team invite → `/accept-invite` → member proven across two orgs.
 
-### Phase 1 — Registration module 🔍 ON BRANCH `feature/registration_module_grok`
+### Phase 1 — Registration module 🟨 MOSTLY DONE
 
 | Work | Status |
 |------|--------|
-| Schema `003`–`004` field expansion | ✅ |
+| Schema field expansion | ✅ |
 | Models + repository CRUD | ✅ |
 | Client form (create/edit) | ✅ |
 | System form (create/edit, client required) | ✅ |
@@ -65,18 +67,20 @@ Auth, org, RLS, home shell. First tenant: Peeke Automation.
 | System detail + delete | ✅ |
 | Lists + search | ✅ |
 | Registration hub | ✅ |
-| Client contracts | deferred (optional) |
-| GPS device capture | deferred (coords field present) |
+| Client contracts | deferred |
+| GPS device capture | deferred |
 
-**Review path after deploy:** Home → Registration → Register client → Save & attach → System → Client detail Systems tab.
+### Phase 2 — Work loop 🟨 SHELL
 
-### Phase 2 — Work loop
-
-Work requests → work orders. Benchmark: production WO + client/system selector.
+Work requests → work orders → job card routes exist. Depth, fault codes, costs, **role-gated** approvals still open.
 
 ### Phases 3–8
 
-Inventory, procurement, maintenance/ops, comms, BYO payments, differentiators.
+Inventory, procurement, maintenance/ops, comms, BYO payments, differentiators — **shells present**, production parity open.
+
+**Auth / Org / Platform / Payments (P0–P3):** see [IMPLEMENTATION_ROADMAP_AUTH_ORG_PLATFORM_PAYMENTS.md](IMPLEMENTATION_ROADMAP_AUTH_ORG_PLATFORM_PAYMENTS.md).
+
+**Mobile-first phases:** see [ROADMAP.md](ROADMAP.md).
 
 ---
 
@@ -97,6 +101,8 @@ Inventory, procurement, maintenance/ops, comms, BYO payments, differentiators.
 
 ## Success metrics
 
-**Phase 0:** Met 2026-08-02.
+**Phase 0:** Met (auth, org, tenancy). Extended 2026-08 with live member multi-tenancy.
 
-**Phase 1 (registration):** Client with production-class fields; every system linked to a client; detail + attach flow; hub on home — **ready for review on branch**.
+**Phase 1 (registration):** Client with strong fields; systems linked to clients; hub on home — **usable**; keep parity checklist open vs production.
+
+**Next product priority:** Org **roles** for work loops, then work-loop depth and offline.
