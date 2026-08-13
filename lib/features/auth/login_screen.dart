@@ -34,9 +34,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   String? _error;
   String? _info;
 
-  /// Show recovery actions only after a relevant failure.
   bool _offerForgotPassword = false;
   bool _offerResendConfirmation = false;
+
+  static const double _fieldRadius = 28;
 
   @override
   void initState() {
@@ -75,7 +76,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         _confirm.clear();
       }
       if (mode == _AuthMode.forgot) {
-        // User opened forgot deliberately after we offered it
         _offerForgotPassword = true;
       }
     });
@@ -85,14 +85,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final s = e.toString().toLowerCase();
     final msg = friendlyError(e);
 
-    // Wrong credentials → offer forgot password
     if (s.contains('invalid login') ||
         s.contains('invalid_credentials') ||
         msg.contains('incorrect')) {
       _offerForgotPassword = true;
     }
 
-    // Unconfirmed email → offer resend
     if (s.contains('email not confirmed') ||
         s.contains('not confirmed') ||
         msg.toLowerCase().contains('confirm your email')) {
@@ -159,7 +157,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               _mode = _AuthMode.signIn;
               _password.clear();
               _confirm.clear();
-              // After signup they may need resend if link fails later
               _offerResendConfirmation = true;
             });
           }
@@ -217,17 +214,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  String _title(bool inviteOnly) {
-    switch (_mode) {
-      case _AuthMode.register:
-        return 'Create organisation';
-      case _AuthMode.forgot:
-        return 'Reset password';
-      case _AuthMode.signIn:
-        return inviteOnly ? 'Join your team' : 'Welcome';
-    }
-  }
-
   String get _primaryLabel {
     switch (_mode) {
       case _AuthMode.register:
@@ -240,6 +226,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   InputDecoration _fieldDecoration(String label) {
+    final radius = BorderRadius.circular(_fieldRadius);
     return InputDecoration(
       labelText: label,
       labelStyle: const TextStyle(color: GlossColors.navy),
@@ -247,18 +234,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       filled: true,
       fillColor: Colors.white.withValues(alpha: 0.55),
       contentPadding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: radius,
         borderSide:
-            BorderSide(color: GlossColors.teal.withValues(alpha: 0.65)),
+            BorderSide(color: GlossColors.teal.withValues(alpha: 0.55)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: radius,
         borderSide: const BorderSide(color: GlossColors.navy, width: 1.5),
       ),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: radius,
         borderSide: const BorderSide(color: GlossColors.teal),
       ),
     );
@@ -296,101 +283,51 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Logo only — no border, clip, or shadow
                   Center(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: GlossColors.navy.withValues(alpha: 0.08),
-                            blurRadius: 24,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(24),
-                        child: Image.asset(
-                          'assets/branding/peeke_icon.png',
-                          height: 120,
-                          width: 120,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const Text(
-                            'Peeke',
-                            style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w700,
-                              color: GlossColors.navy,
-                            ),
-                          ),
+                    child: Image.asset(
+                      'assets/branding/peeke_icon.png',
+                      height: 128,
+                      width: 128,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const Text(
+                        'Peeke',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w700,
+                          color: GlossColors.navy,
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Peeke Automation',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.4,
-                      color: GlossColors.teal,
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  Text(
-                    _title(inviteOnly),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: GlossColors.navy,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  if (inviteOnly && _mode == _AuthMode.signIn)
+                  const SizedBox(height: 36),
+
+                  // Mode labels only when not default sign-in
+                  if (_mode == _AuthMode.register) ...[
                     const Text(
-                      'Sign in with the email that received the invite.',
+                      'Create organisation',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: GlossColors.teal,
-                        fontSize: 13,
-                        height: 1.35,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: GlossColors.navy,
                       ),
                     ),
-                  if (!inviteOnly && _mode == _AuthMode.signIn)
+                    const SizedBox(height: 20),
+                  ],
+                  if (_mode == _AuthMode.forgot) ...[
                     const Text(
-                      'Sign in to your organisation workspace.',
+                      'Reset password',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: GlossColors.teal,
-                        fontSize: 13,
-                        height: 1.35,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: GlossColors.navy,
                       ),
                     ),
-                  if (_mode == _AuthMode.register)
-                    const Text(
-                      'Use a work email you control. Confirm it, then set up your organisation.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: GlossColors.teal,
-                        fontSize: 13,
-                        height: 1.35,
-                      ),
-                    ),
-                  if (_mode == _AuthMode.forgot)
-                    const Text(
-                      'We will email a one-time link to choose a new password.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: GlossColors.teal,
-                        fontSize: 13,
-                        height: 1.35,
-                      ),
-                    ),
-                  const SizedBox(height: 28),
+                    const SizedBox(height: 20),
+                  ],
+
                   TextField(
                     controller: _email,
                     keyboardType: TextInputType.emailAddress,
@@ -470,7 +407,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       minimumSize: const Size.fromHeight(50),
                       elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(_fieldRadius),
                       ),
                     ),
                     child: _busy
@@ -491,7 +428,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                   ),
                   if (_mode == _AuthMode.signIn) ...[
-                    // Forgot password — only after failed sign-in (wrong password)
                     if (_offerForgotPassword && !inviteOnly) ...[
                       const SizedBox(height: 8),
                       TextButton(
@@ -503,7 +439,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         child: const Text('Forgot password?'),
                       ),
                     ],
-                    // Resend confirmation — only after unconfirmed / post-signup
                     if (_offerResendConfirmation && !inviteOnly) ...[
                       const SizedBox(height: 4),
                       TextButton(
@@ -548,9 +483,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: GlossColors.navy,
                           side: const BorderSide(color: GlossColors.navy),
-                          minimumSize: const Size.fromHeight(48),
+                          minimumSize: const Size.fromHeight(50),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(_fieldRadius),
                           ),
                         ),
                         child: const Text(
