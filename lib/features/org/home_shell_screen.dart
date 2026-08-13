@@ -13,6 +13,7 @@ import '../payments/payment_providers.dart';
 import '../procurement/procurement_providers.dart';
 import '../work/work_providers.dart';
 import 'org_providers.dart';
+import 'org_status_screen.dart';
 
 class HomeShellScreen extends ConsumerWidget {
   const HomeShellScreen({super.key});
@@ -78,6 +79,11 @@ class HomeShellScreen extends ConsumerWidget {
             );
           }
 
+          // Hard gate: pending / rejected / suspended / expired testing
+          if (active != null && !active.hasProductAccess) {
+            return const OrgStatusScreen();
+          }
+
           return RefreshIndicator(
             onRefresh: () async {
               ref.invalidate(myOrganizationsProvider);
@@ -104,7 +110,8 @@ class HomeShellScreen extends ConsumerWidget {
                     style: const TextStyle(color: GlossColors.teal)),
                 if (active != null) ...[
                   const SizedBox(height: 4),
-                  Text('Slug · ${active.slug}',
+                  Text(
+                      'Slug · ${active.slug}${active.status == 'testing' ? ' · test window' : ''}',
                       style: const TextStyle(
                           color: GlossColors.teal, fontSize: 12)),
                 ],
@@ -236,7 +243,6 @@ class HomeShellScreen extends ConsumerWidget {
                             : null,
                       ),
                     )),
-                // Only true tenants (no pending invite-only path) may add another org
                 if (!isInvited || orgs.isNotEmpty)
                   OutlinedButton(
                     onPressed: () => context.push('/org/create'),
@@ -320,13 +326,14 @@ class _EmptyOrg extends StatelessWidget {
                     color: GlossColors.navy)),
             const SizedBox(height: 8),
             const Text(
-              'Your organization is the tenant boundary for data, users, and payments.',
+              'Submit an organisation for Peeke Automation review. '
+              'CMMS access opens after approval or a test window.',
               textAlign: TextAlign.center,
               style: TextStyle(color: GlossColors.teal),
             ),
             const SizedBox(height: 24),
             FilledButton(
-                onPressed: onCreate, child: const Text('Create organization')),
+                onPressed: onCreate, child: const Text('Apply for organisation')),
           ],
         ),
       ),
