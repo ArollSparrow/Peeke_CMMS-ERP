@@ -34,12 +34,14 @@ final passwordRecoveryPendingProvider = StateProvider<bool>((ref) {
   return false;
 });
 
-/// True while invitee must finish /accept-invite (set password + name).
+/// True only for **team Auth invites** (`type=invite` in the email link).
+/// Never true for tenant signup / email confirm (`type=signup` / `email`).
 final invitePasswordPendingProvider = StateProvider<bool>((ref) {
   if (kIsWeb && uriIndicatesInvite(Uri.base)) return true;
   return false;
 });
 
+/// Soft flag for UI copy (hide Create Organisation on login).
 final teamInviteLandingProvider = StateProvider<bool>((ref) {
   if (kIsWeb && uriIndicatesInvite(Uri.base)) return true;
   return false;
@@ -83,19 +85,34 @@ bool uriIndicatesPasswordRecovery(Uri uri) {
   return false;
 }
 
+/// Team member invite only — requires Auth `type=invite`.
+/// Path `/accept-invite` alone is **not** enough (avoids trapping tenant signup).
 bool uriIndicatesInvite(Uri uri) {
   final qp = uri.queryParameters['type'];
   if (qp == 'invite') return true;
-  // Path-based redirect from our app
-  if (uri.path == '/accept-invite' || uri.path.endsWith('/accept-invite')) {
-    return true;
+
+  final frag = uri.fragment;
+  if (frag.isNotEmpty) {
+    try {
+      final params = Uri.splitQueryString(frag);
+      if (params['type'] == 'invite') return true;
+    } catch (_) {}
+    // Prefer exact query segment so we never match unrelated fragments
+    if (RegExp(r'(^|&)type=invite(&|$)').hasMatch(frag)) return true;
   }
+  return false;
+}
+
+/// Signup / email confirmation — tenant path, not team join.
+bool uriIndicatesSignupConfirm(Uri uri) {
+  final qp = uri.queryParameters['type'];
+  if (qp == 'signup' || qp == 'email') return true;
   final frag = uri.fragment;
   if (frag.isEmpty) return false;
   try {
     final params = Uri.splitQueryString(frag);
-    if (params['type'] == 'invite') return true;
+    final t = params['type'];
+    if (t == 'signup' || t == 'email') return true;
   } catch (_) {}
-  if (frag.contains('type=invite')) return true;
   return false;
 }
