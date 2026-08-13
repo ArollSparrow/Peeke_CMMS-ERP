@@ -1,0 +1,3 @@
+-- Applied live on tappfahlaiixctyliesz 2026-08-13
+-- Hard gate: new orgs pending; testing window; platform review RPC
+-- See docs/adr/003-org-approval-hard-gate.md
