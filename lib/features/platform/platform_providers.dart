@@ -7,7 +7,6 @@ import 'platform_models.dart';
 const _platformPaySelect =
     'id, provider, is_live, public_key, currency, business_name, is_enabled, last_verified_at, notes, updated_at';
 
-/// True when the signed-in user is in platform_admins.
 final isPlatformAdminProvider = FutureProvider.autoDispose<bool>((ref) async {
   final user = ref.watch(currentUserProvider);
   if (user == null) return false;
@@ -57,6 +56,24 @@ class PlatformRepository {
         planName: plan?['name'] as String?,
       );
     }).toList();
+  }
+
+  /// approve | test_window | reject | suspend
+  Future<void> reviewOrganization({
+    required String organizationId,
+    required String action,
+    int testingDays = 14,
+    String? note,
+  }) async {
+    await _client.rpc(
+      'platform_review_organization',
+      params: {
+        'p_organization_id': organizationId,
+        'p_action': action,
+        'p_testing_days': testingDays,
+        if (note != null && note.trim().isNotEmpty) 'p_note': note.trim(),
+      },
+    );
   }
 
   Future<List<SubscriptionPlan>> listPlans() async {
