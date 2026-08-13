@@ -7,11 +7,8 @@ import '../../design/gloss_theme.dart';
 import '../../infra/friendly_error.dart';
 import 'auth_providers.dart';
 
-/// Dedicated path for **team invitees** only.
-/// Not shared with tenant register or sign-in.
-///
-/// Flow: open invite email link → session from Supabase → this screen →
-/// set full name + password → accept pending membership → /gate → org home.
+/// Dedicated path for **team invitees** only (`type=invite` email link).
+/// Tenant signup / Create Organisation must never land here.
 class AcceptInviteScreen extends ConsumerStatefulWidget {
   const AcceptInviteScreen({super.key});
 
@@ -53,8 +50,8 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
     final user = ref.read(currentUserProvider);
     if (user == null) {
       setState(() => _error =
-          'Invite session expired or missing. Open the Accept invitation link '
-          'from your email again (link may expire).');
+          'Invite session not active. Open the latest “Accept invitation” link '
+          'from your email (links expire). Do not use Create Organisation.');
       return;
     }
 
@@ -65,7 +62,6 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
 
     final client = ref.read(supabaseClientProvider);
     try {
-      // Persist password + display name on the invited Auth user
       await client.auth.updateUser(
         UserAttributes(
           password: _password.text,
@@ -76,12 +72,9 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
         ),
       );
 
-      // Attach organization membership(s)
       try {
         await client.rpc('accept_pending_org_invites');
-      } catch (_) {
-        // Gate will retry
-      }
+      } catch (_) {}
 
       ref.read(invitePasswordPendingProvider.notifier).state = false;
       ref.read(teamInviteLandingProvider.notifier).state = true;
@@ -128,7 +121,9 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final email = ref.watch(currentUserProvider)?.email;
+    final user = ref.watch(currentUserProvider);
+    final email = user?.email;
+    final sessionReady = user != null;
 
     return Scaffold(
       backgroundColor: GlossColors.sky,
@@ -143,32 +138,19 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Center(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: Image.asset(
-                        'assets/branding/peeke_icon.png',
-                        height: 120,
-                        width: 120,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Text(
-                          'Peeke',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w700,
-                            color: GlossColors.navy,
-                          ),
+                    child: Image.asset(
+                      'assets/branding/peeke_icon.png',
+                      height: 120,
+                      width: 120,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const Text(
+                        'Peeke',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w500,
+                          color: GlossColors.navy,
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Peeke Automation',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: GlossColors.teal,
                     ),
                   ),
                   const SizedBox(height: 28),
@@ -177,26 +159,44 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 18,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w500,
                       color: GlossColors.navy,
+                      letterSpacing: -0.2,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    email != null
+                    sessionReady
                         ? 'Invited as $email\n'
                             'Create your password to become a member. '
-                            'This is not a tenant registration.'
-                        : 'Open this page from the Accept invitation link in your email.',
+                            'This is not organisation registration.'
+                        : 'Waiting for invite session…\n'
+                            'Open the full Accept invitation link from the '
+                            'email (or the shared action link). '
+                            'Expired links will not activate this form.',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: GlossColors.teal,
                       fontSize: 13,
+                      height: 1.35,
                     ),
                   ),
+                  if (!sessionReady) ...[
+                    const SizedBox(height: 16),
+                    const Text(
+                      'If you intended to create your own organisation, '
+                      'use Sign in → Create Organisation instead.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: GlossColors.navy,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   TextField(
                     controller: _fullName,
+                    enabled: sessionReady && !_busy,
                     textCapitalization: TextCapitalization.words,
                     style: const TextStyle(color: GlossColors.navy),
                     cursorColor: GlossColors.navy,
@@ -206,6 +206,7 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: _password,
+                    enabled: sessionReady && !_busy,
                     obscureText: !_show,
                     style: const TextStyle(color: GlossColors.navy),
                     cursorColor: GlossColors.navy,
@@ -223,13 +224,14 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: _confirm,
+                    enabled: sessionReady && !_busy,
                     obscureText: !_show,
                     style: const TextStyle(color: GlossColors.navy),
                     cursorColor: GlossColors.navy,
                     autofillHints: const [AutofillHints.newPassword],
                     decoration: _field('Confirm password'),
                     onSubmitted: (_) {
-                      if (!_busy) _complete();
+                      if (!_busy && sessionReady) _complete();
                     },
                   ),
                   if (_error != null) ...[
@@ -237,14 +239,14 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
                     Text(
                       _error!,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: GlossColors.navy),
+                      style: const TextStyle(color: GlossColors.danger),
                     ),
                   ],
                   const SizedBox(height: 20),
                   FilledButton(
-                    onPressed: _busy ? null : _complete,
+                    onPressed: (_busy || !sessionReady) ? null : _complete,
                     style: FilledButton.styleFrom(
-                      backgroundColor: GlossColors.navy,
+                      backgroundColor: GlossColors.teal,
                       foregroundColor: GlossColors.sky,
                       minimumSize: const Size.fromHeight(48),
                       shape: RoundedRectangleBorder(
@@ -260,7 +262,11 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
                               color: GlossColors.sky,
                             ),
                           )
-                        : const Text('Create password & join team'),
+                        : Text(
+                            sessionReady
+                                ? 'Create password & join team'
+                                : 'Link not active yet',
+                          ),
                   ),
                   TextButton(
                     onPressed: _busy
@@ -269,6 +275,9 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
                             ref
                                 .read(invitePasswordPendingProvider.notifier)
                                 .state = false;
+                            ref
+                                .read(teamInviteLandingProvider.notifier)
+                                .state = false;
                             await ref
                                 .read(supabaseClientProvider)
                                 .auth
@@ -276,8 +285,8 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
                             if (context.mounted) context.go('/login');
                           },
                     style: TextButton.styleFrom(
-                        foregroundColor: GlossColors.teal),
-                    child: const Text('Cancel'),
+                        foregroundColor: GlossColors.navy),
+                    child: const Text('Back to sign in'),
                   ),
                 ],
               ),
