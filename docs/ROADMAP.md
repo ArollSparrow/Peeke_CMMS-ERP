@@ -1,10 +1,12 @@
 # Peeke CMMS-ERP Roadmap
 
-**Last updated:** 2026-08-10  
-**Status:** Phase 0 in progress  
+**Last updated:** 2026-08-13  
+**Status:** Foundations + multi-tenant onboarding **proven live**; domain depth and offline field MVP **in progress**  
 **Source of truth for platform priority and sequencing**
 
-This roadmap advances **Peeke_CMMS-ERP** by importing the high-value “surgical” maintenance depth already proven in the mature **Peeke™** project (`ArollSparrow/Peeke` + Supabase `ggvdgkaptatlfepgnjkx`), while strictly following a **mobile-first, offline-first** strategy.
+This roadmap advances **Peeke_CMMS-ERP** by importing high-value maintenance depth from mature **Peeke™** (`ArollSparrow/Peeke` + Supabase `ggvdgkaptatlfepgnjkx`), while following a **mobile-first, offline-first** strategy.
+
+For Auth / Org / Platform / Payments checklist (P0–P3), see [IMPLEMENTATION_ROADMAP_AUTH_ORG_PLATFORM_PAYMENTS.md](IMPLEMENTATION_ROADMAP_AUTH_ORG_PLATFORM_PAYMENTS.md).
 
 ---
 
@@ -24,6 +26,24 @@ This roadmap advances **Peeke_CMMS-ERP** by importing the high-value “surgical
 - Keep secrets server-side.
 - Test offline scenarios on real devices early and often.
 - Multi-tenancy (`organization_id` + RLS) is non-negotiable from day one.
+
+---
+
+## Progress snapshot (2026-08-13)
+
+| Track | Status |
+|-------|--------|
+| Multi-tenant orgs + RLS foundation | ✅ Live (multiple orgs) |
+| Tenant register → create org | ✅ |
+| Team invite → Join your team → member | ✅ Proven |
+| Web (Cloudflare Pages) | ✅ Continuous deploy |
+| Android / iOS platform folders + APK CI | ✅ |
+| Branding (3-color Peeke Automation) | ✅ |
+| Platform admin console (tenants, plans UI) | 🟨 Partial |
+| Domain modules (clients, work, inventory, …) | 🟨 Shells / partial depth |
+| Org roles beyond owner/admin/member | ⬜ Next |
+| Offline engine (PowerSync) | ⬜ |
+| Surgical Peeke™ import (`fault_codes`, rich jobs) | ⬜ / early |
 
 ---
 
@@ -49,122 +69,92 @@ This roadmap advances **Peeke_CMMS-ERP** by importing the high-value “surgical
 
 ---
 
-## Phase 0 – Foundations (1–2 weeks)
+## Phase 0 – Foundations
 
-**Goal:** Clean, tenant-scoped domain model + local schema ready for offline mobile.
+**Goal:** Clean, tenant-scoped domain model + scaffolding for offline mobile.
 
 ### Flutter platform scaffolding (mobile-first)
-- [x] Repo prepared for Android + iOS (`.gitignore`, README, `scripts/setup_platforms.sh`)
-- [ ] Generate native folders locally (required once):
-  ```bash
-  bash scripts/setup_platforms.sh
-  # or: flutter create . --project-name peeke_cmms_erp --platforms=android,ios,web
-  ```
-- [ ] Commit generated `android/` and `ios/` folders to the repo
-- Web continues via existing Cloudflare Pages pipeline
+- [x] Repo prepared for Android + iOS
+- [x] `android/` and `ios/` in repo; web via Cloudflare Pages
+- [x] APK workflow (Actions); iOS builds on demand
 
-### Backend (Supabase – Peeke CMMS-ERP `tappfahlaiixctyliesz`)
-1. Finalize multi-tenancy — harden RLS on every table.
-2. Import critical surgical details from Peeke™:
-   - Create `fault_codes` + seed core codes (generator / inverter / pump categories).
-   - Evolve `maintenance_records` **or** introduce `maintenance_jobs` + `job_parts` (recommended for clarity).
-   - Add key columns to `work_orders`: `fault_code_id`, `sla_due_at`, `client_acceptance_status`, `parts_cost`, `labour_cost`, `total_cost` (generated), `technicians_attendance` (jsonb), `department`, linked job reference.
-   - Enrich `work_requests` with inspection / root-cause / spares fields.
-   - Add `pm_plan_spares`.
-   - Enrich `downtime_events` with fault_code, hour meters, ongoing flag, resolution notes.
-3. Write ordered migrations (apply via Supabase).
-4. Seed minimal reference data (fault codes, roles, one demo org).
+### Backend (Supabase – `tappfahlaiixctyliesz`)
+- [x] Multi-tenancy model + org membership + invites
+- [x] Auth paths: tenant register, member accept-invite, platform admin gate
+- [x] Payment secret hardening (REVOKE + RPC)
+- [ ] Import critical surgical details from Peeke™ (`fault_codes`, job_parts, WO cost/SLA columns, …)
+- [ ] Seed full reference data (fault codes, expanded roles)
 
 ### Flutter / Local
-- Confirm feature-first Riverpod project structure.
-- Design fully tenant-scoped local schema that mirrors the critical tables above.
-- Choose and wire offline engine (**PowerSync recommended**).
-- Auth + organization membership + switching skeleton.
+- [x] Feature-first Riverpod structure
+- [x] Auth + organization membership + home shell
+- [ ] Fully tenant-scoped **local** schema + offline engine (**PowerSync** still to choose/wire)
 
-**Deliverable:** Domain model locked, migrations applied, local schema designed, offline engine decided, Android + iOS platform folders present.
+**Deliverable status:** Onboarding + tenancy foundation **met**. Surgical domain model + offline schema **still open**.
 
 ---
 
-## Phase 1 – Core Offline Mobile MVP (Android + iOS) (7–11 weeks)
+## Phase 1 – Core Offline Mobile MVP (Android + iOS)
 
-**Focus exclusively on field technicians. Full offline capability.**
+**Focus:** Field technicians. Full offline capability.
 
 ### Must-have features
-- Authentication + tenant membership + org switching
-- Local DB as source of truth
-- **Full offline Work Order flow**:
-  - View / create / update / status transitions
-  - Photos, notes, signatures, barcode scanning
-  - Structured fault code selection
-  - Parts usage (internal/external) with basic cost capture
-  - Labour hours + simple rate snapshot
-- Basic Assets (`systems` / `clients`) and Inventory (view + issue) — offline capable
-- Background sync + conflict handling + clear online/offline/sync status indicators
-- Role-based access (Technician vs Supervisor/Admin)
-- Secure Paystack (server-side only)
-- Real-device testing in low/no connectivity
+- [x] Authentication + tenant membership (web-proven; mobile same codebase)
+- [ ] Org switching polish + **role-based access** (Technician vs Supervisor/Admin)
+- [ ] Local DB as source of truth
+- [ ] Full offline Work Order flow (photos, fault codes, parts, labour, sync status)
+- [ ] Basic Assets + Inventory offline
+- [ ] Background sync + conflict handling
+- [x] Secure Paystack pattern (server-side secrets)
+- [ ] Real-device offline testing
 
-### Import prioritisation inside Phase 1
-
-| Priority | Peeke™ Detail | Why in Phase 1 |
-|----------|---------------|----------------|
-| P0 | `fault_codes` | Structured logging from day 1 |
-| P0 | Richer job / maintenance logging | Cost + service history |
-| P1 | Core WO lifecycle + costs | Real technician workflow |
-| P1 | Work Request → WO conversion basics | Field request capture |
-| P2 | Basic PM trigger awareness | Can wait for Phase 2 polish |
-
-**Deliverable:** Installable Android + iOS builds that technicians can use fully offline for core work-order and basic inventory work.
+**Deliverable:** Installable Android + iOS builds technicians can use fully offline — **not yet**.
 
 ---
 
-## Phase 2 – Web Version + Hardening (4–6 weeks)
+## Phase 2 – Web Version + Hardening
 
 **Office users & managers. Same Flutter codebase → Web.**
 
-- Web version for supervisors, procurement, managers
-- Preventive Maintenance scheduling (full `pm_plans` + `pm_plan_spares` + SOP templates)
-- Richer reporting & dashboards (larger screens)
-- Photo/attachment gallery improvements
-- Security hardening (refined RLS, audit logs, optional MFA)
-- Cloudflare (custom domains, WAF, Workers if needed)
-- Performance tuning + monitoring
-- Tenant plan limits / feature flags (leverage existing subscription tables)
-
-**Additional imports from Peeke™:** Full multi-stage WO approvals & client acceptance, deeper procurement if required, automation hooks.
+- [x] Web app live for office flows (registration, team, shells)
+- [ ] Preventive Maintenance full depth (`pm_plan_spares`, SOP)
+- [ ] Richer reporting & dashboards
+- [ ] Security hardening (audit logs, optional MFA)
+- [ ] Tenant plan limits / feature flags enforced
+- [ ] Production email (SMTP/Resend) beyond built-in rate limits
 
 ---
 
-## Phase 3 – Production Launch & Early Scale (4–7 weeks)
+## Phase 3 – Production Launch & Early Scale
 
-- Closed beta with real field technicians (Android + iOS) + office users (Web)
+- Closed beta with field technicians + office users
 - Payment webhooks, usage metering, billing
-- Advanced offline edge cases + data recovery tools
+- Advanced offline edge cases + data recovery
 - App Store + Play Store (or enterprise distribution)
 - Documentation & onboarding
 - Soft launch → public launch
-- Monitor sync reliability, crash rates, and support tickets
 
 ---
 
 ## Phase 4 – Growth & Optional Desktop (Ongoing)
 
-- Additional ERP modules as real demand appears
+- Additional ERP modules as demand appears
 - Analytics & cross-tenant insights
 - White-labeling / theming
-- Possible AI features (predictive maintenance using the rich fault + meter history)
-- **Windows desktop only if clear business need**
-- Continuous improvement driven by field feedback
+- Possible AI (predictive maintenance)
+- Windows desktop only if clear business need
 
 ---
 
 ## Related Docs
 
+- [Implementation roadmap Auth/Org/Platform/Payments (P0–P3)](IMPLEMENTATION_ROADMAP_AUTH_ORG_PLATFORM_PAYMENTS.md)
 - [Foundation](FOUNDATION.md)
 - [Implementation Strategy](IMPLEMENTATION_STRATEGY.md)
+- [Invite member flow](INVITE_MEMBER_FLOW.md)
 - [ADR 001 — BYO payments](adr/001-tenant-payments-byo.md)
 - [ADR 002 — Platform owner vs tenant](adr/002-platform-owner-vs-tenant.md)
 
 ---
 
-*This document is the living roadmap. Update it when priorities or imported scope change.*
+*Living roadmap. Update when priorities or imported scope change.*
