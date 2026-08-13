@@ -42,12 +42,12 @@ class _CreateOrgScreenState extends ConsumerState<CreateOrgScreen> {
       return 'That organization slug is already taken. Choose another.';
     }
     if (s.contains('JWT') || s.contains('session')) {
-      return 'Your session expired. Sign in again, then create the organization.';
+      return 'Your session expired. Sign in again.';
     }
     if (s.contains('not authenticated') || s.contains('Must be signed in')) {
-      return 'Sign in first, then create your organization.';
+      return 'Sign in first, then continue.';
     }
-    if (s.length > 160) return 'Could not create the organization. Try again.';
+    if (s.length > 160) return 'Could not submit the application. Try again.';
     return s.replaceFirst(RegExp(r'^Exception:\s*'), '');
   }
 
@@ -55,7 +55,7 @@ class _CreateOrgScreenState extends ConsumerState<CreateOrgScreen> {
     final confirmed = ref.read(isEmailConfirmedProvider);
     if (!confirmed) {
       setState(() => _error =
-          'Confirm your email first (open the link we sent), then create the organization.');
+          'Confirm your email first (open the link we sent), then continue.');
       return;
     }
     final name = _name.text.trim();
@@ -77,7 +77,10 @@ class _CreateOrgScreenState extends ConsumerState<CreateOrgScreen> {
           );
       ref.read(activeOrganizationIdProvider.notifier).state = org.id;
       ref.invalidate(myOrganizationsProvider);
-      if (mounted) context.go('/home');
+      // Hard gate: pending → status screen, not product home
+      if (mounted) {
+        context.go(org.hasProductAccess ? '/home' : '/org/status');
+      }
     } catch (e) {
       setState(() => _error = _friendly(e));
     } finally {
@@ -126,7 +129,7 @@ class _CreateOrgScreenState extends ConsumerState<CreateOrgScreen> {
       ),
       disabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: GlossColors.teal.withOpacity(0.4)),
+        borderSide: BorderSide(color: GlossColors.teal.withValues(alpha: 0.4)),
       ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -152,48 +155,36 @@ class _CreateOrgScreenState extends ConsumerState<CreateOrgScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Center(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: Image.asset(
-                        'assets/branding/peeke_icon.png',
-                        height: 100,
-                        width: 100,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Text(
-                          'Peeke',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w700,
-                            color: GlossColors.navy,
-                          ),
+                    child: Image.asset(
+                      'assets/branding/peeke_icon.png',
+                      height: 100,
+                      width: 100,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const Text(
+                        'Peeke',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w500,
+                          color: GlossColors.navy,
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'Peeke Automation',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: GlossColors.teal,
-                    ),
-                  ),
                   const SizedBox(height: 24),
                   const Text(
-                    'Create your organization',
+                    'Apply for organisation',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 18,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w500,
                       color: GlossColors.navy,
+                      letterSpacing: -0.2,
                     ),
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Your organization is the boundary for data, users, and billing. '
-                    'Ownership is proven by the confirmed email on this account.',
+                    'Submit for review by Peeke Automation. '
+                    'Access to CMMS-ERP opens after approval or a test window.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: GlossColors.teal, fontSize: 13),
                   ),
@@ -227,7 +218,7 @@ class _CreateOrgScreenState extends ConsumerState<CreateOrgScreen> {
                               const SizedBox(height: 2),
                               Text(
                                 confirmed
-                                    ? 'Email confirmed — you can create an organization'
+                                    ? 'Email confirmed'
                                     : 'Open the confirmation link we sent, then continue',
                                 style: const TextStyle(
                                   fontSize: 12,
@@ -275,7 +266,7 @@ class _CreateOrgScreenState extends ConsumerState<CreateOrgScreen> {
                     Text(
                       _error!,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: GlossColors.navy),
+                      style: const TextStyle(color: GlossColors.danger),
                     ),
                   ],
                   if (_info != null) ...[
@@ -306,7 +297,7 @@ class _CreateOrgScreenState extends ConsumerState<CreateOrgScreen> {
                               color: GlossColors.sky,
                             ),
                           )
-                        : const Text('Create organization'),
+                        : const Text('Submit for review'),
                   ),
                   const SizedBox(height: 12),
                   TextButton(
