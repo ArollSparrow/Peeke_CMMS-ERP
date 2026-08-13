@@ -22,6 +22,7 @@ import '../features/maintenance/service_history_screen.dart';
 import '../features/operations/operations_screens.dart';
 import '../features/org/create_org_screen.dart';
 import '../features/org/home_shell_screen.dart';
+import '../features/org/org_status_screen.dart';
 import '../features/org/org_team_screen.dart';
 import '../features/payments/payment_screens.dart';
 import '../features/platform/platform_providers.dart';
@@ -46,7 +47,8 @@ bool _isTenantAppPath(String loc) {
   if (loc == '/login' ||
       loc == '/gate' ||
       loc == '/reset-password' ||
-      loc == '/accept-invite') {
+      loc == '/accept-invite' ||
+      loc == '/org/status') {
     return false;
   }
   if (_isPlatformPath(loc)) return false;
@@ -65,6 +67,7 @@ bool _isKnownAppPath(String loc) {
     '/platform/payments',
     '/home',
     '/org/create',
+    '/org/status',
     '/org/team',
     '/registration',
     '/clients',
@@ -143,7 +146,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final recovery = ref.read(passwordRecoveryPendingProvider);
       final invitePw = ref.read(invitePasswordPendingProvider);
 
-      // Team invite: force dedicated screen (not login / register)
       if (invitePw) {
         if (loc != '/accept-invite') return '/accept-invite';
         return null;
@@ -160,7 +162,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           loc != '/login' &&
           loc != '/gate' &&
           loc != '/reset-password' &&
-          loc != '/accept-invite') {
+          loc != '/accept-invite' &&
+          loc != '/org/status') {
         return signedIn ? '/gate' : '/login';
       }
 
@@ -171,12 +174,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       if (loc == '/reset-password') {
         if (!signedIn) return '/login';
-        // stay while recovery pending; after save goes to gate
         return null;
       }
 
       if (loc == '/accept-invite') {
-        // Stay while invite session; after complete → gate
         return null;
       }
 
@@ -228,6 +229,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: '/org/create',
           builder: (context, state) => const CreateOrgScreen()),
+      GoRoute(
+          path: '/org/status',
+          builder: (context, state) => const OrgStatusScreen()),
       GoRoute(
           path: '/org/team', builder: (context, state) => const OrgTeamScreen()),
       GoRoute(
