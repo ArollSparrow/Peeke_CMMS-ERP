@@ -17,20 +17,22 @@ String authRedirectTo(String path) {
   return 'https://peeke-cmms-erp.pages.dev$path';
 }
 
-/// Logo wordmark weight / tracking (navy primary).
-const _logoTitle = TextStyle(
-  fontSize: 17,
-  fontWeight: FontWeight.w700,
+/// Matches logo wordmark feel: medium weight, tight tracking (not heavy bold).
+const _logoMark = TextStyle(
+  fontSize: 16,
+  fontWeight: FontWeight.w500,
   color: GlossColors.navy,
-  letterSpacing: 0.2,
+  letterSpacing: -0.2,
+  height: 1.2,
 );
 
-/// Logo accent style (teal secondary).
+/// Logo “CMMS-ERP” / node accent feel.
 const _logoAccent = TextStyle(
-  fontSize: 14,
-  fontWeight: FontWeight.w600,
+  fontSize: 13,
+  fontWeight: FontWeight.w500,
   color: GlossColors.teal,
-  letterSpacing: 0.15,
+  letterSpacing: 0.3,
+  height: 1.2,
 );
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -54,7 +56,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _offerResendConfirmation = false;
 
   static const double _fieldRadius = 28;
-  /// Shorter, tighter-fitting field column
   static const double _formWidth = 300;
 
   @override
@@ -247,15 +248,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final radius = BorderRadius.circular(_fieldRadius);
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(
-        color: GlossColors.navy,
-        fontWeight: FontWeight.w600,
-        fontSize: 14,
-      ),
-      floatingLabelStyle: const TextStyle(
-        color: GlossColors.teal,
-        fontWeight: FontWeight.w600,
-      ),
+      labelStyle: _logoMark.copyWith(fontSize: 14),
+      floatingLabelStyle: _logoAccent.copyWith(fontSize: 13),
       filled: true,
       fillColor: Colors.white.withValues(alpha: 0.55),
       isDense: true,
@@ -274,6 +268,63 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         borderRadius: radius,
         borderSide: const BorderSide(color: GlossColors.teal),
       ),
+    );
+  }
+
+  Widget _primaryAction() {
+    final child = _busy
+        ? SizedBox(
+            height: 18,
+            width: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: _mode == _AuthMode.signIn
+                  ? GlossColors.sky
+                  : GlossColors.sky,
+            ),
+          )
+        : Text(
+            _primaryLabel,
+            style: _logoMark.copyWith(
+              color: GlossColors.sky,
+              fontSize: 15,
+            ),
+          );
+
+    // Sign in only: compact pill sized to the label, teal (logo accent)
+    if (_mode == _AuthMode.signIn) {
+      return Center(
+        child: FilledButton(
+          onPressed: _busy ? null : _submit,
+          style: FilledButton.styleFrom(
+            backgroundColor: GlossColors.teal,
+            foregroundColor: GlossColors.sky,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(_fieldRadius),
+            ),
+          ),
+          child: child,
+        ),
+      );
+    }
+
+    // Register / forgot: full-width form action
+    return FilledButton(
+      onPressed: _busy ? null : _submit,
+      style: FilledButton.styleFrom(
+        backgroundColor: GlossColors.navy,
+        foregroundColor: GlossColors.sky,
+        minimumSize: const Size.fromHeight(46),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(_fieldRadius),
+        ),
+      ),
+      child: child,
     );
   }
 
@@ -321,7 +372,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             fit: BoxFit.contain,
                             errorBuilder: (_, __, ___) => const Text(
                               'Peeke',
-                              style: _logoTitle,
+                              style: _logoMark,
                             ),
                           ),
                         ),
@@ -331,7 +382,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           const Text(
                             'Create organisation',
                             textAlign: TextAlign.center,
-                            style: _logoTitle,
+                            style: _logoMark,
                           ),
                           const SizedBox(height: 18),
                         ],
@@ -339,7 +390,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           const Text(
                             'Reset password',
                             textAlign: TextAlign.center,
-                            style: _logoTitle,
+                            style: _logoMark,
                           ),
                           const SizedBox(height: 18),
                         ],
@@ -347,11 +398,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         TextField(
                           controller: _email,
                           keyboardType: TextInputType.emailAddress,
-                          style: const TextStyle(
-                            color: GlossColors.navy,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
+                          style: _logoMark.copyWith(fontSize: 14),
                           cursorColor: GlossColors.navy,
                           autofillHints: const [AutofillHints.email],
                           decoration: _fieldDecoration('Email'),
@@ -361,11 +408,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           TextField(
                             controller: _password,
                             obscureText: !_showPassword,
-                            style: const TextStyle(
-                              color: GlossColors.navy,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                            ),
+                            style: _logoMark.copyWith(fontSize: 14),
                             cursorColor: GlossColors.navy,
                             autofillHints: _mode == _AuthMode.register
                                 ? const [AutofillHints.newPassword]
@@ -391,11 +434,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           TextField(
                             controller: _confirm,
                             obscureText: !_showPassword,
-                            style: const TextStyle(
-                              color: GlossColors.navy,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                            ),
+                            style: _logoMark.copyWith(fontSize: 14),
                             cursorColor: GlossColors.navy,
                             autofillHints: const [AutofillHints.newPassword],
                             decoration: _fieldDecoration('Confirm password'),
@@ -420,40 +459,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           Text(
                             _info!,
                             textAlign: TextAlign.center,
-                            style: _logoAccent.copyWith(fontSize: 13),
+                            style: _logoAccent,
                           ),
                         ],
                         const SizedBox(height: 20),
-                        FilledButton(
-                          onPressed: _busy ? null : _submit,
-                          style: FilledButton.styleFrom(
-                            backgroundColor: GlossColors.navy,
-                            foregroundColor: GlossColors.sky,
-                            minimumSize: const Size.fromHeight(46),
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(_fieldRadius),
-                            ),
-                          ),
-                          child: _busy
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.2,
-                                    color: GlossColors.sky,
-                                  ),
-                                )
-                              : Text(
-                                  _primaryLabel,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 15,
-                                    letterSpacing: 0.2,
-                                  ),
-                                ),
-                        ),
+                        _primaryAction(),
                         if (_mode == _AuthMode.signIn) ...[
                           if (_offerForgotPassword && !inviteOnly) ...[
                             const SizedBox(height: 6),
@@ -480,7 +490,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ],
                           if (!inviteOnly) ...[
                             const SizedBox(height: 16),
-                            // Link-style — not a text-field / outlined button
                             Center(
                               child: TextButton.icon(
                                 onPressed: _busy
@@ -493,7 +502,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 ),
                                 label: const Text(
                                   'Create Organisation',
-                                  style: _logoTitle,
+                                  style: _logoMark,
                                 ),
                                 style: TextButton.styleFrom(
                                   foregroundColor: GlossColors.navy,
@@ -532,7 +541,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
               ),
             ),
-            // Pinned to visual bottom of the screen
             const Padding(
               padding: EdgeInsets.only(bottom: 16, top: 8),
               child: Text(
