@@ -9,25 +9,46 @@ class Organization {
     required this.name,
     required this.slug,
     required this.status,
+    this.testingUntil,
+    this.reviewNote,
   });
 
   final String id;
   final String name;
   final String slug;
   final String status;
+  final DateTime? testingUntil;
+  final String? reviewNote;
+
+  /// Hard gate: active always; testing while window open.
+  bool get hasProductAccess {
+    if (status == 'active') return true;
+    if (status == 'testing') {
+      if (testingUntil == null) return true;
+      return testingUntil!.isAfter(DateTime.now().toUtc());
+    }
+    return false;
+  }
 
   factory Organization.fromMap(Map<String, dynamic> m) {
+    DateTime? until;
+    final raw = m['testing_until'];
+    if (raw is String) {
+      until = DateTime.tryParse(raw)?.toUtc();
+    } else if (raw is DateTime) {
+      until = raw.toUtc();
+    }
     return Organization(
       id: m['id'] as String,
       name: m['name'] as String,
       slug: m['slug'] as String,
-      status: m['status'] as String? ?? 'active',
+      status: m['status'] as String? ?? 'pending',
+      testingUntil: until,
+      reviewNote: m['review_note'] as String?,
     );
   }
 }
 
-/// Known membership roles (organization_members.role).
-/// Matches DB values used by is_org_admin(): owner | admin | member.
 class OrgRoles {
   static const owner = 'owner';
   static const admin = 'admin';
@@ -36,14 +57,15 @@ class OrgRoles {
   static const elevated = {owner, admin};
 }
 
-/// Orgs the signed-in user belongs to (RLS-filtered).
 final myOrganizationsProvider =
     FutureProvider.autoDispose<List<Organization>>((ref) async {
   final user = ref.watch(currentUserProvider);
   if (user == null) return [];
 
   final client = ref.watch(supabaseClientProvider);
-  final rows = await client.from('organizations').select();
+  final rows = await client
+      .from('organizations')
+      .select('id, name, slug, status, testing_until, review_note');
   return (rows as List)
       .map((e) => Organization.fromMap(Map<String, dynamic>.from(e as Map)))
       .toList();
@@ -62,7 +84,6 @@ final activeOrganizationProvider = Provider<Organization?>((ref) {
   }
 });
 
-/// Current user's role in the active organization (null if signed out / no org).
 final activeMembershipRoleProvider =
     FutureProvider.autoDispose<String?>((ref) async {
   final user = ref.watch(currentUserProvider);
@@ -80,11 +101,6 @@ final activeMembershipRoleProvider =
   return row['role'] as String? ?? OrgRoles.member;
 });
 
-/// Capability flags for the active membership.
-///
-/// **Policy today (E2E-friendly):** any org member can approve / reject WOs and WRs.
-/// **Future:** flip [OrgCapabilities.requireElevatedForApproval] to true and
-/// wire UI/RPC to [canApproveWork] so only owner/admin pass.
 class OrgCapabilities {
   const OrgCapabilities({
     required this.role,
@@ -92,9 +108,6 @@ class OrgCapabilities {
   });
 
   final String? role;
-
-  /// When true, only owner/admin may approve or reject work.
-  /// Keep false until multi-user tenants need gated queues.
   final bool requireElevatedForApproval;
 
   bool get isElevated =>
@@ -102,14 +115,12 @@ class OrgCapabilities {
 
   bool get isMember => role != null;
 
-  /// WR/WO approval & reject. Unrestricted while requireElevatedForApproval is false.
   bool get canApproveWork {
     if (!isMember) return false;
     if (!requireElevatedForApproval) return true;
     return isElevated;
   }
 
-  /// Create org-scoped records, raise POs, issue stock, status changes.
   bool get canOperate => isMember;
 }
 
@@ -117,7 +128,6 @@ final orgCapabilitiesProvider = Provider.autoDispose<OrgCapabilities>((ref) {
   final role = ref.watch(activeMembershipRoleProvider).valueOrNull;
   return OrgCapabilities(
     role: role,
-    // Foundation only — do not enforce elevated approval yet.
     requireElevatedForApproval: false,
   );
 });
@@ -127,8 +137,6 @@ class OrgRepository {
 
   final SupabaseClient _client;
 
-  /// Creates org + owner membership in one SECURITY DEFINER RPC.
-  /// Avoids INSERT...RETURNING RLS failure before membership exists.
   Future<Organization> createOrganization({
     required String name,
     required String slug,
