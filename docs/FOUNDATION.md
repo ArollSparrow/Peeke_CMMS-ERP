@@ -2,6 +2,7 @@
 
 **Repo:** `ArollSparrow/Peeke_CMMS-ERP`  
 **Started:** 2026-07 / 2026-08  
+**Last status update:** 2026-08-13  
 **Not a fork of production** — rebuild from first principles.
 
 ## Product posture
@@ -25,13 +26,14 @@
 |-------|----------|
 | State management | Riverpod-first |
 | Backend | Supabase (Auth, DB, RLS, Realtime, Storage, Edge Functions) |
-| Tenant payments | **BYO** — tenants connect **their own** Paystack (then optional Stripe). Platform does not hold tenant client funds. See [ADR 001](adr/001-tenant-payments-byo.md) |
+| Tenant payments | **BYO** — tenants connect **their own** Paystack. See [ADR 001](adr/001-tenant-payments-byo.md) |
 | Platform SaaS fee (optional later) | Peeke’s own merchant account — separate from tenant operational payments |
 | Edge / web hosting | Cloudflare Pages + Workers preferred |
 | Automation | Prefer Cloudflare Workers for webhooks; Activepieces optional |
-| UI | Gloss design system as single kit |
+| UI | Gloss design system; landing strict 3-color (sky / navy / teal) |
 | Branches | Agent work uses `*_grok` |
 | Product bar | Production Peeke = minimum domain completeness |
+| Member vs tenant | Invite → `/accept-invite`; tenant → Register → create org |
 
 ## Supabase (clean slate)
 
@@ -40,10 +42,7 @@
 | Name | **Peeke CMMS-ERP** |
 | Project ref / id | `tappfahlaiixctyliesz` |
 | Region | `eu-central-1` |
-| Status | `ACTIVE_HEALTHY` |
 | API URL | `https://tappfahlaiixctyliesz.supabase.co` |
-| DB host | `db.tappfahlaiixctyliesz.supabase.co` |
-| Org | `peekopsys@gmail.com's Org` (`nrfdlrvqhrgsfzmmyxuu`) |
 
 **Separate from production:** Peeke™ (`ggvdgkaptatlfepgnjkx`) remains live production and is not written to by this greenfield app.
 
@@ -64,22 +63,24 @@
 
 ## Phase order (high level)
 
-0. Foundation: auth, org context, design system, repo layout  
-1. Master data: clients, systems (parity with production registration)  
-2. Work requests → work orders  
-3. Inventory  
-4. Procurement  
-5. Maintenance / operations / reports  
+0. Foundation: auth, org context, design system, repo layout — **done**  
+1. Master data: clients, systems — **mostly done**  
+2. Work requests → work orders — **shell**  
+3. Inventory — **shell**  
+4. Procurement — **shell**  
+5. Maintenance / operations / reports — **shell**  
 6. Comms  
-7. Tenant BYO payments + invoices  
+7. Tenant BYO payments + invoices — **partial**  
 8. Attachments (Storage), QR, hierarchy, budgets  
 
-## Connectors in use for this workspace
+Detail: [IMPLEMENTATION_ROADMAP_AUTH_ORG_PLATFORM_PAYMENTS.md](IMPLEMENTATION_ROADMAP_AUTH_ORG_PLATFORM_PAYMENTS.md) · [ROADMAP.md](ROADMAP.md)
+
+## Connectors
 
 - GitHub (`ArollSparrow`)
-- Supabase — project **Peeke CMMS-ERP** (`tappfahlaiixctyliesz`)
-- Cloudflare (`Jkiaimorogo@gmail.com's Account`)
+- Supabase — **Peeke CMMS-ERP** (`tappfahlaiixctyliesz`)
+- Cloudflare Pages — `peeke-cmms-erp.pages.dev`
 
 ## Status
 
-Phase 0 complete. Phase 1 in progress with production field alignment (`004`) and client-linked systems.
+Foundation complete. Multi-tenant onboarding (tenant + team member) proven live. Domain depth and offline field MVP are the open workstreams.
