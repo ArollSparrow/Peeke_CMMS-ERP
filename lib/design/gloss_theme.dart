@@ -7,27 +7,23 @@ import 'package:flutter/material.dart';
 /// 2. [navy] `#272A6D` — "Peeke" wordmark (primary text / buttons)
 /// 3. [teal] `#55AAAC` — network nodes + "CMMS-ERP" (accents / links)
 ///
-/// Provider: Peeke Automation
+/// [danger] is reserved for error messages only (not brand chrome).
 class GlossColors {
   GlossColors._();
 
-  /// Logo background (exact sample avg)
   static const Color sky = Color(0xFFD3EFFD);
-
-  /// Logo wordmark navy / indigo
   static const Color navy = Color(0xFF272A6D);
-
-  /// Logo network + CMMS-ERP teal/cyan
   static const Color teal = Color(0xFF55AAAC);
 
-  // Aliases — no extra hues
+  /// User-facing errors (friendly messages)
+  static const Color danger = Color(0xFFC62828);
+
   static const Color pageBg = sky;
   static const Color card = sky;
   static const Color ink = navy;
   static const Color accent = teal;
   static const Color muted = teal;
   static const Color border = teal;
-  static const Color danger = navy;
   static const Color success = teal;
 }
 
@@ -45,7 +41,7 @@ class GlossTheme {
         onSecondary: GlossColors.sky,
         surface: GlossColors.sky,
         onSurface: GlossColors.navy,
-        error: GlossColors.navy,
+        error: GlossColors.danger,
         onError: GlossColors.sky,
       ),
       scaffoldBackgroundColor: GlossColors.sky,
@@ -73,19 +69,19 @@ class GlossTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: GlossColors.sky,
+        fillColor: Colors.white.withValues(alpha: 0.55),
         labelStyle: const TextStyle(color: GlossColors.navy),
         floatingLabelStyle: const TextStyle(color: GlossColors.teal),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: GlossColors.teal),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: GlossColors.teal),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: GlossColors.teal.withValues(alpha: 0.7)),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: GlossColors.navy, width: 1.5),
         ),
       ),
@@ -93,15 +89,15 @@ class GlossTheme {
         style: FilledButton.styleFrom(
           backgroundColor: GlossColors.navy,
           foregroundColor: GlossColors.sky,
-          minimumSize: const Size.fromHeight(48),
+          minimumSize: const Size.fromHeight(50),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
           ),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: GlossColors.teal,
+          foregroundColor: GlossColors.navy,
         ),
       ),
       iconTheme: const IconThemeData(color: GlossColors.navy),
