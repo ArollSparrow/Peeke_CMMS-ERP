@@ -9,17 +9,13 @@ import '../org/org_providers.dart';
 import 'platform_models.dart';
 import 'platform_providers.dart';
 
-/// Post-login gate: platform admin → /platform only; tenants → /home.
-/// Attaches pending org invites so invitees become members, not new tenants.
 class PostAuthGateScreen extends ConsumerWidget {
   const PostAuthGateScreen({super.key});
 
   Future<void> _acceptInvites(WidgetRef ref) async {
     try {
       await ref.read(supabaseClientProvider).rpc('accept_pending_org_invites');
-    } catch (_) {
-      // Non-fatal
-    }
+    } catch (_) {}
     ref.invalidate(myOrganizationsProvider);
     ref.invalidate(myPendingInviteCountProvider);
   }
@@ -63,10 +59,11 @@ class PlatformHomeScreen extends ConsumerWidget {
     final user = ref.watch(currentUserProvider);
 
     final tenantCount = tenants.valueOrNull?.length;
+    final pendingCount = tenants.valueOrNull
+        ?.where((t) => t.status == 'pending')
+        .length;
     final activeCount = tenants.valueOrNull
-        ?.where((t) =>
-            t.subscriptionStatus == 'active' ||
-            t.subscriptionStatus == 'trialing')
+        ?.where((t) => t.status == 'active' || t.status == 'testing')
         .length;
 
     return Scaffold(
@@ -103,37 +100,44 @@ class PlatformHomeScreen extends ConsumerWidget {
                 style: const TextStyle(color: GlossColors.teal)),
             const SizedBox(height: 8),
             const Text(
-              'This console is isolated from tenant CMMS. '
-              'Tenants register with a separate email, confirm ownership via inbox, '
-              'then create their organization. You collect SaaS subscriptions here.',
+              'Hard gate: new organisations wait for review. '
+              'Approve, open a test window, reject, or suspend from Tenants.',
               style: TextStyle(color: GlossColors.teal, fontSize: 13),
             ),
             const SizedBox(height: 20),
             Row(children: [
               Expanded(
                 child: _Kpi(
-                  label: 'Tenants',
-                  value: tenantCount?.toString() ?? '…',
-                  icon: Icons.apartment,
+                  label: 'Pending',
+                  value: pendingCount?.toString() ?? '…',
+                  icon: Icons.hourglass_empty,
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: _Kpi(
-                  label: 'Active / trial',
+                  label: 'Active / test',
                   value: activeCount?.toString() ?? '…',
                   icon: Icons.verified_outlined,
                 ),
               ),
             ]),
+            const SizedBox(height: 12),
+            _Kpi(
+              label: 'All tenants',
+              value: tenantCount?.toString() ?? '…',
+              icon: Icons.apartment,
+            ),
             const SizedBox(height: 24),
             const _Label('Platform console'),
             const SizedBox(height: 8),
             _Tile(
               icon: Icons.apartment,
               title: 'Tenants',
-              subtitle: 'Organizations on the platform',
-              badge: tenantCount?.toString(),
+              subtitle: 'Review · approve · test window',
+              badge: pendingCount != null && pendingCount > 0
+                  ? '$pendingCount'
+                  : tenantCount?.toString(),
               onTap: () => context.push('/platform/tenants'),
             ),
             _Tile(
@@ -163,6 +167,33 @@ class PlatformHomeScreen extends ConsumerWidget {
 class PlatformTenantsScreen extends ConsumerWidget {
   const PlatformTenantsScreen({super.key});
 
+  Future<void> _review(
+    BuildContext context,
+    WidgetRef ref,
+    TenantOrgSummary t,
+    String action,
+  ) async {
+    try {
+      await ref.read(platformRepositoryProvider).reviewOrganization(
+            organizationId: t.id,
+            action: action,
+            testingDays: 14,
+          );
+      ref.invalidate(platformTenantsProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${t.name}: $action')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyError(e))),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(platformTenantsProvider);
@@ -177,20 +208,38 @@ class PlatformTenantsScreen extends ConsumerWidget {
               child: Padding(
                 padding: EdgeInsets.all(24),
                 child: Text(
-                  'No tenant organizations yet.\n\n'
-                  'Tenants register with a new email, confirm the link in their inbox, '
-                  'then create an organization from the tenant app.',
+                  'No tenant organisations yet.\n\n'
+                  'Applicants confirm email, submit an organisation, '
+                  'and wait here for review.',
                   textAlign: TextAlign.center,
                 ),
               ),
             );
           }
+          // Pending first
+          final sorted = [...items]..sort((a, b) {
+              int rank(String s) {
+                switch (s) {
+                  case 'pending':
+                    return 0;
+                  case 'testing':
+                    return 1;
+                  case 'active':
+                    return 2;
+                  default:
+                    return 3;
+                }
+              }
+
+              return rank(a.status).compareTo(rank(b.status));
+            });
+
           return ListView.separated(
             padding: const EdgeInsets.all(12),
-            itemCount: items.length,
+            itemCount: sorted.length,
             separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (_, i) {
-              final t = items[i];
+              final t = sorted[i];
               return Card(
                 child: ListTile(
                   title: Text(t.name),
@@ -202,9 +251,30 @@ class PlatformTenantsScreen extends ConsumerWidget {
                     ].join(' · '),
                     style: const TextStyle(color: GlossColors.teal, fontSize: 12),
                   ),
-                  trailing: Chip(
-                    label: Text(t.status, style: const TextStyle(fontSize: 11)),
-                    visualDensity: VisualDensity.compact,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Chip(
+                        label:
+                            Text(t.status, style: const TextStyle(fontSize: 11)),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      PopupMenuButton<String>(
+                        onSelected: (action) =>
+                            _review(context, ref, t, action),
+                        itemBuilder: (_) => const [
+                          PopupMenuItem(
+                              value: 'approve', child: Text('Approve (active)')),
+                          PopupMenuItem(
+                              value: 'test_window',
+                              child: Text('Test window (14 days)')),
+                          PopupMenuItem(
+                              value: 'reject', child: Text('Reject')),
+                          PopupMenuItem(
+                              value: 'suspend', child: Text('Suspend')),
+                        ],
+                      ),
+                    ],
                   ),
                   onTap: () => context.push(
                     '/platform/subscriptions?orgId=${t.id}',
