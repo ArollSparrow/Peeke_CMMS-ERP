@@ -9,7 +9,8 @@ import '../auth/login_screen.dart' show authRedirectTo;
 import 'org_providers.dart';
 import 'org_roles.dart';
 
-const _cardRadius = 18.0;
+const _cardRadius = 28.0;
+const _cardMaxWidth = 300.0;
 
 class OrgMemberRow {
   const OrgMemberRow({
@@ -339,7 +340,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(_cardRadius)),
+            borderRadius: BorderRadius.circular(20)),
         title: const Text('Remove member?'),
         content: Text(
           'Remove ${member.fullName ?? 'this member'} '
@@ -411,7 +412,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
           builder: (ctx, setLocal) {
             return AlertDialog(
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(_cardRadius),
+                borderRadius: BorderRadius.circular(20),
               ),
               title: const Text('Member details'),
               content: SizedBox(
@@ -583,6 +584,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     }
   }
 
+  /// Compact glossy pill — single line Name · Title · You
   Widget _memberCard(OrgMemberRow m, String? me, bool canManage) {
     final name = (m.fullName != null && m.fullName!.trim().isNotEmpty)
         ? m.fullName!.trim()
@@ -592,98 +594,137 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
         : null;
     final isMe = m.userId == me;
 
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.55),
-          borderRadius: BorderRadius.circular(_cardRadius),
-          border: Border.all(
-            color: GlossColors.teal.withValues(alpha: 0.28),
+    final parts = <String>[name];
+    if (title != null) parts.add(title);
+    if (isMe) parts.add('You');
+    final line = parts.join(' · ');
+
+    return Align(
+      alignment: Alignment.center,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: _cardMaxWidth),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.62),
+            borderRadius: BorderRadius.circular(_cardRadius),
+            border: Border.all(
+              color: GlossColors.teal.withValues(alpha: 0.5),
+            ),
           ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 4, 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(
-                            text: name,
-                            style: const TextStyle(
-                              color: GlossColors.navy,
-                              fontWeight: FontWeight.w500,
-                              fontSize: 15,
-                              height: 1.3,
-                              letterSpacing: -0.2,
-                            ),
-                          ),
-                          if (isMe)
-                            const TextSpan(
-                              text: '  ·  You',
-                              style: TextStyle(
-                                color: GlossColors.teal,
-                                fontWeight: FontWeight.w500,
-                                fontSize: 13,
-                              ),
-                            ),
-                        ],
-                      ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 7, 0, 7),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    line,
+                    style: const TextStyle(
+                      color: GlossColors.navy,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                      height: 1.2,
+                      letterSpacing: -0.15,
                     ),
-                    if (title != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        title,
-                        style: TextStyle(
-                          color: GlossColors.teal.withValues(alpha: 0.95),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          height: 1.35,
-                        ),
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
-              ),
-              if (canManage)
-                PopupMenuButton<String>(
-                  tooltip: 'Actions',
-                  padding: EdgeInsets.zero,
-                  icon: Icon(
-                    Icons.more_vert,
-                    color: GlossColors.navy.withValues(alpha: 0.75),
-                    size: 22,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  color: GlossColors.sky,
-                  onSelected: (value) {
-                    if (value == 'edit') _editMember(m);
-                    if (value == 'remove') _removeMember(m);
-                  },
-                  itemBuilder: (ctx) => [
-                    const PopupMenuItem(
-                      value: 'edit',
-                      child: Text('Edit',
-                          style: TextStyle(color: GlossColors.navy)),
+                if (canManage)
+                  PopupMenuButton<String>(
+                    tooltip: 'Actions',
+                    padding: EdgeInsets.zero,
+                    constraints:
+                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                    icon: Icon(
+                      Icons.more_vert,
+                      color: GlossColors.navy.withValues(alpha: 0.65),
+                      size: 18,
                     ),
-                    if (!isMe && m.role != OrgRoles.owner)
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    color: GlossColors.sky,
+                    onSelected: (value) {
+                      if (value == 'edit') _editMember(m);
+                      if (value == 'remove') _removeMember(m);
+                    },
+                    itemBuilder: (ctx) => [
                       const PopupMenuItem(
-                        value: 'remove',
-                        child: Text('Remove',
+                        value: 'edit',
+                        child: Text('Edit',
                             style: TextStyle(color: GlossColors.navy)),
                       ),
-                  ],
+                      if (!isMe && m.role != OrgRoles.owner)
+                        const PopupMenuItem(
+                          value: 'remove',
+                          child: Text('Remove',
+                              style: TextStyle(color: GlossColors.navy)),
+                        ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _invitePill(OrgInviteRow i, bool canManage) {
+    return Align(
+      alignment: Alignment.center,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: _cardMaxWidth),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.62),
+            borderRadius: BorderRadius.circular(_cardRadius),
+            border: Border.all(
+              color: GlossColors.teal.withValues(alpha: 0.5),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 7, 0, 7),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${i.email} · ${OrgRoles.label(i.role)}',
+                    style: const TextStyle(
+                      color: GlossColors.navy,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 13,
+                      height: 1.2,
+                    ),
+                  ),
                 ),
-            ],
+                if (canManage)
+                  PopupMenuButton<String>(
+                    padding: EdgeInsets.zero,
+                    constraints:
+                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                    icon: Icon(
+                      Icons.more_vert,
+                      color: GlossColors.navy.withValues(alpha: 0.65),
+                      size: 18,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    color: GlossColors.sky,
+                    onSelected: (v) {
+                      if (v == 'cancel') _revokeInvite(i);
+                    },
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(
+                        value: 'cancel',
+                        child: Text('Cancel invite',
+                            style: TextStyle(color: GlossColors.navy)),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -823,48 +864,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
               }
               return Column(
                 children: [
-                  for (final i in list)
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.55),
-                        borderRadius: BorderRadius.circular(_cardRadius),
-                        border: Border.all(
-                          color: GlossColors.teal.withValues(alpha: 0.28),
-                        ),
-                      ),
-                      child: ListTile(
-                        title: Text(i.email,
-                            style: const TextStyle(color: GlossColors.navy)),
-                        subtitle: Text(
-                            '${OrgRoles.label(i.role)} · ${i.status}',
-                            style: const TextStyle(
-                                color: GlossColors.teal, fontSize: 12)),
-                        trailing: canInvite
-                            ? PopupMenuButton<String>(
-                                icon: Icon(Icons.more_vert,
-                                    color: GlossColors.navy
-                                        .withValues(alpha: 0.75),
-                                    size: 22),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                color: GlossColors.sky,
-                                onSelected: (v) {
-                                  if (v == 'cancel') _revokeInvite(i);
-                                },
-                                itemBuilder: (_) => const [
-                                  PopupMenuItem(
-                                    value: 'cancel',
-                                    child: Text('Cancel invite',
-                                        style: TextStyle(
-                                            color: GlossColors.navy)),
-                                  ),
-                                ],
-                              )
-                            : null,
-                      ),
-                    ),
+                  for (final i in list) _invitePill(i, canInvite),
                 ],
               );
             },
