@@ -13,6 +13,17 @@ if [ ! -d web ]; then
   flutter create . --project-name peeke_cmms_erp --platforms=web
 fi
 
+# Ensure Peeke branding icons (favicon + PWA) — never leave Flutter defaults.
+mkdir -p web/icons
+ICON="assets/branding/peeke_icon.png"
+if [ -f "$ICON" ]; then
+  cp "$ICON" web/favicon.png
+  cp "$ICON" web/icons/Icon-192.png
+  cp "$ICON" web/icons/Icon-512.png
+  cp "$ICON" web/icons/Icon-maskable-192.png
+  cp "$ICON" web/icons/Icon-maskable-512.png
+fi
+
 flutter build web --release --no-tree-shake-icons \
   --dart-define=SUPABASE_URL="${SUPABASE_URL:-https://tappfahlaiixctyliesz.supabase.co}" \
   --dart-define=SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY}"
