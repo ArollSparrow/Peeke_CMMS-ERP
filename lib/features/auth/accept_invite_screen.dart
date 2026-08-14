@@ -18,6 +18,7 @@ class AcceptInviteScreen extends ConsumerStatefulWidget {
 
 class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
   final _fullName = TextEditingController();
+  final _phone = TextEditingController();
   final _password = TextEditingController();
   final _confirm = TextEditingController();
   bool _busy = false;
@@ -27,6 +28,7 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
   @override
   void dispose() {
     _fullName.dispose();
+    _phone.dispose();
     _password.dispose();
     _confirm.dispose();
     super.dispose();
@@ -34,13 +36,13 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
 
   Future<void> _complete() async {
     final name = _fullName.text.trim();
+    final phone = _phone.text.trim();
     if (name.length < 2) {
       setState(() => _error = 'Enter your full name');
       return;
     }
     if (_password.text.length < 8) {
-      setState(() => _error = 'Password must be at least 8 characters');
-      return;
+      setState(() => _error = 'Password must be at least 8 characters');\n      return;
     }
     if (_password.text != _confirm.text) {
       setState(() => _error = 'Password and confirmation do not match');
@@ -68,6 +70,7 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
           data: {
             'full_name': name,
             'display_name': name,
+            if (phone.isNotEmpty) 'phone': phone,
           },
         ),
       );
@@ -75,6 +78,29 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
       try {
         await client.rpc('accept_pending_org_invites');
       } catch (_) {}
+
+      // Push personal details onto membership rows for team directory
+      try {
+        final memberships = await client
+            .from('organization_members')
+            .select('organization_id')
+            .eq('user_id', user.id);
+        for (final row in (memberships as List)) {
+          final orgId = (row as Map)['organization_id'] as String?;
+          if (orgId == null) continue;
+          await client.rpc(
+            'update_org_member_details',
+            params: {
+              'p_organization_id': orgId,
+              'p_user_id': user.id,
+              'p_full_name': name,
+              'p_phone': phone.isEmpty ? null : phone,
+            },
+          );
+        }
+      } catch (_) {
+        // Admins can still edit details later; join must not fail
+      }
 
       ref.read(invitePasswordPendingProvider.notifier).state = false;
       ref.read(teamInviteLandingProvider.notifier).state = true;
@@ -168,7 +194,7 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
                   Text(
                     sessionReady
                         ? 'Invited as $email\n'
-                            'Create your password to become a member. '
+                            'Enter your details and create a password to become a member. '
                             'This is not organisation registration.'
                         : 'Waiting for invite session…\n'
                             'Open the full Accept invitation link from the '
@@ -202,6 +228,16 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
                     cursorColor: GlossColors.navy,
                     autofillHints: const [AutofillHints.name],
                     decoration: _field('Full name'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _phone,
+                    enabled: sessionReady && !_busy,
+                    keyboardType: TextInputType.phone,
+                    style: const TextStyle(color: GlossColors.navy),
+                    cursorColor: GlossColors.navy,
+                    autofillHints: const [AutofillHints.telephoneNumber],
+                    decoration: _field('Phone (optional)'),
                   ),
                   const SizedBox(height: 12),
                   TextField(
