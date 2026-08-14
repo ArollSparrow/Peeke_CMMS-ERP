@@ -10,9 +10,15 @@ import 'org_providers.dart';
 import 'org_roles.dart';
 
 const _tileRadius = 16.0;
-
-/// Tile fill between sky (#D3EFFD) and teal (#55AAAC) so gloss reads on page bg.
 const _tileFill = Color(0xFFB8E0ED);
+
+/// Shared restrained type for both tile lines.
+TextStyle get _tileLineStyle => TextStyle(
+      color: GlossColors.navy.withValues(alpha: 0.8),
+      fontSize: 12,
+      fontWeight: FontWeight.w500,
+      height: 1.2,
+    );
 
 class OrgMemberRow {
   const OrgMemberRow({
@@ -586,7 +592,6 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     }
   }
 
-  /// Two lines only: Name · Title  /  departments
   Widget _memberCard(OrgMemberRow m, String? me, bool canManage) {
     final name = (m.fullName != null && m.fullName!.trim().isNotEmpty)
         ? m.fullName!.trim()
@@ -601,6 +606,13 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     final line1 = StringBuffer(name);
     if (title != null) line1.write(' · $title');
     if (isMe) line1.write(' · You');
+
+    final deptLabels = <String>[
+      for (final d in depts) hods.contains(d) ? '$d(HoD)' : d,
+      for (final h in hods)
+        if (!depts.contains(h)) '$h(HoD)',
+    ];
+    final deptLine = deptLabels.join('-');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -646,30 +658,20 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    line1.toString(),
-                    style: const TextStyle(
-                      color: GlossColors.navy,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                      letterSpacing: -0.15,
-                      height: 1.25,
-                    ),
-                  ),
-                  if (depts.isNotEmpty || hods.isNotEmpty) ...[
-                    const SizedBox(height: 5),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 3,
+                  Text(line1.toString(), style: _tileLineStyle),
+                  if (deptLine.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Row(
                       children: [
-                        for (final d in depts)
-                          _metaChip(
-                            Icons.apartment_outlined,
-                            hods.contains(d) ? '$d · HoD' : d,
-                          ),
-                        for (final h in hods)
-                          if (!depts.contains(h))
-                            _metaChip(Icons.apartment_outlined, '$h · HoD'),
+                        Icon(
+                          Icons.apartment_outlined,
+                          size: 13,
+                          color: GlossColors.navy.withValues(alpha: 0.75),
+                        ),
+                        const SizedBox(width: 3),
+                        Expanded(
+                          child: Text(deptLine, style: _tileLineStyle),
+                        ),
                       ],
                     ),
                   ],
@@ -711,25 +713,6 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _metaChip(IconData icon, String label) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 13, color: GlossColors.navy.withValues(alpha: 0.75)),
-        const SizedBox(width: 3),
-        Text(
-          label,
-          style: TextStyle(
-            color: GlossColors.navy.withValues(alpha: 0.8),
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            height: 1.2,
-          ),
-        ),
-      ],
     );
   }
 
@@ -777,21 +760,11 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    i.email,
-                    style: const TextStyle(
-                      color: GlossColors.navy,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                    ),
-                  ),
+                  Text(i.email, style: _tileLineStyle),
                   const SizedBox(height: 3),
                   Text(
                     '${OrgRoles.label(i.role)} · pending',
-                    style: TextStyle(
-                      color: GlossColors.navy.withValues(alpha: 0.75),
-                      fontSize: 12,
-                    ),
+                    style: _tileLineStyle,
                   ),
                 ],
               ),
