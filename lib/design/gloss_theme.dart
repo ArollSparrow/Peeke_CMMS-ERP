@@ -1,13 +1,6 @@
 import 'package:flutter/material.dart';
 
 /// Peeke CMMS-ERP — strict 3-color system sampled from the official logo asset.
-///
-/// Sampled from `assets/branding/peeke_icon.png` (2026-08-11):
-/// 1. [sky]  `#D3EFFD` — logo field + every screen background
-/// 2. [navy] `#272A6D` — "Peeke" wordmark (primary text / buttons)
-/// 3. [teal] `#55AAAC` — network nodes + "CMMS-ERP" (accents / links)
-///
-/// [danger] is reserved for error messages only (not brand chrome).
 class GlossColors {
   GlossColors._();
 
@@ -31,16 +24,10 @@ class GlossColors {
 class GlossSurfaces {
   GlossSurfaces._();
 
-  /// Landing login field / pill radius.
   static const double fieldRadius = 28;
-
-  /// Raised list tiles / action plates.
   static const double tileRadius = 16;
-
-  /// Vertical rhythm for plate tiles (matches Send invite / landing actions).
   static const double tileMinHeight = 50;
 
-  /// Logo wordmark feel: medium weight, tight tracking.
   static const TextStyle logoMark = TextStyle(
     fontSize: 16,
     fontWeight: FontWeight.w500,
@@ -49,7 +36,6 @@ class GlossSurfaces {
     height: 1.2,
   );
 
-  /// Logo accent / secondary labels.
   static const TextStyle logoAccent = TextStyle(
     fontSize: 13,
     fontWeight: FontWeight.w500,
@@ -58,13 +44,23 @@ class GlossSurfaces {
     height: 1.2,
   );
 
-  /// Body line on gloss plates (name · title, depts).
-  static TextStyle get tileLine => logoMark.copyWith(
+  /// Primary line on plates (name).
+  static TextStyle get tileName => logoMark.copyWith(
         fontSize: 13,
-        height: 1.25,
+        height: 1.2,
       );
 
-  /// Standard 3D gloss plate (light top → deeper bottom).
+  /// Secondary line on plates (title · depts) — teal depth.
+  static TextStyle get tileMeta => logoAccent.copyWith(
+        fontSize: 12,
+        height: 1.2,
+        color: GlossColors.teal,
+      );
+
+  /// Legacy alias
+  static TextStyle get tileLine => tileName;
+
+  /// 3D gloss plate — depth from gradient + shadow only (no stroke).
   static BoxDecoration get plate => BoxDecoration(
         borderRadius: BorderRadius.circular(tileRadius),
         gradient: const LinearGradient(
@@ -78,26 +74,21 @@ class GlossSurfaces {
           ],
           stops: [0.0, 0.35, 0.75, 1.0],
         ),
-        border: Border.all(
-          color: GlossColors.teal.withValues(alpha: 0.75),
-          width: 1.3,
-        ),
         boxShadow: [
           BoxShadow(
-            color: GlossColors.navy.withValues(alpha: 0.16),
-            blurRadius: 16,
-            offset: const Offset(0, 7),
+            color: GlossColors.navy.withValues(alpha: 0.14),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
             spreadRadius: -1,
           ),
           BoxShadow(
-            color: GlossColors.navy.withValues(alpha: 0.07),
+            color: GlossColors.navy.withValues(alpha: 0.06),
             blurRadius: 3,
             offset: const Offset(0, 1),
           ),
         ],
       );
 
-  /// Landing-page text field decoration (28px pill, soft fill).
   static InputDecoration fieldDecoration(String label) {
     final radius = BorderRadius.circular(fieldRadius);
     return InputDecoration(
@@ -160,7 +151,6 @@ class GlossTheme {
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(GlossSurfaces.tileRadius),
-          side: const BorderSide(color: GlossColors.teal),
         ),
       ),
       dividerColor: GlossColors.teal,
