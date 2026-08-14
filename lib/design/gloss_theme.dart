@@ -99,7 +99,7 @@ class GlossSurfaces {
       fillColor: Colors.white.withValues(alpha: 0.55),
       isDense: true,
       contentPadding:
-          const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
       enabledBorder: OutlineInputBorder(
         borderRadius: radius,
         borderSide:
@@ -163,7 +163,7 @@ class GlossTheme {
         fillColor: Colors.white.withValues(alpha: 0.55),
         isDense: true,
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
         labelStyle: GlossSurfaces.logoMark.copyWith(fontSize: 14),
         floatingLabelStyle: GlossSurfaces.logoAccent.copyWith(fontSize: 13),
         border: OutlineInputBorder(
