@@ -42,7 +42,8 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
       return;
     }
     if (_password.text.length < 8) {
-      setState(() => _error = 'Password must be at least 8 characters');\n      return;
+      setState(() => _error = 'Password must be at least 8 characters');
+      return;
     }
     if (_password.text != _confirm.text) {
       setState(() => _error = 'Password and confirmation do not match');
@@ -79,7 +80,7 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
         await client.rpc('accept_pending_org_invites');
       } catch (_) {}
 
-      // Push personal details onto membership rows for team directory
+      // Best-effort: sync details via self-service RPC if available
       try {
         final memberships = await client
             .from('organization_members')
@@ -89,17 +90,16 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
           final orgId = (row as Map)['organization_id'] as String?;
           if (orgId == null) continue;
           await client.rpc(
-            'update_org_member_details',
+            'update_my_org_profile',
             params: {
               'p_organization_id': orgId,
-              'p_user_id': user.id,
               'p_full_name': name,
               'p_phone': phone.isEmpty ? null : phone,
             },
           );
         }
       } catch (_) {
-        // Admins can still edit details later; join must not fail
+        // Name/phone already on membership via accept_pending_org_invites
       }
 
       ref.read(invitePasswordPendingProvider.notifier).state = false;
