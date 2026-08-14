@@ -10,8 +10,8 @@ import 'org_providers.dart';
 import 'org_roles.dart';
 
 const _tileRadius = 16.0;
+const _tileMaxWidth = 270.0;
 
-/// Shared restrained type for both tile lines.
 TextStyle get _tileLineStyle => TextStyle(
       color: GlossColors.navy.withValues(alpha: 0.85),
       fontSize: 12,
@@ -19,32 +19,33 @@ TextStyle get _tileLineStyle => TextStyle(
       height: 1.25,
     );
 
-/// Raised gloss plate: light top → deeper bottom + dual shadow.
+/// Light top → deeper bottom for stronger 3D plate.
 BoxDecoration get _tileDecoration => BoxDecoration(
       borderRadius: BorderRadius.circular(_tileRadius),
       gradient: const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          Color(0xFFC8EAF4), // highlight edge
+          Color(0xFFD0EEF7), // highlight
           Color(0xFFB0DCEB),
-          Color(0xFF9ED0E2), // depth
+          Color(0xFF7EB9CE), // deeper base
+          Color(0xFF5FA3BB), // bottom depth
         ],
-        stops: [0.0, 0.45, 1.0],
+        stops: [0.0, 0.35, 0.75, 1.0],
       ),
       border: Border.all(
-        color: GlossColors.teal.withValues(alpha: 0.72),
+        color: GlossColors.teal.withValues(alpha: 0.75),
         width: 1.3,
       ),
       boxShadow: [
         BoxShadow(
-          color: GlossColors.navy.withValues(alpha: 0.14),
-          blurRadius: 14,
-          offset: const Offset(0, 6),
+          color: GlossColors.navy.withValues(alpha: 0.16),
+          blurRadius: 16,
+          offset: const Offset(0, 7),
           spreadRadius: -1,
         ),
         BoxShadow(
-          color: GlossColors.navy.withValues(alpha: 0.06),
+          color: GlossColors.navy.withValues(alpha: 0.07),
           blurRadius: 3,
           offset: const Offset(0, 1),
         ),
@@ -645,198 +646,209 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     ];
     final deptLine = deptLabels.join('-');
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: _tileDecoration,
-      child: Padding(
-        // Left content + stretch; menu sits flush on the right edge
-        padding: const EdgeInsets.fromLTRB(12, 12, 2, 12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFFE8F6FC), GlossColors.sky],
-                ),
-                border: Border.all(
-                  color: GlossColors.teal.withValues(alpha: 0.75),
-                  width: 1.2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: GlossColors.navy.withValues(alpha: 0.08),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
+    return Align(
+      alignment: Alignment.center,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: _tileMaxWidth),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: _tileDecoration,
+          child: Padding(
+            // Avatar pushed left; tight gap so dept icon sits near avatar
+            padding: const EdgeInsets.fromLTRB(6, 10, 2, 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFFE8F6FC), GlossColors.sky],
+                    ),
+                    border: Border.all(
+                      color: GlossColors.teal.withValues(alpha: 0.75),
+                      width: 1.2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: GlossColors.navy.withValues(alpha: 0.08),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: const Icon(
-                Icons.person_outline,
-                color: GlossColors.navy,
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 12),
-            // Max horizontal room for name + 3+ departments
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    line1.toString(),
-                    style: _tileLineStyle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                  child: const Icon(
+                    Icons.person_outline,
+                    color: GlossColors.navy,
+                    size: 20,
                   ),
-                  if (deptLine.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.apartment_outlined,
-                          size: 13,
-                          color: GlossColors.navy.withValues(alpha: 0.75),
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            deptLine,
-                            style: _tileLineStyle,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        line1.toString(),
+                        style: _tileLineStyle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (deptLine.isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.apartment_outlined,
+                              size: 12,
+                              color:
+                                  GlossColors.navy.withValues(alpha: 0.75),
+                            ),
+                            const SizedBox(width: 2),
+                            Expanded(
+                              child: Text(
+                                deptLine,
+                                style: _tileLineStyle,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            // ⋮ pinned to the far right of the tile
-            if (canManage)
-              PopupMenuButton<String>(
-                tooltip: 'Actions',
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(
-                  minWidth: 40,
-                  minHeight: 40,
-                ),
-                icon: Icon(
-                  Icons.more_vert,
-                  color: GlossColors.navy.withValues(alpha: 0.75),
-                  size: 22,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                color: GlossColors.sky,
-                onSelected: (value) {
-                  if (value == 'edit') _editMember(m);
-                  if (value == 'remove') _removeMember(m);
-                },
-                itemBuilder: (ctx) => [
-                  const PopupMenuItem(
-                    value: 'edit',
-                    child: Text('Edit',
-                        style: TextStyle(color: GlossColors.navy)),
+                    ],
                   ),
-                  if (!isMe && m.role != OrgRoles.owner)
-                    const PopupMenuItem(
-                      value: 'remove',
-                      child: Text('Remove',
-                          style: TextStyle(color: GlossColors.navy)),
+                ),
+                if (canManage)
+                  PopupMenuButton<String>(
+                    tooltip: 'Actions',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 36,
+                      minHeight: 36,
                     ),
-                ],
-              )
-            else
-              const SizedBox(width: 8),
-          ],
+                    icon: Icon(
+                      Icons.more_vert,
+                      color: GlossColors.navy.withValues(alpha: 0.75),
+                      size: 20,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    color: GlossColors.sky,
+                    onSelected: (value) {
+                      if (value == 'edit') _editMember(m);
+                      if (value == 'remove') _removeMember(m);
+                    },
+                    itemBuilder: (ctx) => [
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Text('Edit',
+                            style: TextStyle(color: GlossColors.navy)),
+                      ),
+                      if (!isMe && m.role != OrgRoles.owner)
+                        const PopupMenuItem(
+                          value: 'remove',
+                          child: Text('Remove',
+                              style: TextStyle(color: GlossColors.navy)),
+                        ),
+                    ],
+                  )
+                else
+                  const SizedBox(width: 6),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 
   Widget _inviteTile(OrgInviteRow i, bool canManage) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: _tileDecoration,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 12, 2, 12),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFFE8F6FC), GlossColors.sky],
-                ),
-                border: Border.all(
-                  color: GlossColors.teal.withValues(alpha: 0.75),
-                  width: 1.2,
-                ),
-              ),
-              child: const Icon(
-                Icons.mail_outline,
-                color: GlossColors.navy,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(i.email, style: _tileLineStyle),
-                  const SizedBox(height: 3),
-                  Text(
-                    '${OrgRoles.label(i.role)} · pending',
-                    style: _tileLineStyle,
+    return Align(
+      alignment: Alignment.center,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: _tileMaxWidth),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: _tileDecoration,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(6, 10, 2, 10),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFFE8F6FC), GlossColors.sky],
+                    ),
+                    border: Border.all(
+                      color: GlossColors.teal.withValues(alpha: 0.75),
+                      width: 1.2,
+                    ),
                   ),
-                ],
-              ),
-            ),
-            if (canManage)
-              PopupMenuButton<String>(
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(
-                  minWidth: 40,
-                  minHeight: 40,
-                ),
-                icon: Icon(
-                  Icons.more_vert,
-                  color: GlossColors.navy.withValues(alpha: 0.75),
-                  size: 22,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                color: GlossColors.sky,
-                onSelected: (v) {
-                  if (v == 'cancel') _revokeInvite(i);
-                },
-                itemBuilder: (_) => const [
-                  PopupMenuItem(
-                    value: 'cancel',
-                    child: Text('Cancel invite',
-                        style: TextStyle(color: GlossColors.navy)),
+                  child: const Icon(
+                    Icons.mail_outline,
+                    color: GlossColors.navy,
+                    size: 18,
                   ),
-                ],
-              )
-            else
-              const SizedBox(width: 8),
-          ],
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(i.email, style: _tileLineStyle),
+                      const SizedBox(height: 3),
+                      Text(
+                        '${OrgRoles.label(i.role)} · pending',
+                        style: _tileLineStyle,
+                      ),
+                    ],
+                  ),
+                ),
+                if (canManage)
+                  PopupMenuButton<String>(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 36,
+                      minHeight: 36,
+                    ),
+                    icon: Icon(
+                      Icons.more_vert,
+                      color: GlossColors.navy.withValues(alpha: 0.75),
+                      size: 20,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    color: GlossColors.sky,
+                    onSelected: (v) {
+                      if (v == 'cancel') _revokeInvite(i);
+                    },
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(
+                        value: 'cancel',
+                        child: Text('Cancel invite',
+                            style: TextStyle(color: GlossColors.navy)),
+                      ),
+                    ],
+                  )
+                else
+                  const SizedBox(width: 6),
+              ],
+            ),
+          ),
         ),
       ),
     );
