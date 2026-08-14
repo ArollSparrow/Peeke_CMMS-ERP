@@ -9,8 +9,10 @@ import '../auth/login_screen.dart' show authRedirectTo;
 import 'org_providers.dart';
 import 'org_roles.dart';
 
-/// Soft rounded tile — kin to Peeke vendor cards, Peeke Automation palette.
 const _tileRadius = 16.0;
+
+/// Tile fill between sky (#D3EFFD) and teal (#55AAAC) so gloss reads on page bg.
+const _tileFill = Color(0xFFB8E0ED);
 
 class OrgMemberRow {
   const OrgMemberRow({
@@ -584,41 +586,44 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     }
   }
 
-  /// Gloss tile — avatar · name / title · departments (Peeke vendor card DNA).
+  /// Two lines only: Name · Title  /  departments
   Widget _memberCard(OrgMemberRow m, String? me, bool canManage) {
     final name = (m.fullName != null && m.fullName!.trim().isNotEmpty)
         ? m.fullName!.trim()
         : 'Team member';
     final title = (m.jobTitle != null && m.jobTitle!.trim().isNotEmpty)
         ? m.jobTitle!.trim()
-        : OrgRoles.label(m.role);
+        : null;
     final isMe = m.userId == me;
     final depts = m.departmentLabels;
     final hods = m.hodLabels;
 
+    final line1 = StringBuffer(name);
+    if (title != null) line1.write(' · $title');
+    if (isMe) line1.write(' · You');
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.55),
+        color: _tileFill,
         borderRadius: BorderRadius.circular(_tileRadius),
         border: Border.all(
-          color: GlossColors.teal.withValues(alpha: 0.55),
-          width: 1.2,
+          color: GlossColors.teal.withValues(alpha: 0.65),
+          width: 1.25,
         ),
         boxShadow: [
           BoxShadow(
-            color: GlossColors.navy.withValues(alpha: 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+            color: GlossColors.navy.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
+        padding: const EdgeInsets.fromLTRB(12, 11, 4, 11),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Leading avatar disc
             Container(
               width: 40,
               height: 40,
@@ -626,7 +631,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                 shape: BoxShape.circle,
                 color: GlossColors.sky,
                 border: Border.all(
-                  color: GlossColors.teal.withValues(alpha: 0.65),
+                  color: GlossColors.teal.withValues(alpha: 0.7),
                 ),
               ),
               child: const Icon(
@@ -639,50 +644,23 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Name (+ You)
-                  Text.rich(
-                    TextSpan(
-                      children: [
-                        TextSpan(
-                          text: name,
-                          style: const TextStyle(
-                            color: GlossColors.navy,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 15,
-                            letterSpacing: -0.2,
-                            height: 1.25,
-                          ),
-                        ),
-                        if (isMe)
-                          TextSpan(
-                            text: '  ·  You',
-                            style: TextStyle(
-                              color: GlossColors.teal.withValues(alpha: 0.95),
-                              fontWeight: FontWeight.w500,
-                              fontSize: 12,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  // Job title (or role label as soft fallback)
                   Text(
-                    title,
-                    style: TextStyle(
-                      color: GlossColors.navy.withValues(alpha: 0.78),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w400,
-                      height: 1.3,
+                    line1.toString(),
+                    style: const TextStyle(
+                      color: GlossColors.navy,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      letterSpacing: -0.15,
+                      height: 1.25,
                     ),
                   ),
-                  // Departments under name + title
                   if (depts.isNotEmpty || hods.isNotEmpty) ...[
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 5),
                     Wrap(
                       spacing: 10,
-                      runSpacing: 4,
+                      runSpacing: 3,
                       children: [
                         for (final d in depts)
                           _metaChip(
@@ -740,12 +718,12 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 13, color: GlossColors.teal),
+        Icon(icon, size: 13, color: GlossColors.navy.withValues(alpha: 0.75)),
         const SizedBox(width: 3),
         Text(
           label,
-          style: const TextStyle(
-            color: GlossColors.teal,
+          style: TextStyle(
+            color: GlossColors.navy.withValues(alpha: 0.8),
             fontSize: 12,
             fontWeight: FontWeight.w500,
             height: 1.2,
@@ -759,15 +737,22 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.55),
+        color: _tileFill,
         borderRadius: BorderRadius.circular(_tileRadius),
         border: Border.all(
-          color: GlossColors.teal.withValues(alpha: 0.55),
-          width: 1.2,
+          color: GlossColors.teal.withValues(alpha: 0.65),
+          width: 1.25,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: GlossColors.navy.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
+        padding: const EdgeInsets.fromLTRB(12, 11, 4, 11),
         child: Row(
           children: [
             Container(
@@ -777,7 +762,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                 shape: BoxShape.circle,
                 color: GlossColors.sky,
                 border: Border.all(
-                  color: GlossColors.teal.withValues(alpha: 0.65),
+                  color: GlossColors.teal.withValues(alpha: 0.7),
                 ),
               ),
               child: const Icon(
@@ -790,6 +775,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     i.email,
@@ -799,11 +785,11 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                       fontSize: 14,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 3),
                   Text(
                     '${OrgRoles.label(i.role)} · pending',
                     style: TextStyle(
-                      color: GlossColors.teal.withValues(alpha: 0.95),
+                      color: GlossColors.navy.withValues(alpha: 0.75),
                       fontSize: 12,
                     ),
                   ),
