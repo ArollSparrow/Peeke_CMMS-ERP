@@ -453,6 +453,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                       if (member.role != OrgRoles.owner)
                         DropdownButtonFormField<String>(
                           value: role,
+                          isDense: true,
                           decoration: GlossSurfaces.fieldDecoration('Role'),
                           items: [
                             for (final r in OrgRoles.inviteChoices)
@@ -581,6 +582,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     }
   }
 
+  /// Fixed height matches Send invite; tight vertical inset.
   Widget _memberCard(OrgMemberRow m, String? me, bool canManage) {
     final name = (m.fullName != null && m.fullName!.trim().isNotEmpty)
         ? m.fullName!.trim()
@@ -605,19 +607,17 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
 
     return Container(
       width: double.infinity,
-      constraints: const BoxConstraints(
-        minHeight: GlossSurfaces.tileMinHeight,
-      ),
+      height: GlossSurfaces.tileMinHeight,
       margin: const EdgeInsets.only(bottom: 10),
       decoration: GlossSurfaces.plate,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 8, 2, 8),
+        padding: const EdgeInsets.fromLTRB(10, 0, 2, 0),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Container(
-              width: 32,
-              height: 32,
+              width: 30,
+              height: 30,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: GlossColors.sky,
@@ -628,7 +628,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
               child: const Icon(
                 Icons.person_outline,
                 color: GlossColors.navy,
-                size: 18,
+                size: 17,
               ),
             ),
             const SizedBox(width: 8),
@@ -644,13 +644,12 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if (deptLine.isNotEmpty) ...[
-                    const SizedBox(height: 2),
+                  if (deptLine.isNotEmpty)
                     Row(
                       children: [
                         Icon(
                           Icons.apartment_outlined,
-                          size: 12,
+                          size: 11,
                           color: GlossColors.navy.withValues(alpha: 0.75),
                         ),
                         const SizedBox(width: 2),
@@ -664,7 +663,6 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                         ),
                       ],
                     ),
-                  ],
                 ],
               ),
             ),
@@ -673,8 +671,8 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                 tooltip: 'Actions',
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(
-                  minWidth: 40,
-                  minHeight: 40,
+                  minWidth: 36,
+                  minHeight: 36,
                 ),
                 icon: Icon(
                   Icons.more_vert,
@@ -713,18 +711,17 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
   Widget _inviteTile(OrgInviteRow i, bool canManage) {
     return Container(
       width: double.infinity,
-      constraints: const BoxConstraints(
-        minHeight: GlossSurfaces.tileMinHeight,
-      ),
+      height: GlossSurfaces.tileMinHeight,
       margin: const EdgeInsets.only(bottom: 10),
       decoration: GlossSurfaces.plate,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 8, 2, 8),
+        padding: const EdgeInsets.fromLTRB(10, 0, 2, 0),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Container(
-              width: 32,
-              height: 32,
+              width: 30,
+              height: 30,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: GlossColors.sky,
@@ -751,7 +748,6 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 2),
                   Text(
                     '${OrgRoles.label(i.role)} · pending',
                     style: GlossSurfaces.tileLine,
@@ -763,8 +759,8 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
               PopupMenuButton<String>(
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(
-                  minWidth: 40,
-                  minHeight: 40,
+                  minWidth: 36,
+                  minHeight: 36,
                 ),
                 icon: Icon(
                   Icons.more_vert,
@@ -839,12 +835,19 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [
-          Text(
-            'Invite by work email and role. Edit a member for departments '
-            '(any role can belong; head-of-department is optional).',
-            style: GlossSurfaces.logoAccent,
+          Center(
+            child: Image.asset(
+              'assets/branding/peeke_icon.png',
+              height: 88,
+              width: 88,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => Text(
+                'Peeke',
+                style: GlossSurfaces.logoMark.copyWith(fontSize: 22),
+              ),
+            ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           if (canInvite) ...[
             TextField(
               controller: _email,
@@ -857,6 +860,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               value: _role,
+              isDense: true,
               style: GlossSurfaces.logoMark.copyWith(fontSize: 14),
               decoration: GlossSurfaces.fieldDecoration('Role'),
               items: [
