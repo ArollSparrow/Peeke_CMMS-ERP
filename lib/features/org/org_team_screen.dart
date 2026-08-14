@@ -9,48 +9,6 @@ import '../auth/login_screen.dart' show authRedirectTo;
 import 'org_providers.dart';
 import 'org_roles.dart';
 
-const _tileRadius = 16.0;
-
-TextStyle get _tileLineStyle => TextStyle(
-      color: GlossColors.navy.withValues(alpha: 0.85),
-      fontSize: 12,
-      fontWeight: FontWeight.w500,
-      height: 1.25,
-    );
-
-/// Light top → deeper bottom (shared by member tiles + Send invite).
-BoxDecoration get _tileDecoration => BoxDecoration(
-      borderRadius: BorderRadius.circular(_tileRadius),
-      gradient: const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          Color(0xFFD0EEF7),
-          Color(0xFFB0DCEB),
-          Color(0xFF7EB9CE),
-          Color(0xFF5FA3BB),
-        ],
-        stops: [0.0, 0.35, 0.75, 1.0],
-      ),
-      border: Border.all(
-        color: GlossColors.teal.withValues(alpha: 0.75),
-        width: 1.3,
-      ),
-      boxShadow: [
-        BoxShadow(
-          color: GlossColors.navy.withValues(alpha: 0.16),
-          blurRadius: 16,
-          offset: const Offset(0, 7),
-          spreadRadius: -1,
-        ),
-        BoxShadow(
-          color: GlossColors.navy.withValues(alpha: 0.07),
-          blurRadius: 3,
-          offset: const Offset(0, 1),
-        ),
-      ],
-    );
-
 class OrgMemberRow {
   const OrgMemberRow({
     required this.id,
@@ -462,72 +420,71 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       if (member.email != null) ...[
-                        const Text('Email',
-                            style: TextStyle(
-                                fontSize: 12,
-                                color: GlossColors.teal,
-                                fontWeight: FontWeight.w600)),
+                        Text('Email', style: GlossSurfaces.logoAccent),
                         const SizedBox(height: 4),
-                        SelectableText(member.email!,
-                            style: const TextStyle(
-                                color: GlossColors.navy, fontSize: 14)),
+                        SelectableText(
+                          member.email!,
+                          style: GlossSurfaces.logoMark.copyWith(fontSize: 14),
+                        ),
                         const SizedBox(height: 12),
                       ],
                       TextField(
                         controller: nameCtrl,
+                        style: GlossSurfaces.logoMark.copyWith(fontSize: 14),
                         decoration:
-                            const InputDecoration(labelText: 'Full name'),
+                            GlossSurfaces.fieldDecoration('Full name'),
                         textCapitalization: TextCapitalization.words,
                       ),
                       const SizedBox(height: 8),
                       TextField(
                         controller: phoneCtrl,
-                        decoration: const InputDecoration(labelText: 'Phone'),
+                        style: GlossSurfaces.logoMark.copyWith(fontSize: 14),
+                        decoration: GlossSurfaces.fieldDecoration('Phone'),
                         keyboardType: TextInputType.phone,
                       ),
                       const SizedBox(height: 8),
                       TextField(
                         controller: jobCtrl,
+                        style: GlossSurfaces.logoMark.copyWith(fontSize: 14),
                         decoration:
-                            const InputDecoration(labelText: 'Job title'),
+                            GlossSurfaces.fieldDecoration('Job title'),
                       ),
                       const SizedBox(height: 12),
                       if (member.role != OrgRoles.owner)
                         DropdownButtonFormField<String>(
                           value: role,
-                          decoration:
-                              const InputDecoration(labelText: 'Role'),
+                          decoration: GlossSurfaces.fieldDecoration('Role'),
                           items: [
                             for (final r in OrgRoles.inviteChoices)
                               DropdownMenuItem(
                                 value: r,
-                                child: Text(OrgRoles.label(r)),
+                                child: Text(
+                                  OrgRoles.label(r),
+                                  style: GlossSurfaces.logoMark
+                                      .copyWith(fontSize: 14),
+                                ),
                               ),
                           ],
                           onChanged: (v) => setLocal(
                               () => role = v ?? OrgRoles.technician),
                         )
                       else
-                        const Text('Role: Owner / System Admin (fixed)',
-                            style: TextStyle(color: GlossColors.navy)),
+                        Text(
+                          'Role: Owner / System Admin (fixed)',
+                          style: GlossSurfaces.logoMark.copyWith(fontSize: 14),
+                        ),
                       const SizedBox(height: 16),
-                      const Text('Departments',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: GlossColors.navy)),
+                      Text('Departments', style: GlossSurfaces.logoMark),
                       const SizedBox(height: 4),
-                      const Text(
+                      Text(
                         'Any role can belong to departments. '
                         'Head of department is optional.',
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: GlossColors.teal,
-                            height: 1.35),
+                        style: GlossSurfaces.logoAccent.copyWith(height: 1.35),
                       ),
                       const SizedBox(height: 8),
                       if (depts.isEmpty)
-                        const Text('No departments seeded yet.',
-                            style: TextStyle(color: GlossColors.teal))
+                        Text('No departments seeded yet.',
+                            style: GlossSurfaces.logoAccent)
                       else
                         for (final d in depts) ...[
                           CheckboxListTile(
@@ -535,8 +492,8 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                             contentPadding: EdgeInsets.zero,
                             controlAffinity: ListTileControlAffinity.leading,
                             title: Text(d.name,
-                                style: const TextStyle(
-                                    color: GlossColors.navy, fontSize: 14)),
+                                style: GlossSurfaces.logoMark
+                                    .copyWith(fontSize: 14)),
                             value: selectedDepts.contains(d.id),
                             activeColor: GlossColors.teal,
                             onChanged: (v) {
@@ -557,10 +514,11 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                               child: SwitchListTile(
                                 dense: true,
                                 contentPadding: EdgeInsets.zero,
-                                title: const Text('Head of this department',
-                                    style: TextStyle(
-                                        fontSize: 13,
-                                        color: GlossColors.navy)),
+                                title: Text(
+                                  'Head of this department',
+                                  style: GlossSurfaces.logoMark
+                                      .copyWith(fontSize: 13),
+                                ),
                                 value: hodDepts.contains(d.id),
                                 activeColor: GlossColors.teal,
                                 onChanged: (v) {
@@ -623,7 +581,6 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     }
   }
 
-  /// Full-width gloss plate (same span as Send invite).
   Widget _memberCard(OrgMemberRow m, String? me, bool canManage) {
     final name = (m.fullName != null && m.fullName!.trim().isNotEmpty)
         ? m.fullName!.trim()
@@ -648,55 +605,47 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
 
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: _tileDecoration,
+      constraints: const BoxConstraints(
+        minHeight: GlossSurfaces.tileMinHeight,
+      ),
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: GlossSurfaces.plate,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 12, 2, 12),
+        padding: const EdgeInsets.fromLTRB(10, 8, 2, 8),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Container(
-              width: 36,
-              height: 36,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFFE8F6FC), GlossColors.sky],
-                ),
+                color: GlossColors.sky,
                 border: Border.all(
                   color: GlossColors.teal.withValues(alpha: 0.75),
-                  width: 1.2,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: GlossColors.navy.withValues(alpha: 0.08),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
               ),
               child: const Icon(
                 Icons.person_outline,
                 color: GlossColors.navy,
-                size: 20,
+                size: 18,
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     line1.toString(),
-                    style: _tileLineStyle,
+                    style: GlossSurfaces.tileLine,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   if (deptLine.isNotEmpty) ...[
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 2),
                     Row(
                       children: [
                         Icon(
@@ -708,7 +657,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                         Expanded(
                           child: Text(
                             deptLine,
-                            style: _tileLineStyle,
+                            style: GlossSurfaces.tileLine,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -730,10 +679,11 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                 icon: Icon(
                   Icons.more_vert,
                   color: GlossColors.navy.withValues(alpha: 0.75),
-                  size: 22,
+                  size: 20,
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius:
+                      BorderRadius.circular(GlossSurfaces.tileRadius),
                 ),
                 color: GlossColors.sky,
                 onSelected: (value) {
@@ -741,16 +691,14 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                   if (value == 'remove') _removeMember(m);
                 },
                 itemBuilder: (ctx) => [
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'edit',
-                    child: Text('Edit',
-                        style: TextStyle(color: GlossColors.navy)),
+                    child: Text('Edit', style: GlossSurfaces.logoMark),
                   ),
                   if (!isMe && m.role != OrgRoles.owner)
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'remove',
-                      child: Text('Remove',
-                          style: TextStyle(color: GlossColors.navy)),
+                      child: Text('Remove', style: GlossSurfaces.logoMark),
                     ),
                 ],
               )
@@ -765,49 +713,48 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
   Widget _inviteTile(OrgInviteRow i, bool canManage) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: _tileDecoration,
+      constraints: const BoxConstraints(
+        minHeight: GlossSurfaces.tileMinHeight,
+      ),
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: GlossSurfaces.plate,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 12, 2, 12),
+        padding: const EdgeInsets.fromLTRB(10, 8, 2, 8),
         child: Row(
           children: [
             Container(
-              width: 36,
-              height: 36,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFFE8F6FC), GlossColors.sky],
-                ),
+                color: GlossColors.sky,
                 border: Border.all(
                   color: GlossColors.teal.withValues(alpha: 0.75),
-                  width: 1.2,
                 ),
               ),
               child: const Icon(
                 Icons.mail_outline,
                 color: GlossColors.navy,
-                size: 18,
+                size: 16,
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     i.email,
-                    style: _tileLineStyle,
+                    style: GlossSurfaces.tileLine,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
                   Text(
                     '${OrgRoles.label(i.role)} · pending',
-                    style: _tileLineStyle,
+                    style: GlossSurfaces.tileLine,
                   ),
                 ],
               ),
@@ -822,20 +769,21 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                 icon: Icon(
                   Icons.more_vert,
                   color: GlossColors.navy.withValues(alpha: 0.75),
-                  size: 22,
+                  size: 20,
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius:
+                      BorderRadius.circular(GlossSurfaces.tileRadius),
                 ),
                 color: GlossColors.sky,
                 onSelected: (v) {
                   if (v == 'cancel') _revokeInvite(i);
                 },
-                itemBuilder: (_) => const [
+                itemBuilder: (_) => [
                   PopupMenuItem(
                     value: 'cancel',
                     child: Text('Cancel invite',
-                        style: TextStyle(color: GlossColors.navy)),
+                        style: GlossSurfaces.logoMark),
                   ),
                 ],
               )
@@ -847,38 +795,30 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     );
   }
 
-  /// Same 3D plate language as member tiles.
   Widget _sendInviteButton() {
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: _busy ? null : _invite,
-        borderRadius: BorderRadius.circular(_tileRadius),
+        borderRadius: BorderRadius.circular(GlossSurfaces.tileRadius),
         child: Ink(
           width: double.infinity,
-          decoration: _tileDecoration,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            child: Center(
-              child: _busy
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: GlossColors.navy,
-                      ),
-                    )
-                  : Text(
-                      'Send invite',
-                      style: TextStyle(
-                        color: GlossColors.navy.withValues(alpha: 0.95),
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
-                        letterSpacing: 0.2,
-                      ),
+          height: GlossSurfaces.tileMinHeight,
+          decoration: GlossSurfaces.plate,
+          child: Center(
+            child: _busy
+                ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: GlossColors.navy,
                     ),
-            ),
+                  )
+                : Text(
+                    'Send invite',
+                    style: GlossSurfaces.logoMark.copyWith(fontSize: 15),
+                  ),
           ),
         ),
       ),
@@ -899,30 +839,35 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [
-          const Text(
+          Text(
             'Invite by work email and role. Edit a member for departments '
             '(any role can belong; head-of-department is optional).',
-            style: TextStyle(color: GlossColors.teal, fontSize: 13),
+            style: GlossSurfaces.logoAccent,
           ),
           const SizedBox(height: 16),
           if (canInvite) ...[
             TextField(
               controller: _email,
               keyboardType: TextInputType.emailAddress,
-              style: const TextStyle(color: GlossColors.navy),
-              decoration: const InputDecoration(
-                labelText: 'Work email',
-                hintText: 'colleague@company.com',
-              ),
+              style: GlossSurfaces.logoMark.copyWith(fontSize: 14),
+              cursorColor: GlossColors.navy,
+              decoration: GlossSurfaces.fieldDecoration('Work email')
+                  .copyWith(hintText: 'colleague@company.com'),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               value: _role,
-              decoration: const InputDecoration(labelText: 'Role'),
+              style: GlossSurfaces.logoMark.copyWith(fontSize: 14),
+              decoration: GlossSurfaces.fieldDecoration('Role'),
               items: [
                 for (final r in OrgRoles.inviteChoices)
                   DropdownMenuItem(
-                      value: r, child: Text(OrgRoles.label(r))),
+                    value: r,
+                    child: Text(
+                      OrgRoles.label(r),
+                      style: GlossSurfaces.logoMark.copyWith(fontSize: 14),
+                    ),
+                  ),
               ],
               onChanged: (v) =>
                   setState(() => _role = v ?? OrgRoles.technician),
@@ -936,39 +881,37 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
             ],
             if (_message != null) ...[
               const SizedBox(height: 8),
-              Text(_message!, style: const TextStyle(color: GlossColors.teal)),
+              Text(_message!, style: GlossSurfaces.logoAccent),
             ],
             if (_actionLink != null) ...[
               const SizedBox(height: 12),
-              const Text('Share this link (WhatsApp / SMS):',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w600, color: GlossColors.navy)),
+              Text('Share this link (WhatsApp / SMS):',
+                  style: GlossSurfaces.logoMark),
               const SizedBox(height: 6),
               SelectableText(_actionLink!,
-                  style:
-                      const TextStyle(fontSize: 12, color: GlossColors.teal)),
+                  style: GlossSurfaces.logoAccent.copyWith(fontSize: 12)),
               TextButton.icon(
                 onPressed: _copyLink,
                 icon: const Icon(Icons.copy, size: 18),
-                label: const Text('Copy invite link'),
+                label: Text('Copy invite link',
+                    style: GlossSurfaces.logoMark),
               ),
             ],
             const SizedBox(height: 24),
           ] else
-            const Padding(
-              padding: EdgeInsets.only(bottom: 16),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
               child: Text(
                 'Only owners, system admins, and elevated roles can manage the team.',
-                style: TextStyle(color: GlossColors.teal),
+                style: GlossSurfaces.logoAccent,
               ),
             ),
-          const Text(
+          Text(
             'MEMBERS',
-            style: TextStyle(
+            style: GlossSurfaces.logoAccent.copyWith(
               fontSize: 12,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.6,
-              color: GlossColors.teal,
             ),
           ),
           const SizedBox(height: 8),
@@ -977,8 +920,8 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
             error: (e, _) => Text(friendlyError(e)),
             data: (list) {
               if (list.isEmpty) {
-                return const Text('No members found',
-                    style: TextStyle(color: GlossColors.teal));
+                return Text('No members found',
+                    style: GlossSurfaces.logoAccent);
               }
               return Column(
                 children: [
@@ -988,13 +931,12 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
             },
           ),
           const SizedBox(height: 20),
-          const Text(
+          Text(
             'PENDING INVITES',
-            style: TextStyle(
+            style: GlossSurfaces.logoAccent.copyWith(
               fontSize: 12,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.6,
-              color: GlossColors.teal,
             ),
           ),
           const SizedBox(height: 8),
@@ -1003,8 +945,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
             error: (e, _) => Text(friendlyError(e)),
             data: (list) {
               if (list.isEmpty) {
-                return const Text('None',
-                    style: TextStyle(color: GlossColors.teal));
+                return Text('None', style: GlossSurfaces.logoAccent);
               }
               return Column(
                 children: [
