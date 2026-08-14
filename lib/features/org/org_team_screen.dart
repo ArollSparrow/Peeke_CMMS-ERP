@@ -10,14 +10,45 @@ import 'org_providers.dart';
 import 'org_roles.dart';
 
 const _tileRadius = 16.0;
-const _tileFill = Color(0xFFB8E0ED);
 
 /// Shared restrained type for both tile lines.
 TextStyle get _tileLineStyle => TextStyle(
-      color: GlossColors.navy.withValues(alpha: 0.8),
+      color: GlossColors.navy.withValues(alpha: 0.85),
       fontSize: 12,
       fontWeight: FontWeight.w500,
-      height: 1.2,
+      height: 1.25,
+    );
+
+/// Raised gloss plate: light top → deeper bottom + dual shadow.
+BoxDecoration get _tileDecoration => BoxDecoration(
+      borderRadius: BorderRadius.circular(_tileRadius),
+      gradient: const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Color(0xFFC8EAF4), // highlight edge
+          Color(0xFFB0DCEB),
+          Color(0xFF9ED0E2), // depth
+        ],
+        stops: [0.0, 0.45, 1.0],
+      ),
+      border: Border.all(
+        color: GlossColors.teal.withValues(alpha: 0.72),
+        width: 1.3,
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: GlossColors.navy.withValues(alpha: 0.14),
+          blurRadius: 14,
+          offset: const Offset(0, 6),
+          spreadRadius: -1,
+        ),
+        BoxShadow(
+          color: GlossColors.navy.withValues(alpha: 0.06),
+          blurRadius: 3,
+          offset: const Offset(0, 1),
+        ),
+      ],
     );
 
 class OrgMemberRow {
@@ -615,24 +646,11 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     final deptLine = deptLabels.join('-');
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: _tileFill,
-        borderRadius: BorderRadius.circular(_tileRadius),
-        border: Border.all(
-          color: GlossColors.teal.withValues(alpha: 0.65),
-          width: 1.25,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: GlossColors.navy.withValues(alpha: 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: _tileDecoration,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 11, 4, 11),
+        // Left content + stretch; menu sits flush on the right edge
+        padding: const EdgeInsets.fromLTRB(12, 12, 2, 12),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
@@ -641,10 +659,22 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
               height: 40,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: GlossColors.sky,
-                border: Border.all(
-                  color: GlossColors.teal.withValues(alpha: 0.7),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFE8F6FC), GlossColors.sky],
                 ),
+                border: Border.all(
+                  color: GlossColors.teal.withValues(alpha: 0.75),
+                  width: 1.2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: GlossColors.navy.withValues(alpha: 0.08),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: const Icon(
                 Icons.person_outline,
@@ -653,12 +683,18 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
               ),
             ),
             const SizedBox(width: 12),
+            // Max horizontal room for name + 3+ departments
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(line1.toString(), style: _tileLineStyle),
+                  Text(
+                    line1.toString(),
+                    style: _tileLineStyle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   if (deptLine.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Row(
@@ -668,9 +704,14 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                           size: 13,
                           color: GlossColors.navy.withValues(alpha: 0.75),
                         ),
-                        const SizedBox(width: 3),
+                        const SizedBox(width: 4),
                         Expanded(
-                          child: Text(deptLine, style: _tileLineStyle),
+                          child: Text(
+                            deptLine,
+                            style: _tileLineStyle,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ),
@@ -678,15 +719,19 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                 ],
               ),
             ),
+            // ⋮ pinned to the far right of the tile
             if (canManage)
               PopupMenuButton<String>(
                 tooltip: 'Actions',
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                constraints: const BoxConstraints(
+                  minWidth: 40,
+                  minHeight: 40,
+                ),
                 icon: Icon(
                   Icons.more_vert,
-                  color: GlossColors.navy.withValues(alpha: 0.7),
-                  size: 20,
+                  color: GlossColors.navy.withValues(alpha: 0.75),
+                  size: 22,
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
@@ -709,7 +754,9 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                           style: TextStyle(color: GlossColors.navy)),
                     ),
                 ],
-              ),
+              )
+            else
+              const SizedBox(width: 8),
           ],
         ),
       ),
@@ -718,24 +765,10 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
 
   Widget _inviteTile(OrgInviteRow i, bool canManage) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: _tileFill,
-        borderRadius: BorderRadius.circular(_tileRadius),
-        border: Border.all(
-          color: GlossColors.teal.withValues(alpha: 0.65),
-          width: 1.25,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: GlossColors.navy.withValues(alpha: 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: _tileDecoration,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 11, 4, 11),
+        padding: const EdgeInsets.fromLTRB(12, 12, 2, 12),
         child: Row(
           children: [
             Container(
@@ -743,9 +776,14 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
               height: 40,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: GlossColors.sky,
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFE8F6FC), GlossColors.sky],
+                ),
                 border: Border.all(
-                  color: GlossColors.teal.withValues(alpha: 0.7),
+                  color: GlossColors.teal.withValues(alpha: 0.75),
+                  width: 1.2,
                 ),
               ),
               child: const Icon(
@@ -772,10 +810,14 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
             if (canManage)
               PopupMenuButton<String>(
                 padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(
+                  minWidth: 40,
+                  minHeight: 40,
+                ),
                 icon: Icon(
                   Icons.more_vert,
-                  color: GlossColors.navy.withValues(alpha: 0.7),
-                  size: 20,
+                  color: GlossColors.navy.withValues(alpha: 0.75),
+                  size: 22,
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
@@ -791,7 +833,9 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                         style: TextStyle(color: GlossColors.navy)),
                   ),
                 ],
-              ),
+              )
+            else
+              const SizedBox(width: 8),
           ],
         ),
       ),
