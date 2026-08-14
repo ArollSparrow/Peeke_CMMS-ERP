@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Peeke">
+  <rect width="128" height="128" rx="28" fill="#D3EFFD"/>
+  <text x="64" y="78" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="54" font-weight="600" fill="#272A6D" letter-spacing="-1">P</text>
+  <circle cx="92" cy="48" r="10" fill="#55AAAC"/>
+</svg>
