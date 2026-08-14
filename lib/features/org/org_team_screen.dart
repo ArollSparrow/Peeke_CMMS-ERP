@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../design/gloss_theme.dart';
 import '../../infra/friendly_error.dart';
@@ -447,7 +448,11 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
-              title: const Text('Member details'),
+              backgroundColor: GlossColors.sky,
+              title: Text(
+                'Member details',
+                style: GlossSurfaces.logoMark.copyWith(fontSize: 18),
+              ),
               content: SizedBox(
                 width: 420,
                 child: SingleChildScrollView(
@@ -632,7 +637,8 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx, false),
-                    child: const Text('Cancel')),
+                    child: Text('Cancel',
+                        style: GlossSurfaces.logoMark)),
                 FilledButton(
                     onPressed: () => Navigator.pop(ctx, true),
                     child: const Text('Save')),
@@ -706,23 +712,24 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     final depts = m.departmentLabels;
     final hods = m.hodLabels;
 
-    final nameLine = StringBuffer(name);
-    if (isMe) nameLine.write(' · You');
+    // Line 1: Name · Job title · You
+    final nameParts = <String>[name];
+    if (title != null) nameParts.add(title);
+    if (isMe) nameParts.add('You');
+    final nameLine = nameParts.join(' · ');
 
-    final metaParts = <String>[];
-    if (title != null) metaParts.add(title);
+    // Line 2: departments only (icon + joined with -)
     final deptLabels = <String>[
       for (final d in depts) hods.contains(d) ? '$d(HoD)' : d,
       for (final h in hods)
         if (!depts.contains(h)) '$h(HoD)',
     ];
-    if (deptLabels.isNotEmpty) metaParts.add(deptLabels.join('-'));
-    final metaLine = metaParts.join(' · ');
+    final metaLine = deptLabels.isEmpty ? null : deptLabels.join('-');
 
     return Container(
       width: double.infinity,
       height: GlossSurfaces.tileMinHeight,
-      margin: const EdgeInsets.only(bottom: 6),
+      margin: EdgeInsets.zero,
       decoration: GlossSurfaces.plate,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(10, 0, 2, 0),
@@ -738,17 +745,29 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    nameLine.toString(),
+                    nameLine,
                     style: GlossSurfaces.tileName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if (metaLine.isNotEmpty)
-                    Text(
-                      metaLine,
-                      style: GlossSurfaces.tileMeta,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                  if (metaLine != null)
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.apartment_outlined,
+                          size: 12,
+                          color: GlossColors.teal.withValues(alpha: 0.9),
+                        ),
+                        const SizedBox(width: 3),
+                        Expanded(
+                          child: Text(
+                            metaLine,
+                            style: GlossSurfaces.tileMeta,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                 ],
               ),
@@ -799,7 +818,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     return Container(
       width: double.infinity,
       height: GlossSurfaces.tileMinHeight,
-      margin: const EdgeInsets.only(bottom: 6),
+      margin: EdgeInsets.zero,
       decoration: GlossSurfaces.plate,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(10, 0, 2, 0),
@@ -905,10 +924,10 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     );
   }
 
-  /// Shared field decoration so Role matches Work email height.
+  /// Shared field — vertical 10 → ~40px height matching Work email.
   InputDecoration get _formField => GlossSurfaces.fieldDecoration('').copyWith(
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
       );
 
   @override
@@ -949,7 +968,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                 hintText: 'colleague@company.com',
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             DropdownButtonFormField<String>(
               value: _role,
               isDense: true,
@@ -969,7 +988,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
               onChanged: (v) =>
                   setState(() => _role = v ?? OrgRoles.technician),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             _sendInviteButton(),
             if (_error != null) ...[
               const SizedBox(height: 8),
