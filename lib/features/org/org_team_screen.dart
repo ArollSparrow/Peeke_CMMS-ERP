@@ -7,16 +7,25 @@ import '../../infra/friendly_error.dart';
 import '../auth/auth_providers.dart';
 import '../auth/login_screen.dart' show authRedirectTo;
 import 'org_providers.dart';
+import 'org_roles.dart';
 
 class OrgMemberRow {
   const OrgMemberRow({
     required this.id,
     required this.userId,
     required this.role,
+    this.email,
+    this.fullName,
+    this.phone,
+    this.jobTitle,
   });
   final String id;
   final String userId;
   final String role;
+  final String? email;
+  final String? fullName;
+  final String? phone;
+  final String? jobTitle;
 }
 
 class OrgInviteRow {
@@ -37,20 +46,40 @@ final orgMembersProvider =
   final org = ref.watch(activeOrganizationProvider);
   if (org == null) return [];
   final client = ref.watch(supabaseClientProvider);
-  final rows = await client
-      .from('organization_members')
-      .select('id, user_id, role')
-      .eq('organization_id', org.id);
-  return (rows as List)
-      .map((e) {
-        final m = Map<String, dynamic>.from(e as Map);
-        return OrgMemberRow(
-          id: m['id'] as String,
-          userId: m['user_id'] as String,
-          role: m['role'] as String? ?? 'member',
-        );
-      })
-      .toList();
+  try {
+    final rows = await client.rpc(
+      'list_org_team',
+      params: {'p_organization_id': org.id},
+    );
+    return (rows as List).map((e) {
+      final m = Map<String, dynamic>.from(e as Map);
+      return OrgMemberRow(
+        id: m['membership_id'] as String,
+        userId: m['user_id'] as String,
+        role: OrgRoles.normalize(m['role'] as String?),
+        email: m['email'] as String?,
+        fullName: m['full_name'] as String?,
+        phone: m['phone'] as String?,
+        jobTitle: m['job_title'] as String?,
+      );
+    }).toList();
+  } catch (_) {
+    final rows = await client
+        .from('organization_members')
+        .select('id, user_id, role, full_name, phone, job_title')
+        .eq('organization_id', org.id);
+    return (rows as List).map((e) {
+      final m = Map<String, dynamic>.from(e as Map);
+      return OrgMemberRow(
+        id: m['id'] as String,
+        userId: m['user_id'] as String,
+        role: OrgRoles.normalize(m['role'] as String?),
+        fullName: m['full_name'] as String?,
+        phone: m['phone'] as String?,
+        jobTitle: m['job_title'] as String?,
+      );
+    }).toList();
+  }
 });
 
 final orgInvitesProvider =
@@ -64,17 +93,15 @@ final orgInvitesProvider =
       .eq('organization_id', org.id)
       .eq('status', 'pending')
       .order('created_at', ascending: false);
-  return (rows as List)
-      .map((e) {
-        final m = Map<String, dynamic>.from(e as Map);
-        return OrgInviteRow(
-          id: m['id'] as String,
-          email: m['email'] as String,
-          role: m['role'] as String? ?? 'member',
-          status: m['status'] as String? ?? 'pending',
-        );
-      })
-      .toList();
+  return (rows as List).map((e) {
+    final m = Map<String, dynamic>.from(e as Map);
+    return OrgInviteRow(
+      id: m['id'] as String,
+      email: m['email'] as String,
+      role: OrgRoles.normalize(m['role'] as String?),
+      status: m['status'] as String? ?? 'pending',
+    );
+  }).toList();
 });
 
 class OrgTeamScreen extends ConsumerStatefulWidget {
@@ -86,7 +113,7 @@ class OrgTeamScreen extends ConsumerStatefulWidget {
 
 class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
   final _email = TextEditingController();
-  String _role = 'member';
+  String _role = OrgRoles.technician;
   bool _busy = false;
   String? _message;
   String? _error;
@@ -206,13 +233,17 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
       setState(() => _error = 'You cannot remove yourself from here.');
       return;
     }
+    if (member.role == OrgRoles.owner) {
+      setState(() => _error = 'Cannot remove the organisation owner.');
+      return;
+    }
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Remove member?'),
         content: Text(
-          'Remove this ${member.role} from ${org.name}? '
-          'They will lose access to org data immediately.',
+          'Remove ${member.fullName ?? member.email ?? 'this member'} '
+          '(${OrgRoles.label(member.role)}) from ${org.name}?',
         ),
         actions: [
           TextButton(
@@ -234,9 +265,123 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
         },
       );
       ref.invalidate(orgMembersProvider);
-      if (mounted) {
-        setState(() => _message = 'Member removed');
-      }
+      if (mounted) setState(() => _message = 'Member removed');
+    } catch (e) {
+      if (mounted) setState(() => _error = friendlyError(e));
+    }
+  }
+
+  Future<void> _editMember(OrgMemberRow member) async {
+    final org = ref.read(activeOrganizationProvider);
+    if (org == null) return;
+
+    final nameCtrl = TextEditingController(text: member.fullName ?? '');
+    final phoneCtrl = TextEditingController(text: member.phone ?? '');
+    final jobCtrl = TextEditingController(text: member.jobTitle ?? '');
+    var role = member.role == OrgRoles.owner
+        ? OrgRoles.owner
+        : OrgRoles.normalize(member.role);
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setLocal) {
+            return AlertDialog(
+              title: const Text('Member details'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (member.email != null)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          member.email!,
+                          style: const TextStyle(
+                              color: GlossColors.teal, fontSize: 13),
+                        ),
+                      ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Full name',
+                      ),
+                      textCapitalization: TextCapitalization.words,
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: phoneCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Phone',
+                      ),
+                      keyboardType: TextInputType.phone,
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: jobCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Job title',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    if (member.role != OrgRoles.owner)
+                      DropdownButtonFormField<String>(
+                        value: role,
+                        decoration: const InputDecoration(labelText: 'Role'),
+                        items: [
+                          for (final r in OrgRoles.inviteChoices)
+                            DropdownMenuItem(
+                              value: r,
+                              child: Text(OrgRoles.label(r)),
+                            ),
+                        ],
+                        onChanged: (v) =>
+                            setLocal(() => role = v ?? OrgRoles.technician),
+                      )
+                    else
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Role: Owner / System Admin (fixed)',
+                          style: TextStyle(color: GlossColors.navy),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (saved != true) return;
+    try {
+      await ref.read(supabaseClientProvider).rpc(
+        'update_org_member_details',
+        params: {
+          'p_organization_id': org.id,
+          'p_user_id': member.userId,
+          'p_role': member.role == OrgRoles.owner ? null : role,
+          'p_full_name': nameCtrl.text.trim(),
+          'p_phone': phoneCtrl.text.trim(),
+          'p_job_title': jobCtrl.text.trim(),
+        },
+      );
+      ref.invalidate(orgMembersProvider);
+      if (mounted) setState(() => _message = 'Member updated');
     } catch (e) {
       if (mounted) setState(() => _error = friendlyError(e));
     }
@@ -257,9 +402,10 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [
           const Text(
-            'Invite by work email (~2 emails/hour on built-in mail). '
-            'Invitees open Accept invitation → Join your team (name + password). '
-            'They never use tenant Register. Copy the link if mail is delayed.',
+            'Invite by work email. Choose a role (default Technician). '
+            'Invitees open Accept invitation → full name, phone, password. '
+            'Edit personal details and role after they join. '
+            'Owner is System Admin and HoD of IT by default.',
             style: TextStyle(color: GlossColors.teal, fontSize: 13),
           ),
           const SizedBox(height: 16),
@@ -277,11 +423,15 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
             DropdownButtonFormField<String>(
               value: _role,
               decoration: const InputDecoration(labelText: 'Role'),
-              items: const [
-                DropdownMenuItem(value: 'member', child: Text('Member')),
-                DropdownMenuItem(value: 'admin', child: Text('Admin')),
+              items: [
+                for (final r in OrgRoles.inviteChoices)
+                  DropdownMenuItem(
+                    value: r,
+                    child: Text(OrgRoles.label(r)),
+                  ),
               ],
-              onChanged: (v) => setState(() => _role = v ?? 'member'),
+              onChanged: (v) =>
+                  setState(() => _role = v ?? OrgRoles.technician),
             ),
             const SizedBox(height: 12),
             FilledButton(
@@ -297,7 +447,8 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
             ),
             if (_error != null) ...[
               const SizedBox(height: 8),
-              Text(_error!, style: const TextStyle(color: GlossColors.navy)),
+              Text(_error!,
+                  style: const TextStyle(color: GlossColors.danger)),
             ],
             if (_message != null) ...[
               const SizedBox(height: 8),
@@ -326,7 +477,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
             const Padding(
               padding: EdgeInsets.only(bottom: 16),
               child: Text(
-                'Only owners and admins can manage the team.',
+                'Only owners, system admins, and elevated roles can manage the team.',
                 style: TextStyle(color: GlossColors.teal),
               ),
             ),
@@ -355,20 +506,46 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                       child: ListTile(
                         title: Text(
                           m.userId == me
-                              ? 'You'
-                              : (m.userId.length > 8
-                                  ? '…${m.userId.substring(m.userId.length - 8)}'
-                                  : m.userId),
+                              ? '${m.fullName ?? m.email ?? 'You'} (You)'
+                              : (m.fullName ??
+                                  m.email ??
+                                  (m.userId.length > 8
+                                      ? '…${m.userId.substring(m.userId.length - 8)}'
+                                      : m.userId)),
                           style: const TextStyle(color: GlossColors.navy),
                         ),
-                        subtitle: Text(m.role,
-                            style: const TextStyle(color: GlossColors.teal)),
-                        trailing: canInvite && m.userId != me
-                            ? IconButton(
-                                tooltip: 'Remove',
-                                icon: const Icon(Icons.person_remove_outlined),
-                                color: GlossColors.navy,
-                                onPressed: () => _removeMember(m),
+                        subtitle: Text(
+                          [
+                            OrgRoles.label(m.role),
+                            if (m.email != null && m.fullName != null) m.email!,
+                            if (m.jobTitle != null && m.jobTitle!.isNotEmpty)
+                              m.jobTitle!,
+                            if (m.phone != null && m.phone!.isNotEmpty) m.phone!,
+                          ].join(' · '),
+                          style: const TextStyle(
+                              color: GlossColors.teal, fontSize: 12),
+                        ),
+                        isThreeLine: true,
+                        trailing: canInvite
+                            ? Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    tooltip: 'Edit details / role',
+                                    icon: const Icon(Icons.edit_outlined),
+                                    color: GlossColors.navy,
+                                    onPressed: () => _editMember(m),
+                                  ),
+                                  if (m.userId != me &&
+                                      m.role != OrgRoles.owner)
+                                    IconButton(
+                                      tooltip: 'Remove',
+                                      icon: const Icon(
+                                          Icons.person_remove_outlined),
+                                      color: GlossColors.navy,
+                                      onPressed: () => _removeMember(m),
+                                    ),
+                                ],
                               )
                             : null,
                       ),
@@ -402,7 +579,8 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                     Card(
                       child: ListTile(
                         title: Text(i.email),
-                        subtitle: Text('${i.role} · ${i.status}'),
+                        subtitle: Text(
+                            '${OrgRoles.label(i.role)} · ${i.status}'),
                         trailing: canInvite
                             ? IconButton(
                                 tooltip: 'Cancel invite',
