@@ -18,6 +18,8 @@ class OrgMemberRow {
     this.fullName,
     this.phone,
     this.jobTitle,
+    this.departmentLabels = const [],
+    this.hodLabels = const [],
   });
   final String id;
   final String userId;
@@ -26,6 +28,8 @@ class OrgMemberRow {
   final String? fullName;
   final String? phone;
   final String? jobTitle;
+  final List<String> departmentLabels;
+  final List<String> hodLabels;
 }
 
 class OrgInviteRow {
@@ -41,17 +45,67 @@ class OrgInviteRow {
   final String status;
 }
 
+class OrgDept {
+  const OrgDept({
+    required this.id,
+    required this.code,
+    required this.name,
+  });
+  final String id;
+  final String code;
+  final String name;
+}
+
+final orgDepartmentsProvider =
+    FutureProvider.autoDispose<List<OrgDept>>((ref) async {
+  final org = ref.watch(activeOrganizationProvider);
+  if (org == null) return [];
+  final client = ref.watch(supabaseClientProvider);
+
+  Future<List<OrgDept>> load() async {
+    final rows = await client
+        .from('organization_departments')
+        .select('id, code, name, sort_order')
+        .eq('organization_id', org.id)
+        .order('sort_order');
+    return (rows as List).map((e) {
+      final m = Map<String, dynamic>.from(e as Map);
+      return OrgDept(
+        id: m['id'] as String,
+        code: m['code'] as String,
+        name: m['name'] as String? ?? OrgDepartments.label(m['code'] as String),
+      );
+    }).toList();
+  }
+
+  var list = await load();
+  if (list.isEmpty) {
+    try {
+      await client.rpc(
+        'seed_organization_departments',
+        params: {'p_org_id': org.id},
+      );
+      list = await load();
+    } catch (_) {}
+  }
+  return list;
+});
+
 final orgMembersProvider =
     FutureProvider.autoDispose<List<OrgMemberRow>>((ref) async {
   final org = ref.watch(activeOrganizationProvider);
   if (org == null) return [];
   final client = ref.watch(supabaseClientProvider);
+  final depts = await ref.watch(orgDepartmentsProvider.future);
+  final deptById = {for (final d in depts) d.id: d};
+
+  List<OrgMemberRow> base = [];
   try {
     final rows = await client.rpc(
       'list_org_team',
       params: {'p_organization_id': org.id},
     );
-    return (rows as List).map((e) {
+    base = (rows as List).map((e) {
       final m = Map<String, dynamic>.from(e as Map);
       return OrgMemberRow(
         id: m['membership_id'] as String,
@@ -68,7 +122,7 @@ final orgMembersProvider =
         .from('organization_members')
         .select('id, user_id, role, full_name, phone, job_title')
         .eq('organization_id', org.id);
-    return (rows as List).map((e) {
+    base = (rows as List).map((e) {
       final m = Map<String, dynamic>.from(e as Map);
       return OrgMemberRow(
         id: m['id'] as String,
@@ -80,6 +134,51 @@ final orgMembersProvider =
       );
     }).toList();
   }
+
+  // Attach department labels
+  final mdRows = await client
+      .from('organization_member_departments')
+      .select('user_id, department_id')
+      .eq('organization_id', org.id);
+  final hodRows = await client
+      .from('organization_department_heads')
+      .select('user_id, department_id')
+      .eq('organization_id', org.id);
+
+  final memberDepts = <String, List<String>>{};
+  for (final e in (mdRows as List)) {
+    final m = Map<String, dynamic>.from(e as Map);
+    final uid = m['user_id'] as String;
+    final did = m['department_id'] as String;
+    final name = deptById[did]?.name;
+    if (name == null) continue;
+    memberDepts.putIfAbsent(uid, () => []).add(name);
+  }
+  final hodDepts = <String, List<String>>{};
+  for (final e in (hodRows as List)) {
+    final m = Map<String, dynamic>.from(e as Map);
+    final uid = m['user_id'] as String;
+    final did = m['department_id'] as String;
+    final name = deptById[did]?.name;
+    if (name == null) continue;
+    hodDepts.putIfAbsent(uid, () => []).add(name);
+  }
+
+  return base
+      .map(
+        (m) => OrgMemberRow(
+          id: m.id,
+          userId: m.userId,
+          role: m.role,
+          email: m.email,
+          fullName: m.fullName,
+          phone: m.phone,
+          jobTitle: m.jobTitle,
+          departmentLabels: memberDepts[m.userId] ?? const [],
+          hodLabels: hodDepts[m.userId] ?? const [],
+        ),
+      )
+      .toList();
 });
 
 final orgInvitesProvider =
@@ -274,6 +373,30 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
   Future<void> _editMember(OrgMemberRow member) async {
     final org = ref.read(activeOrganizationProvider);
     if (org == null) return;
+    final client = ref.read(supabaseClientProvider);
+
+    final depts = await ref.read(orgDepartmentsProvider.future);
+
+    // Current membership / HoD sets
+    final mdRows = await client
+        .from('organization_member_departments')
+        .select('department_id')
+        .eq('organization_id', org.id)
+        .eq('user_id', member.userId);
+    final hodRows = await client
+        .from('organization_department_heads')
+        .select('department_id')
+        .eq('organization_id', org.id)
+        .eq('user_id', member.userId);
+
+    final selectedDepts = <String>{
+      for (final e in (mdRows as List))
+        Map<String, dynamic>.from(e as Map)['department_id'] as String,
+    };
+    final hodDepts = <String>{
+      for (final e in (hodRows as List))
+        Map<String, dynamic>.from(e as Map)['department_id'] as String,
+    };
 
     final nameCtrl = TextEditingController(text: member.fullName ?? '');
     final phoneCtrl = TextEditingController(text: member.phone ?? '');
@@ -289,74 +412,146 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
           builder: (ctx, setLocal) {
             return AlertDialog(
               title: const Text('Member details'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Email only visible when editing
-                    if (member.email != null) ...[
+              content: SizedBox(
+                width: 420,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (member.email != null) ...[
+                        const Text(
+                          'Email',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: GlossColors.teal,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        SelectableText(
+                          member.email!,
+                          style: const TextStyle(
+                            color: GlossColors.navy,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      TextField(
+                        controller: nameCtrl,
+                        decoration:
+                            const InputDecoration(labelText: 'Full name'),
+                        textCapitalization: TextCapitalization.words,
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: phoneCtrl,
+                        decoration: const InputDecoration(labelText: 'Phone'),
+                        keyboardType: TextInputType.phone,
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: jobCtrl,
+                        decoration:
+                            const InputDecoration(labelText: 'Job title'),
+                      ),
+                      const SizedBox(height: 12),
+                      if (member.role != OrgRoles.owner)
+                        DropdownButtonFormField<String>(
+                          value: role,
+                          decoration:
+                              const InputDecoration(labelText: 'Role'),
+                          items: [
+                            for (final r in OrgRoles.inviteChoices)
+                              DropdownMenuItem(
+                                value: r,
+                                child: Text(OrgRoles.label(r)),
+                              ),
+                          ],
+                          onChanged: (v) => setLocal(
+                              () => role = v ?? OrgRoles.technician),
+                        )
+                      else
+                        const Text(
+                          'Role: Owner / System Admin (fixed)',
+                          style: TextStyle(color: GlossColors.navy),
+                        ),
+                      const SizedBox(height: 16),
                       const Text(
-                        'Email',
+                        'Departments',
                         style: TextStyle(
-                          fontSize: 12,
-                          color: GlossColors.teal,
                           fontWeight: FontWeight.w600,
+                          color: GlossColors.navy,
                         ),
                       ),
                       const SizedBox(height: 4),
-                      SelectableText(
-                        member.email!,
-                        style: const TextStyle(
-                          color: GlossColors.navy,
-                          fontSize: 14,
+                      const Text(
+                        'Tick department membership. HoD can cover more than one.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: GlossColors.teal,
                         ),
                       ),
-                      const SizedBox(height: 12),
-                    ],
-                    TextField(
-                      controller: nameCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Full name',
-                      ),
-                      textCapitalization: TextCapitalization.words,
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: phoneCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Phone',
-                      ),
-                      keyboardType: TextInputType.phone,
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: jobCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Job title',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    if (member.role != OrgRoles.owner)
-                      DropdownButtonFormField<String>(
-                        value: role,
-                        decoration: const InputDecoration(labelText: 'Role'),
-                        items: [
-                          for (final r in OrgRoles.inviteChoices)
-                            DropdownMenuItem(
-                              value: r,
-                              child: Text(OrgRoles.label(r)),
+                      const SizedBox(height: 8),
+                      if (depts.isEmpty)
+                        const Text(
+                          'No departments seeded yet.',
+                          style: TextStyle(color: GlossColors.teal),
+                        )
+                      else
+                        for (final d in depts)
+                          CheckboxListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(
+                              d.name,
+                              style: const TextStyle(
+                                color: GlossColors.navy,
+                                fontSize: 14,
+                              ),
                             ),
-                        ],
-                        onChanged: (v) =>
-                            setLocal(() => role = v ?? OrgRoles.technician),
-                      )
-                    else
-                      const Text(
-                        'Role: Owner / System Admin (fixed)',
-                        style: TextStyle(color: GlossColors.navy),
-                      ),
-                  ],
+                            subtitle: selectedDepts.contains(d.id)
+                                ? Row(
+                                    children: [
+                                      Checkbox(
+                                        value: hodDepts.contains(d.id),
+                                        onChanged: (v) {
+                                          setLocal(() {
+                                            if (v == true) {
+                                              hodDepts.add(d.id);
+                                              selectedDepts.add(d.id);
+                                            } else {
+                                              hodDepts.remove(d.id);
+                                            }
+                                          });
+                                        },
+                                      ),
+                                      const Text(
+                                        'HoD of this department',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: GlossColors.teal,
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : null,
+                            value: selectedDepts.contains(d.id),
+                            activeColor: GlossColors.teal,
+                            onChanged: (v) {
+                              setLocal(() {
+                                if (v == true) {
+                                  selectedDepts.add(d.id);
+                                } else {
+                                  selectedDepts.remove(d.id);
+                                  hodDepts.remove(d.id);
+                                }
+                              });
+                            },
+                          ),
+                    ],
+                  ),
                 ),
               ),
               actions: [
@@ -377,7 +572,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
 
     if (saved != true) return;
     try {
-      await ref.read(supabaseClientProvider).rpc(
+      await client.rpc(
         'update_org_member_details',
         params: {
           'p_organization_id': org.id,
@@ -388,7 +583,17 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
           'p_job_title': jobCtrl.text.trim(),
         },
       );
+      await client.rpc(
+        'set_org_member_departments',
+        params: {
+          'p_organization_id': org.id,
+          'p_user_id': member.userId,
+          'p_department_ids': selectedDepts.toList(),
+          'p_hod_department_ids': hodDepts.toList(),
+        },
+      );
       ref.invalidate(orgMembersProvider);
+      ref.invalidate(orgDepartmentsProvider);
       if (mounted) setState(() => _message = 'Member updated');
     } catch (e) {
       if (mounted) setState(() => _error = friendlyError(e));
@@ -405,11 +610,14 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
 
   String _memberSubtitle(OrgMemberRow m) {
     final parts = <String>[OrgRoles.label(m.role)];
+    if (m.departmentLabels.isNotEmpty) {
+      parts.add(m.departmentLabels.join(', '));
+    }
+    if (m.hodLabels.isNotEmpty) {
+      parts.add('HoD: ${m.hodLabels.join(', ')}');
+    }
     if (m.jobTitle != null && m.jobTitle!.isNotEmpty) {
       parts.add(m.jobTitle!);
-    }
-    if (m.phone != null && m.phone!.isNotEmpty) {
-      parts.add(m.phone!);
     }
     return parts.join(' · ');
   }
@@ -429,9 +637,8 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [
           const Text(
-            'Invite by work email. Choose a role (default Technician). '
-            'Invitees open Accept invitation → full name, phone, password. '
-            'Edit personal details and role after they join. '
+            'Invite by work email and role. After join, edit a member to set '
+            'departments and HoD (one person can head several). '
             'Owner is System Admin and HoD of IT by default.',
             style: TextStyle(color: GlossColors.teal, fontSize: 13),
           ),
@@ -540,12 +747,14 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                           style: const TextStyle(
                               color: GlossColors.teal, fontSize: 12),
                         ),
+                        isThreeLine: m.departmentLabels.isNotEmpty ||
+                            m.hodLabels.isNotEmpty,
                         trailing: canInvite
                             ? Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   IconButton(
-                                    tooltip: 'Edit details / role',
+                                    tooltip: 'Edit details / departments',
                                     icon: const Icon(Icons.edit_outlined),
                                     color: GlossColors.navy,
                                     onPressed: () => _editMember(m),
