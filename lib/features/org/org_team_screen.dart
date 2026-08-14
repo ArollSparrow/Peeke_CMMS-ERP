@@ -9,8 +9,8 @@ import '../auth/login_screen.dart' show authRedirectTo;
 import 'org_providers.dart';
 import 'org_roles.dart';
 
-const _cardRadius = 28.0;
-const _cardMaxWidth = 300.0;
+/// Soft rounded tile — kin to Peeke vendor cards, Peeke Automation palette.
+const _tileRadius = 16.0;
 
 class OrgMemberRow {
   const OrgMemberRow({
@@ -584,148 +584,256 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     }
   }
 
-  /// Compact glossy pill — single line Name · Title · You
+  /// Gloss tile — avatar · name / title · departments (Peeke vendor card DNA).
   Widget _memberCard(OrgMemberRow m, String? me, bool canManage) {
     final name = (m.fullName != null && m.fullName!.trim().isNotEmpty)
         ? m.fullName!.trim()
         : 'Team member';
     final title = (m.jobTitle != null && m.jobTitle!.trim().isNotEmpty)
         ? m.jobTitle!.trim()
-        : null;
+        : OrgRoles.label(m.role);
     final isMe = m.userId == me;
+    final depts = m.departmentLabels;
+    final hods = m.hodLabels;
 
-    final parts = <String>[name];
-    if (title != null) parts.add(title);
-    if (isMe) parts.add('You');
-    final line = parts.join(' · ');
-
-    return Align(
-      alignment: Alignment.center,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: _cardMaxWidth),
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.62),
-            borderRadius: BorderRadius.circular(_cardRadius),
-            border: Border.all(
-              color: GlossColors.teal.withValues(alpha: 0.5),
-            ),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(_tileRadius),
+        border: Border.all(
+          color: GlossColors.teal.withValues(alpha: 0.55),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: GlossColors.navy.withValues(alpha: 0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 7, 0, 7),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    line,
-                    style: const TextStyle(
-                      color: GlossColors.navy,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 14,
-                      height: 1.2,
-                      letterSpacing: -0.15,
-                    ),
-                  ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Leading avatar disc
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: GlossColors.sky,
+                border: Border.all(
+                  color: GlossColors.teal.withValues(alpha: 0.65),
                 ),
-                if (canManage)
-                  PopupMenuButton<String>(
-                    tooltip: 'Actions',
-                    padding: EdgeInsets.zero,
-                    constraints:
-                        const BoxConstraints(minWidth: 32, minHeight: 32),
-                    icon: Icon(
-                      Icons.more_vert,
-                      color: GlossColors.navy.withValues(alpha: 0.65),
-                      size: 18,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    color: GlossColors.sky,
-                    onSelected: (value) {
-                      if (value == 'edit') _editMember(m);
-                      if (value == 'remove') _removeMember(m);
-                    },
-                    itemBuilder: (ctx) => [
-                      const PopupMenuItem(
-                        value: 'edit',
-                        child: Text('Edit',
-                            style: TextStyle(color: GlossColors.navy)),
-                      ),
-                      if (!isMe && m.role != OrgRoles.owner)
-                        const PopupMenuItem(
-                          value: 'remove',
-                          child: Text('Remove',
-                              style: TextStyle(color: GlossColors.navy)),
-                        ),
-                    ],
-                  ),
-              ],
+              ),
+              child: const Icon(
+                Icons.person_outline,
+                color: GlossColors.navy,
+                size: 22,
+              ),
             ),
-          ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Name (+ You)
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: name,
+                          style: const TextStyle(
+                            color: GlossColors.navy,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                            letterSpacing: -0.2,
+                            height: 1.25,
+                          ),
+                        ),
+                        if (isMe)
+                          TextSpan(
+                            text: '  ·  You',
+                            style: TextStyle(
+                              color: GlossColors.teal.withValues(alpha: 0.95),
+                              fontWeight: FontWeight.w500,
+                              fontSize: 12,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  // Job title (or role label as soft fallback)
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: GlossColors.navy.withValues(alpha: 0.78),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      height: 1.3,
+                    ),
+                  ),
+                  // Departments under name + title
+                  if (depts.isNotEmpty || hods.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 4,
+                      children: [
+                        for (final d in depts)
+                          _metaChip(
+                            Icons.apartment_outlined,
+                            hods.contains(d) ? '$d · HoD' : d,
+                          ),
+                        for (final h in hods)
+                          if (!depts.contains(h))
+                            _metaChip(Icons.apartment_outlined, '$h · HoD'),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (canManage)
+              PopupMenuButton<String>(
+                tooltip: 'Actions',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                icon: Icon(
+                  Icons.more_vert,
+                  color: GlossColors.navy.withValues(alpha: 0.7),
+                  size: 20,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                color: GlossColors.sky,
+                onSelected: (value) {
+                  if (value == 'edit') _editMember(m);
+                  if (value == 'remove') _removeMember(m);
+                },
+                itemBuilder: (ctx) => [
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Text('Edit',
+                        style: TextStyle(color: GlossColors.navy)),
+                  ),
+                  if (!isMe && m.role != OrgRoles.owner)
+                    const PopupMenuItem(
+                      value: 'remove',
+                      child: Text('Remove',
+                          style: TextStyle(color: GlossColors.navy)),
+                    ),
+                ],
+              ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _invitePill(OrgInviteRow i, bool canManage) {
-    return Align(
-      alignment: Alignment.center,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: _cardMaxWidth),
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.62),
-            borderRadius: BorderRadius.circular(_cardRadius),
-            border: Border.all(
-              color: GlossColors.teal.withValues(alpha: 0.5),
-            ),
+  Widget _metaChip(IconData icon, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 13, color: GlossColors.teal),
+        const SizedBox(width: 3),
+        Text(
+          label,
+          style: const TextStyle(
+            color: GlossColors.teal,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            height: 1.2,
           ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 7, 0, 7),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${i.email} · ${OrgRoles.label(i.role)}',
+        ),
+      ],
+    );
+  }
+
+  Widget _inviteTile(OrgInviteRow i, bool canManage) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(_tileRadius),
+        border: Border.all(
+          color: GlossColors.teal.withValues(alpha: 0.55),
+          width: 1.2,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: GlossColors.sky,
+                border: Border.all(
+                  color: GlossColors.teal.withValues(alpha: 0.65),
+                ),
+              ),
+              child: const Icon(
+                Icons.mail_outline,
+                color: GlossColors.navy,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    i.email,
                     style: const TextStyle(
                       color: GlossColors.navy,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 13,
-                      height: 1.2,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
                     ),
                   ),
-                ),
-                if (canManage)
-                  PopupMenuButton<String>(
-                    padding: EdgeInsets.zero,
-                    constraints:
-                        const BoxConstraints(minWidth: 32, minHeight: 32),
-                    icon: Icon(
-                      Icons.more_vert,
-                      color: GlossColors.navy.withValues(alpha: 0.65),
-                      size: 18,
+                  const SizedBox(height: 2),
+                  Text(
+                    '${OrgRoles.label(i.role)} · pending',
+                    style: TextStyle(
+                      color: GlossColors.teal.withValues(alpha: 0.95),
+                      fontSize: 12,
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    color: GlossColors.sky,
-                    onSelected: (v) {
-                      if (v == 'cancel') _revokeInvite(i);
-                    },
-                    itemBuilder: (_) => const [
-                      PopupMenuItem(
-                        value: 'cancel',
-                        child: Text('Cancel invite',
-                            style: TextStyle(color: GlossColors.navy)),
-                      ),
-                    ],
                   ),
-              ],
+                ],
+              ),
             ),
-          ),
+            if (canManage)
+              PopupMenuButton<String>(
+                padding: EdgeInsets.zero,
+                icon: Icon(
+                  Icons.more_vert,
+                  color: GlossColors.navy.withValues(alpha: 0.7),
+                  size: 20,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                color: GlossColors.sky,
+                onSelected: (v) {
+                  if (v == 'cancel') _revokeInvite(i);
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(
+                    value: 'cancel',
+                    child: Text('Cancel invite',
+                        style: TextStyle(color: GlossColors.navy)),
+                  ),
+                ],
+              ),
+          ],
         ),
       ),
     );
@@ -864,7 +972,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
               }
               return Column(
                 children: [
-                  for (final i in list) _invitePill(i, canInvite),
+                  for (final i in list) _inviteTile(i, canInvite),
                 ],
               );
             },
