@@ -9,6 +9,8 @@ import '../auth/login_screen.dart' show authRedirectTo;
 import 'org_providers.dart';
 import 'org_roles.dart';
 
+const _cardRadius = 20.0;
+
 class OrgMemberRow {
   const OrgMemberRow({
     required this.id,
@@ -135,7 +137,6 @@ final orgMembersProvider =
     }).toList();
   }
 
-  // Attach department labels
   final mdRows = await client
       .from('organization_member_departments')
       .select('user_id, department_id')
@@ -377,7 +378,6 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
 
     final depts = await ref.read(orgDepartmentsProvider.future);
 
-    // Current membership / HoD sets
     final mdRows = await client
         .from('organization_member_departments')
         .select('department_id')
@@ -411,6 +411,9 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
         return StatefulBuilder(
           builder: (ctx, setLocal) {
             return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(_cardRadius),
+              ),
               title: const Text('Member details'),
               content: SizedBox(
                 width: 420,
@@ -487,10 +490,15 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                       ),
                       const SizedBox(height: 4),
                       const Text(
-                        'Tick department membership. HoD can cover more than one.',
+                        'Any role (Technician, Supervisor, Officer, …) can '
+                        'belong to one or more departments. '
+                        '“Head of department” is optional — only enable it '
+                        'if they lead that department. It is separate from '
+                        'the HoD job role.',
                         style: TextStyle(
                           fontSize: 12,
                           color: GlossColors.teal,
+                          height: 1.35,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -500,10 +508,11 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                           style: TextStyle(color: GlossColors.teal),
                         )
                       else
-                        for (final d in depts)
+                        for (final d in depts) ...[
                           CheckboxListTile(
                             dense: true,
                             contentPadding: EdgeInsets.zero,
+                            controlAffinity: ListTileControlAffinity.leading,
                             title: Text(
                               d.name,
                               style: const TextStyle(
@@ -511,32 +520,6 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                                 fontSize: 14,
                               ),
                             ),
-                            subtitle: selectedDepts.contains(d.id)
-                                ? Row(
-                                    children: [
-                                      Checkbox(
-                                        value: hodDepts.contains(d.id),
-                                        onChanged: (v) {
-                                          setLocal(() {
-                                            if (v == true) {
-                                              hodDepts.add(d.id);
-                                              selectedDepts.add(d.id);
-                                            } else {
-                                              hodDepts.remove(d.id);
-                                            }
-                                          });
-                                        },
-                                      ),
-                                      const Text(
-                                        'HoD of this department',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: GlossColors.teal,
-                                        ),
-                                      ),
-                                    ],
-                                  )
-                                : null,
                             value: selectedDepts.contains(d.id),
                             activeColor: GlossColors.teal,
                             onChanged: (v) {
@@ -550,6 +533,33 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                               });
                             },
                           ),
+                          if (selectedDepts.contains(d.id))
+                            Padding(
+                              padding: const EdgeInsets.only(left: 28, bottom: 4),
+                              child: SwitchListTile(
+                                dense: true,
+                                contentPadding: EdgeInsets.zero,
+                                title: const Text(
+                                  'Head of this department',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: GlossColors.navy,
+                                  ),
+                                ),
+                                value: hodDepts.contains(d.id),
+                                activeColor: GlossColors.teal,
+                                onChanged: (v) {
+                                  setLocal(() {
+                                    if (v) {
+                                      hodDepts.add(d.id);
+                                    } else {
+                                      hodDepts.remove(d.id);
+                                    }
+                                  });
+                                },
+                              ),
+                            ),
+                        ],
                     ],
                   ),
                 ),
@@ -600,26 +610,17 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     }
   }
 
-  String _memberTitle(OrgMemberRow m, String? me) {
-    final base = (m.fullName != null && m.fullName!.trim().isNotEmpty)
+  /// Single-line card label: name (+ job title). Role/dept/email only in edit.
+  String _memberCardLine(OrgMemberRow m, String? me) {
+    final name = (m.fullName != null && m.fullName!.trim().isNotEmpty)
         ? m.fullName!.trim()
         : 'Team member';
-    if (m.userId == me) return '$base (You)';
-    return base;
-  }
-
-  String _memberSubtitle(OrgMemberRow m) {
-    final parts = <String>[OrgRoles.label(m.role)];
-    if (m.departmentLabels.isNotEmpty) {
-      parts.add(m.departmentLabels.join(', '));
-    }
-    if (m.hodLabels.isNotEmpty) {
-      parts.add('HoD: ${m.hodLabels.join(', ')}');
-    }
-    if (m.jobTitle != null && m.jobTitle!.isNotEmpty) {
-      parts.add(m.jobTitle!);
-    }
-    return parts.join(' · ');
+    final title = (m.jobTitle != null && m.jobTitle!.trim().isNotEmpty)
+        ? m.jobTitle!.trim()
+        : null;
+    final core = title == null ? name : '$name · $title';
+    if (m.userId == me) return '$core (You)';
+    return core;
   }
 
   @override
@@ -637,8 +638,8 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [
           const Text(
-            'Invite by work email and role. After join, edit a member to set '
-            'departments and HoD (one person can head several). '
+            'Invite by work email and role. Edit a member for departments '
+            '(any role can belong; head-of-department is optional). '
             'Owner is System Admin and HoD of IT by default.',
             style: TextStyle(color: GlossColors.teal, fontSize: 13),
           ),
@@ -737,18 +738,30 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                 children: [
                   for (final m in list)
                     Card(
+                      elevation: 0,
+                      color: Colors.white.withValues(alpha: 0.72),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(_cardRadius),
+                        side: BorderSide(
+                          color: GlossColors.teal.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      margin: const EdgeInsets.only(bottom: 10),
                       child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 6,
+                        ),
                         title: Text(
-                          _memberTitle(m, me),
-                          style: const TextStyle(color: GlossColors.navy),
-                        ),
-                        subtitle: Text(
-                          _memberSubtitle(m),
+                          _memberCardLine(m, me),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                              color: GlossColors.teal, fontSize: 12),
+                            color: GlossColors.navy,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 15,
+                          ),
                         ),
-                        isThreeLine: m.departmentLabels.isNotEmpty ||
-                            m.hodLabels.isNotEmpty,
                         trailing: canInvite
                             ? Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -800,6 +813,15 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                 children: [
                   for (final i in list)
                     Card(
+                      elevation: 0,
+                      color: Colors.white.withValues(alpha: 0.72),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(_cardRadius),
+                        side: BorderSide(
+                          color: GlossColors.teal.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      margin: const EdgeInsets.only(bottom: 10),
                       child: ListTile(
                         title: Text(i.email),
                         subtitle: Text(
