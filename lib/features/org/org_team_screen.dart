@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../design/gloss_theme.dart';
 import '../../infra/friendly_error.dart';
@@ -18,6 +20,7 @@ class OrgMemberRow {
     this.fullName,
     this.phone,
     this.jobTitle,
+    this.avatarUrl,
     this.departmentLabels = const [],
     this.hodLabels = const [],
   });
@@ -28,6 +31,7 @@ class OrgMemberRow {
   final String? fullName;
   final String? phone;
   final String? jobTitle;
+  final String? avatarUrl;
   final List<String> departmentLabels;
   final List<String> hodLabels;
 }
@@ -115,12 +119,13 @@ final orgMembersProvider =
         fullName: m['full_name'] as String?,
         phone: m['phone'] as String?,
         jobTitle: m['job_title'] as String?,
+        avatarUrl: m['avatar_url'] as String?,
       );
     }).toList();
   } catch (_) {
     final rows = await client
         .from('organization_members')
-        .select('id, user_id, role, full_name, phone, job_title')
+        .select('id, user_id, role, full_name, phone, job_title, avatar_url')
         .eq('organization_id', org.id);
     base = (rows as List).map((e) {
       final m = Map<String, dynamic>.from(e as Map);
@@ -131,6 +136,7 @@ final orgMembersProvider =
         fullName: m['full_name'] as String?,
         phone: m['phone'] as String?,
         jobTitle: m['job_title'] as String?,
+        avatarUrl: m['avatar_url'] as String?,
       );
     }).toList();
   }
@@ -173,6 +179,7 @@ final orgMembersProvider =
           fullName: m.fullName,
           phone: m.phone,
           jobTitle: m.jobTitle,
+          avatarUrl: m.avatarUrl,
           departmentLabels: memberDepts[m.userId] ?? const [],
           hodLabels: hodDepts[m.userId] ?? const [],
         ),
@@ -369,6 +376,33 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     }
   }
 
+  Future<String?> _uploadAvatar({
+    required String orgId,
+    required String userId,
+  }) async {
+    final picker = ImagePicker();
+    final x = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 85,
+    );
+    if (x == null) return null;
+    final bytes = await x.readAsBytes();
+    final ext = (x.name.split('.').last).toLowerCase();
+    final path = '$orgId/$userId.${ext.isEmpty ? 'jpg' : ext}';
+    final client = ref.read(supabaseClientProvider);
+    await client.storage.from('member-avatars').uploadBinary(
+          path,
+          bytes,
+          fileOptions: FileOptions(
+            upsert: true,
+            contentType: x.mimeType ?? 'image/jpeg',
+          ),
+        );
+    return client.storage.from('member-avatars').getPublicUrl(path);
+  }
+
   Future<void> _editMember(OrgMemberRow member) async {
     final org = ref.read(activeOrganizationProvider);
     if (org == null) return;
@@ -401,6 +435,8 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     var role = member.role == OrgRoles.owner
         ? OrgRoles.owner
         : OrgRoles.normalize(member.role);
+    String? avatarUrl = member.avatarUrl;
+    var avatarBusy = false;
 
     final saved = await showDialog<bool>(
       context: context,
@@ -419,6 +455,60 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      Center(
+                        child: Column(
+                          children: [
+                            CircleAvatar(
+                              radius: 36,
+                              backgroundColor: GlossColors.sky,
+                              backgroundImage: (avatarUrl != null &&
+                                      avatarUrl!.isNotEmpty)
+                                  ? NetworkImage(avatarUrl!)
+                                  : null,
+                              child: (avatarUrl == null || avatarUrl!.isEmpty)
+                                  ? const Icon(Icons.person_outline,
+                                      size: 36, color: GlossColors.navy)
+                                  : null,
+                            ),
+                            TextButton.icon(
+                              onPressed: avatarBusy
+                                  ? null
+                                  : () async {
+                                      setLocal(() => avatarBusy = true);
+                                      try {
+                                        final url = await _uploadAvatar(
+                                          orgId: org.id,
+                                          userId: member.userId,
+                                        );
+                                        if (url != null) {
+                                          setLocal(() => avatarUrl = url);
+                                        }
+                                      } catch (e) {
+                                        if (mounted) {
+                                          setState(() =>
+                                              _error = friendlyError(e));
+                                        }
+                                      } finally {
+                                        setLocal(() => avatarBusy = false);
+                                      }
+                                    },
+                              icon: avatarBusy
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2),
+                                    )
+                                  : const Icon(Icons.photo_camera_outlined,
+                                      size: 18),
+                              label: Text(
+                                avatarBusy ? 'Uploading…' : 'Change photo',
+                                style: GlossSurfaces.logoAccent,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       if (member.email != null) ...[
                         Text('Email', style: GlossSurfaces.logoAccent),
                         const SizedBox(height: 4),
@@ -454,6 +544,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                         DropdownButtonFormField<String>(
                           value: role,
                           isDense: true,
+                          iconSize: 20,
                           decoration: GlossSurfaces.fieldDecoration('Role'),
                           items: [
                             for (final r in OrgRoles.inviteChoices)
@@ -563,6 +654,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
           'p_full_name': nameCtrl.text.trim(),
           'p_phone': phoneCtrl.text.trim(),
           'p_job_title': jobCtrl.text.trim(),
+          'p_avatar_url': avatarUrl,
         },
       );
       await client.rpc(
@@ -582,7 +674,27 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     }
   }
 
-  /// Fixed height matches Send invite; tight vertical inset.
+  Widget _avatarDisc(String? url) {
+    return Container(
+      width: 30,
+      height: 30,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: GlossColors.sky,
+        image: (url != null && url.isNotEmpty)
+            ? DecorationImage(
+                image: NetworkImage(url),
+                fit: BoxFit.cover,
+              )
+            : null,
+      ),
+      child: (url == null || url.isEmpty)
+          ? const Icon(Icons.person_outline,
+              color: GlossColors.navy, size: 17)
+          : null,
+    );
+  }
+
   Widget _memberCard(OrgMemberRow m, String? me, bool canManage) {
     final name = (m.fullName != null && m.fullName!.trim().isNotEmpty)
         ? m.fullName!.trim()
@@ -594,43 +706,30 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     final depts = m.departmentLabels;
     final hods = m.hodLabels;
 
-    final line1 = StringBuffer(name);
-    if (title != null) line1.write(' · $title');
-    if (isMe) line1.write(' · You');
+    final nameLine = StringBuffer(name);
+    if (isMe) nameLine.write(' · You');
 
+    final metaParts = <String>[];
+    if (title != null) metaParts.add(title);
     final deptLabels = <String>[
       for (final d in depts) hods.contains(d) ? '$d(HoD)' : d,
       for (final h in hods)
         if (!depts.contains(h)) '$h(HoD)',
     ];
-    final deptLine = deptLabels.join('-');
+    if (deptLabels.isNotEmpty) metaParts.add(deptLabels.join('-'));
+    final metaLine = metaParts.join(' · ');
 
     return Container(
       width: double.infinity,
       height: GlossSurfaces.tileMinHeight,
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 6),
       decoration: GlossSurfaces.plate,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(10, 0, 2, 0),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: GlossColors.sky,
-                border: Border.all(
-                  color: GlossColors.teal.withValues(alpha: 0.75),
-                ),
-              ),
-              child: const Icon(
-                Icons.person_outline,
-                color: GlossColors.navy,
-                size: 17,
-              ),
-            ),
+            _avatarDisc(m.avatarUrl),
             const SizedBox(width: 8),
             Expanded(
               child: Column(
@@ -639,29 +738,17 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    line1.toString(),
-                    style: GlossSurfaces.tileLine,
+                    nameLine.toString(),
+                    style: GlossSurfaces.tileName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if (deptLine.isNotEmpty)
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.apartment_outlined,
-                          size: 11,
-                          color: GlossColors.navy.withValues(alpha: 0.75),
-                        ),
-                        const SizedBox(width: 2),
-                        Expanded(
-                          child: Text(
-                            deptLine,
-                            style: GlossSurfaces.tileLine,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
+                  if (metaLine.isNotEmpty)
+                    Text(
+                      metaLine,
+                      style: GlossSurfaces.tileMeta,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                 ],
               ),
@@ -676,7 +763,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                 ),
                 icon: Icon(
                   Icons.more_vert,
-                  color: GlossColors.navy.withValues(alpha: 0.75),
+                  color: GlossColors.teal.withValues(alpha: 0.9),
                   size: 20,
                 ),
                 shape: RoundedRectangleBorder(
@@ -712,7 +799,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     return Container(
       width: double.infinity,
       height: GlossSurfaces.tileMinHeight,
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 6),
       decoration: GlossSurfaces.plate,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(10, 0, 2, 0),
@@ -722,16 +809,13 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
             Container(
               width: 30,
               height: 30,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 shape: BoxShape.circle,
                 color: GlossColors.sky,
-                border: Border.all(
-                  color: GlossColors.teal.withValues(alpha: 0.75),
-                ),
               ),
               child: const Icon(
                 Icons.mail_outline,
-                color: GlossColors.navy,
+                color: GlossColors.teal,
                 size: 16,
               ),
             ),
@@ -744,13 +828,13 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                 children: [
                   Text(
                     i.email,
-                    style: GlossSurfaces.tileLine,
+                    style: GlossSurfaces.tileName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
                     '${OrgRoles.label(i.role)} · pending',
-                    style: GlossSurfaces.tileLine,
+                    style: GlossSurfaces.tileMeta,
                   ),
                 ],
               ),
@@ -764,7 +848,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                 ),
                 icon: Icon(
                   Icons.more_vert,
-                  color: GlossColors.navy.withValues(alpha: 0.75),
+                  color: GlossColors.teal.withValues(alpha: 0.9),
                   size: 20,
                 ),
                 shape: RoundedRectangleBorder(
@@ -821,6 +905,12 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     );
   }
 
+  /// Shared field decoration so Role matches Work email height.
+  InputDecoration get _formField => GlossSurfaces.fieldDecoration('').copyWith(
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      );
+
   @override
   Widget build(BuildContext context) {
     final members = ref.watch(orgMembersProvider);
@@ -854,15 +944,18 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
               keyboardType: TextInputType.emailAddress,
               style: GlossSurfaces.logoMark.copyWith(fontSize: 14),
               cursorColor: GlossColors.navy,
-              decoration: GlossSurfaces.fieldDecoration('Work email')
-                  .copyWith(hintText: 'colleague@company.com'),
+              decoration: _formField.copyWith(
+                labelText: 'Work email',
+                hintText: 'colleague@company.com',
+              ),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               value: _role,
               isDense: true,
+              iconSize: 20,
               style: GlossSurfaces.logoMark.copyWith(fontSize: 14),
-              decoration: GlossSurfaces.fieldDecoration('Role'),
+              decoration: _formField.copyWith(labelText: 'Role'),
               items: [
                 for (final r in OrgRoles.inviteChoices)
                   DropdownMenuItem(
@@ -901,7 +994,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                     style: GlossSurfaces.logoMark),
               ),
             ],
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
           ] else
             Padding(
               padding: const EdgeInsets.only(bottom: 16),
@@ -918,7 +1011,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
               letterSpacing: 0.6,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           members.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Text(friendlyError(e)),
@@ -934,7 +1027,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
               );
             },
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           Text(
             'PENDING INVITES',
             style: GlossSurfaces.logoAccent.copyWith(
@@ -943,7 +1036,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
               letterSpacing: 0.6,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           invites.when(
             loading: () => const SizedBox.shrink(),
             error: (e, _) => Text(friendlyError(e)),
