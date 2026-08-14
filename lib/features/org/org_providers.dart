@@ -2,6 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../auth/auth_providers.dart';
+import 'org_roles.dart';
+
+export 'org_roles.dart' show OrgRoles, OrgDepartments;
 
 class Organization {
   const Organization({
@@ -49,14 +52,6 @@ class Organization {
   }
 }
 
-class OrgRoles {
-  static const owner = 'owner';
-  static const admin = 'admin';
-  static const member = 'member';
-
-  static const elevated = {owner, admin};
-}
-
 final myOrganizationsProvider =
     FutureProvider.autoDispose<List<Organization>>((ref) async {
   final user = ref.watch(currentUserProvider);
@@ -98,7 +93,7 @@ final activeMembershipRoleProvider =
       .eq('user_id', user.id)
       .maybeSingle();
   if (row == null) return null;
-  return row['role'] as String? ?? OrgRoles.member;
+  return OrgRoles.normalize(row['role'] as String?);
 });
 
 class OrgCapabilities {
@@ -118,7 +113,9 @@ class OrgCapabilities {
   bool get canApproveWork {
     if (!isMember) return false;
     if (!requireElevatedForApproval) return true;
-    return isElevated;
+    return isElevated ||
+        role == OrgRoles.hod ||
+        role == OrgRoles.supervisor;
   }
 
   bool get canOperate => isMember;
