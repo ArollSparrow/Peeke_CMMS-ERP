@@ -9,7 +9,7 @@ import '../auth/login_screen.dart' show authRedirectTo;
 import 'org_providers.dart';
 import 'org_roles.dart';
 
-const _cardRadius = 20.0;
+const _cardRadius = 18.0;
 
 class OrgMemberRow {
   const OrgMemberRow({
@@ -253,9 +253,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
 
       final data = res.data;
       Map<String, dynamic>? map;
-      if (data is Map) {
-        map = Map<String, dynamic>.from(data);
-      }
+      if (data is Map) map = Map<String, dynamic>.from(data);
 
       ref.invalidate(orgMembersProvider);
       ref.invalidate(orgInvitesProvider);
@@ -340,6 +338,8 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(_cardRadius)),
         title: const Text('Remove member?'),
         content: Text(
           'Remove ${member.fullName ?? 'this member'} '
@@ -375,7 +375,6 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     final org = ref.read(activeOrganizationProvider);
     if (org == null) return;
     final client = ref.read(supabaseClientProvider);
-
     final depts = await ref.read(orgDepartmentsProvider.future);
 
     final mdRows = await client
@@ -423,22 +422,15 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       if (member.email != null) ...[
-                        const Text(
-                          'Email',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: GlossColors.teal,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                        const Text('Email',
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: GlossColors.teal,
+                                fontWeight: FontWeight.w600)),
                         const SizedBox(height: 4),
-                        SelectableText(
-                          member.email!,
-                          style: const TextStyle(
-                            color: GlossColors.navy,
-                            fontSize: 14,
-                          ),
-                        ),
+                        SelectableText(member.email!,
+                            style: const TextStyle(
+                                color: GlossColors.navy, fontSize: 14)),
                         const SizedBox(height: 12),
                       ],
                       TextField(
@@ -476,50 +468,35 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                               () => role = v ?? OrgRoles.technician),
                         )
                       else
-                        const Text(
-                          'Role: Owner / System Admin (fixed)',
-                          style: TextStyle(color: GlossColors.navy),
-                        ),
+                        const Text('Role: Owner / System Admin (fixed)',
+                            style: TextStyle(color: GlossColors.navy)),
                       const SizedBox(height: 16),
-                      const Text(
-                        'Departments',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: GlossColors.navy,
-                        ),
-                      ),
+                      const Text('Departments',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: GlossColors.navy)),
                       const SizedBox(height: 4),
                       const Text(
-                        'Any role (Technician, Supervisor, Officer, …) can '
-                        'belong to one or more departments. '
-                        '“Head of department” is optional — only enable it '
-                        'if they lead that department. It is separate from '
-                        'the HoD job role.',
+                        'Any role can belong to departments. '
+                        'Head of department is optional.',
                         style: TextStyle(
-                          fontSize: 12,
-                          color: GlossColors.teal,
-                          height: 1.35,
-                        ),
+                            fontSize: 12,
+                            color: GlossColors.teal,
+                            height: 1.35),
                       ),
                       const SizedBox(height: 8),
                       if (depts.isEmpty)
-                        const Text(
-                          'No departments seeded yet.',
-                          style: TextStyle(color: GlossColors.teal),
-                        )
+                        const Text('No departments seeded yet.',
+                            style: TextStyle(color: GlossColors.teal))
                       else
                         for (final d in depts) ...[
                           CheckboxListTile(
                             dense: true,
                             contentPadding: EdgeInsets.zero,
                             controlAffinity: ListTileControlAffinity.leading,
-                            title: Text(
-                              d.name,
-                              style: const TextStyle(
-                                color: GlossColors.navy,
-                                fontSize: 14,
-                              ),
-                            ),
+                            title: Text(d.name,
+                                style: const TextStyle(
+                                    color: GlossColors.navy, fontSize: 14)),
                             value: selectedDepts.contains(d.id),
                             activeColor: GlossColors.teal,
                             onChanged: (v) {
@@ -535,17 +512,15 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                           ),
                           if (selectedDepts.contains(d.id))
                             Padding(
-                              padding: const EdgeInsets.only(left: 28, bottom: 4),
+                              padding:
+                                  const EdgeInsets.only(left: 28, bottom: 4),
                               child: SwitchListTile(
                                 dense: true,
                                 contentPadding: EdgeInsets.zero,
-                                title: const Text(
-                                  'Head of this department',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: GlossColors.navy,
-                                  ),
-                                ),
+                                title: const Text('Head of this department',
+                                    style: TextStyle(
+                                        fontSize: 13,
+                                        color: GlossColors.navy)),
                                 value: hodDepts.contains(d.id),
                                 activeColor: GlossColors.teal,
                                 onChanged: (v) {
@@ -566,13 +541,11 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Cancel'),
-                ),
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Cancel')),
                 FilledButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  child: const Text('Save'),
-                ),
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('Save')),
               ],
             );
           },
@@ -610,17 +583,111 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     }
   }
 
-  /// Single-line card label: name (+ job title). Role/dept/email only in edit.
-  String _memberCardLine(OrgMemberRow m, String? me) {
+  Widget _memberCard(OrgMemberRow m, String? me, bool canManage) {
     final name = (m.fullName != null && m.fullName!.trim().isNotEmpty)
         ? m.fullName!.trim()
         : 'Team member';
     final title = (m.jobTitle != null && m.jobTitle!.trim().isNotEmpty)
         ? m.jobTitle!.trim()
         : null;
-    final core = title == null ? name : '$name · $title';
-    if (m.userId == me) return '$core (You)';
-    return core;
+    final isMe = m.userId == me;
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.55),
+          borderRadius: BorderRadius.circular(_cardRadius),
+          border: Border.all(
+            color: GlossColors.teal.withValues(alpha: 0.28),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 4, 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: name,
+                            style: const TextStyle(
+                              color: GlossColors.navy,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 15,
+                              height: 1.3,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                          if (isMe)
+                            const TextSpan(
+                              text: '  ·  You',
+                              style: TextStyle(
+                                color: GlossColors.teal,
+                                fontWeight: FontWeight.w500,
+                                fontSize: 13,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    if (title != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        title,
+                        style: TextStyle(
+                          color: GlossColors.teal.withValues(alpha: 0.95),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (canManage)
+                PopupMenuButton<String>(
+                  tooltip: 'Actions',
+                  padding: EdgeInsets.zero,
+                  icon: Icon(
+                    Icons.more_vert,
+                    color: GlossColors.navy.withValues(alpha: 0.75),
+                    size: 22,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  color: GlossColors.sky,
+                  onSelected: (value) {
+                    if (value == 'edit') _editMember(m);
+                    if (value == 'remove') _removeMember(m);
+                  },
+                  itemBuilder: (ctx) => [
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Text('Edit',
+                          style: TextStyle(color: GlossColors.navy)),
+                    ),
+                    if (!isMe && m.role != OrgRoles.owner)
+                      const PopupMenuItem(
+                        value: 'remove',
+                        child: Text('Remove',
+                            style: TextStyle(color: GlossColors.navy)),
+                      ),
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -639,8 +706,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
         children: [
           const Text(
             'Invite by work email and role. Edit a member for departments '
-            '(any role can belong; head-of-department is optional). '
-            'Owner is System Admin and HoD of IT by default.',
+            '(any role can belong; head-of-department is optional).',
             style: TextStyle(color: GlossColors.teal, fontSize: 13),
           ),
           const SizedBox(height: 16),
@@ -661,9 +727,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
               items: [
                 for (final r in OrgRoles.inviteChoices)
                   DropdownMenuItem(
-                    value: r,
-                    child: Text(OrgRoles.label(r)),
-                  ),
+                      value: r, child: Text(OrgRoles.label(r))),
               ],
               onChanged: (v) =>
                   setState(() => _role = v ?? OrgRoles.technician),
@@ -691,16 +755,13 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
             ],
             if (_actionLink != null) ...[
               const SizedBox(height: 12),
-              const Text(
-                'Share this link (WhatsApp / SMS):',
-                style: TextStyle(
-                    fontWeight: FontWeight.w600, color: GlossColors.navy),
-              ),
+              const Text('Share this link (WhatsApp / SMS):',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w600, color: GlossColors.navy)),
               const SizedBox(height: 6),
-              SelectableText(
-                _actionLink!,
-                style: const TextStyle(fontSize: 12, color: GlossColors.teal),
-              ),
+              SelectableText(_actionLink!,
+                  style:
+                      const TextStyle(fontSize: 12, color: GlossColors.teal)),
               TextButton.icon(
                 onPressed: _copyLink,
                 icon: const Icon(Icons.copy, size: 18),
@@ -736,56 +797,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
               }
               return Column(
                 children: [
-                  for (final m in list)
-                    Card(
-                      elevation: 0,
-                      color: Colors.white.withValues(alpha: 0.72),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(_cardRadius),
-                        side: BorderSide(
-                          color: GlossColors.teal.withValues(alpha: 0.35),
-                        ),
-                      ),
-                      margin: const EdgeInsets.only(bottom: 10),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 6,
-                        ),
-                        title: Text(
-                          _memberCardLine(m, me),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: GlossColors.navy,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 15,
-                          ),
-                        ),
-                        trailing: canInvite
-                            ? Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    tooltip: 'Edit details / departments',
-                                    icon: const Icon(Icons.edit_outlined),
-                                    color: GlossColors.navy,
-                                    onPressed: () => _editMember(m),
-                                  ),
-                                  if (m.userId != me &&
-                                      m.role != OrgRoles.owner)
-                                    IconButton(
-                                      tooltip: 'Remove',
-                                      icon: const Icon(
-                                          Icons.person_remove_outlined),
-                                      color: GlossColors.navy,
-                                      onPressed: () => _removeMember(m),
-                                    ),
-                                ],
-                              )
-                            : null,
-                      ),
-                    ),
+                  for (final m in list) _memberCard(m, me, canInvite),
                 ],
               );
             },
@@ -812,26 +824,43 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
               return Column(
                 children: [
                   for (final i in list)
-                    Card(
-                      elevation: 0,
-                      color: Colors.white.withValues(alpha: 0.72),
-                      shape: RoundedRectangleBorder(
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.55),
                         borderRadius: BorderRadius.circular(_cardRadius),
-                        side: BorderSide(
-                          color: GlossColors.teal.withValues(alpha: 0.35),
+                        border: Border.all(
+                          color: GlossColors.teal.withValues(alpha: 0.28),
                         ),
                       ),
-                      margin: const EdgeInsets.only(bottom: 10),
                       child: ListTile(
-                        title: Text(i.email),
+                        title: Text(i.email,
+                            style: const TextStyle(color: GlossColors.navy)),
                         subtitle: Text(
-                            '${OrgRoles.label(i.role)} · ${i.status}'),
+                            '${OrgRoles.label(i.role)} · ${i.status}',
+                            style: const TextStyle(
+                                color: GlossColors.teal, fontSize: 12)),
                         trailing: canInvite
-                            ? IconButton(
-                                tooltip: 'Cancel invite',
-                                icon: const Icon(Icons.cancel_outlined),
-                                color: GlossColors.navy,
-                                onPressed: () => _revokeInvite(i),
+                            ? PopupMenuButton<String>(
+                                icon: Icon(Icons.more_vert,
+                                    color: GlossColors.navy
+                                        .withValues(alpha: 0.75),
+                                    size: 22),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                color: GlossColors.sky,
+                                onSelected: (v) {
+                                  if (v == 'cancel') _revokeInvite(i);
+                                },
+                                itemBuilder: (_) => const [
+                                  PopupMenuItem(
+                                    value: 'cancel',
+                                    child: Text('Cancel invite',
+                                        style: TextStyle(
+                                            color: GlossColors.navy)),
+                                  ),
+                                ],
                               )
                             : null,
                       ),
