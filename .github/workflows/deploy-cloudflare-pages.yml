@@ -1,8 +1,6 @@
 name: Deploy Web → Cloudflare Pages
 
 on:
-  # Production: main
-  # Previews: any other branch push (e.g. feature/*_grok) + PRs into main
   push:
     branches:
       - '**'
@@ -43,30 +41,29 @@ jobs:
             echo "Missing $ICON" >&2
             exit 1
           fi
-          # Resize with ImageMagick if available (ubuntu-latest has it via apt often),
-          # otherwise copy full asset — browsers accept large PNGs.
-          if command -v convert >/dev/null 2>&1; then
-            convert "$ICON" -resize 32x32 web/favicon.png
-            convert "$ICON" -resize 192x192 web/icons/Icon-192.png
-            convert "$ICON" -resize 512x512 web/icons/Icon-512.png
-            convert "$ICON" -resize 192x192 web/icons/Icon-maskable-192.png
-            convert "$ICON" -resize 512x512 web/icons/Icon-maskable-512.png
-            convert "$ICON" -resize 180x180 web/icons/apple-touch-icon.png
-          else
+
+          if ! command -v convert >/dev/null 2>&1; then
             sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick
-            convert "$ICON" -resize 32x32 web/favicon.png
-            convert "$ICON" -resize 192x192 web/icons/Icon-192.png
-            convert "$ICON" -resize 512x512 web/icons/Icon-512.png
-            convert "$ICON" -resize 192x192 web/icons/Icon-maskable-192.png
-            convert "$ICON" -resize 512x512 web/icons/Icon-maskable-512.png
-            convert "$ICON" -resize 180x180 web/icons/apple-touch-icon.png
           fi
-          # Keep SVG if present
+
+          # Lanczos + mild sharpen keeps the wordmark readable at shortcut size
+          resize() {
+            local size="$1" out="$2"
+            convert "$ICON" -filter Lanczos -resize "${size}x${size}" \
+              -unsharp 0x0.75+0.75+0.02 "$out"
+          }
+
+          resize 32  web/favicon.png
+          resize 192 web/icons/Icon-192.png
+          resize 512 web/icons/Icon-512.png
+          resize 192 web/icons/Icon-maskable-192.png
+          resize 512 web/icons/Icon-maskable-512.png
+          resize 180 web/icons/apple-touch-icon.png
+
           ls -la web/favicon.png web/icons/
 
       - run: flutter pub get
 
-      # Clean-slate project: tappfahlaiixctyliesz
       - name: Build web
         env:
           SUPABASE_URL_INPUT: ${{ vars.SUPABASE_URL }}
@@ -88,15 +85,10 @@ jobs:
             --dart-define=SUPABASE_URL="$URL" \
             --dart-define=SUPABASE_ANON_KEY="$KEY"
 
-          # Ensure branded icons land in the published folder
           mkdir -p build/web/icons
           cp -f web/favicon.png build/web/favicon.png 2>/dev/null || true
           cp -f web/favicon.svg build/web/favicon.svg 2>/dev/null || true
           cp -f web/icons/* build/web/icons/ 2>/dev/null || true
-          # apple-touch convenience
-          if [ -f build/web/icons/apple-touch-icon.png ]; then
-            cp -f build/web/icons/apple-touch-icon.png build/web/icons/Icon-192.png
-          fi
 
           printf '/*    /index.html   200\n' > build/web/_redirects
           echo "Published icons:"
@@ -119,5 +111,3 @@ jobs:
           echo "- **Git branch:** \`${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Deployment URL:** ${{ steps.cloudflare.outputs.url }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Environment:** ${{ steps.cloudflare.outputs.environment }}" >> "$GITHUB_STEP_SUMMARY"
-          BRANCH_ALIAS=$(echo "${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}" | tr '/' '-')
-          echo "- **Expected branch alias:** https://\${BRANCH_ALIAS}.peeke-cmms-erp.pages.dev" >> "$GITHUB_STEP_SUMMARY"
