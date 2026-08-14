@@ -242,7 +242,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Remove member?'),
         content: Text(
-          'Remove ${member.fullName ?? member.email ?? 'this member'} '
+          'Remove ${member.fullName ?? 'this member'} '
           '(${OrgRoles.label(member.role)}) from ${org.name}?',
         ),
         actions: [
@@ -292,17 +292,28 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (member.email != null)
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          member.email!,
-                          style: const TextStyle(
-                              color: GlossColors.teal, fontSize: 13),
+                    // Email only visible when editing
+                    if (member.email != null) ...[
+                      const Text(
+                        'Email',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: GlossColors.teal,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    const SizedBox(height: 12),
+                      const SizedBox(height: 4),
+                      SelectableText(
+                        member.email!,
+                        style: const TextStyle(
+                          color: GlossColors.navy,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     TextField(
                       controller: nameCtrl,
                       decoration: const InputDecoration(
@@ -341,12 +352,9 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                             setLocal(() => role = v ?? OrgRoles.technician),
                       )
                     else
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Role: Owner / System Admin (fixed)',
-                          style: TextStyle(color: GlossColors.navy),
-                        ),
+                      const Text(
+                        'Role: Owner / System Admin (fixed)',
+                        style: TextStyle(color: GlossColors.navy),
                       ),
                   ],
                 ),
@@ -385,6 +393,25 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     } catch (e) {
       if (mounted) setState(() => _error = friendlyError(e));
     }
+  }
+
+  String _memberTitle(OrgMemberRow m, String? me) {
+    final base = (m.fullName != null && m.fullName!.trim().isNotEmpty)
+        ? m.fullName!.trim()
+        : 'Team member';
+    if (m.userId == me) return '$base (You)';
+    return base;
+  }
+
+  String _memberSubtitle(OrgMemberRow m) {
+    final parts = <String>[OrgRoles.label(m.role)];
+    if (m.jobTitle != null && m.jobTitle!.isNotEmpty) {
+      parts.add(m.jobTitle!);
+    }
+    if (m.phone != null && m.phone!.isNotEmpty) {
+      parts.add(m.phone!);
+    }
+    return parts.join(' · ');
   }
 
   @override
@@ -505,27 +532,14 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                     Card(
                       child: ListTile(
                         title: Text(
-                          m.userId == me
-                              ? '${m.fullName ?? m.email ?? 'You'} (You)'
-                              : (m.fullName ??
-                                  m.email ??
-                                  (m.userId.length > 8
-                                      ? '…${m.userId.substring(m.userId.length - 8)}'
-                                      : m.userId)),
+                          _memberTitle(m, me),
                           style: const TextStyle(color: GlossColors.navy),
                         ),
                         subtitle: Text(
-                          [
-                            OrgRoles.label(m.role),
-                            if (m.email != null && m.fullName != null) m.email!,
-                            if (m.jobTitle != null && m.jobTitle!.isNotEmpty)
-                              m.jobTitle!,
-                            if (m.phone != null && m.phone!.isNotEmpty) m.phone!,
-                          ].join(' · '),
+                          _memberSubtitle(m),
                           style: const TextStyle(
                               color: GlossColors.teal, fontSize: 12),
                         ),
-                        isThreeLine: true,
                         trailing: canInvite
                             ? Row(
                                 mainAxisSize: MainAxisSize.min,
