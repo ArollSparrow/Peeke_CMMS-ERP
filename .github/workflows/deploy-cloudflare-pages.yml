@@ -35,11 +35,38 @@ jobs:
             flutter create . --project-name peeke_cmms_erp --platforms=web
           fi
 
+      - name: Brand favicon + PWA icons with Peeke logo
+        run: |
+          mkdir -p web/icons
+          ICON="assets/branding/peeke_icon.png"
+          if [ ! -f "$ICON" ]; then
+            echo "Missing $ICON" >&2
+            exit 1
+          fi
+          # Resize with ImageMagick if available (ubuntu-latest has it via apt often),
+          # otherwise copy full asset — browsers accept large PNGs.
+          if command -v convert >/dev/null 2>&1; then
+            convert "$ICON" -resize 32x32 web/favicon.png
+            convert "$ICON" -resize 192x192 web/icons/Icon-192.png
+            convert "$ICON" -resize 512x512 web/icons/Icon-512.png
+            convert "$ICON" -resize 192x192 web/icons/Icon-maskable-192.png
+            convert "$ICON" -resize 512x512 web/icons/Icon-maskable-512.png
+            convert "$ICON" -resize 180x180 web/icons/apple-touch-icon.png
+          else
+            sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick
+            convert "$ICON" -resize 32x32 web/favicon.png
+            convert "$ICON" -resize 192x192 web/icons/Icon-192.png
+            convert "$ICON" -resize 512x512 web/icons/Icon-512.png
+            convert "$ICON" -resize 192x192 web/icons/Icon-maskable-192.png
+            convert "$ICON" -resize 512x512 web/icons/Icon-maskable-512.png
+            convert "$ICON" -resize 180x180 web/icons/apple-touch-icon.png
+          fi
+          # Keep SVG if present
+          ls -la web/favicon.png web/icons/
+
       - run: flutter pub get
 
       # Clean-slate project: tappfahlaiixctyliesz
-      # A real legacy anon JWT is ~208 chars and starts with eyJ
-      # Short secrets (e.g. 20 chars) MUST NOT override the fallback.
       - name: Build web
         env:
           SUPABASE_URL_INPUT: ${{ vars.SUPABASE_URL }}
@@ -60,7 +87,20 @@ jobs:
           flutter build web --release --no-tree-shake-icons \
             --dart-define=SUPABASE_URL="$URL" \
             --dart-define=SUPABASE_ANON_KEY="$KEY"
+
+          # Ensure branded icons land in the published folder
+          mkdir -p build/web/icons
+          cp -f web/favicon.png build/web/favicon.png 2>/dev/null || true
+          cp -f web/favicon.svg build/web/favicon.svg 2>/dev/null || true
+          cp -f web/icons/* build/web/icons/ 2>/dev/null || true
+          # apple-touch convenience
+          if [ -f build/web/icons/apple-touch-icon.png ]; then
+            cp -f build/web/icons/apple-touch-icon.png build/web/icons/Icon-192.png
+          fi
+
           printf '/*    /index.html   200\n' > build/web/_redirects
+          echo "Published icons:"
+          ls -la build/web/favicon* build/web/icons/ || true
 
       - name: Publish to Cloudflare Pages
         id: cloudflare
@@ -71,7 +111,6 @@ jobs:
           projectName: peeke-cmms-erp
           directory: build/web
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
-          # Non-main → preview deployment; main → production
           branch: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
 
       - name: Deployment summary
@@ -80,6 +119,5 @@ jobs:
           echo "- **Git branch:** \`${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Deployment URL:** ${{ steps.cloudflare.outputs.url }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Environment:** ${{ steps.cloudflare.outputs.environment }}" >> "$GITHUB_STEP_SUMMARY"
-          # Stable branch alias (slashes → hyphens) once CF has created the deployment:
           BRANCH_ALIAS=$(echo "${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}" | tr '/' '-')
           echo "- **Expected branch alias:** https://\${BRANCH_ALIAS}.peeke-cmms-erp.pages.dev" >> "$GITHUB_STEP_SUMMARY"
