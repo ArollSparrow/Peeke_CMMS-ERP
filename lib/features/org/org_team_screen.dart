@@ -844,19 +844,14 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    nameLine,
-                    style: GlossSurfaces.tileName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  // Meta (icon + depts) on top — deeper teal
                   if (metaLine != null)
                     Row(
                       children: [
                         Icon(
                           Icons.apartment_outlined,
                           size: 12,
-                          color: GlossColors.teal.withValues(alpha: 0.9),
+                          color: GlossColors.tealDeep,
                         ),
                         const SizedBox(width: 3),
                         Expanded(
@@ -869,6 +864,13 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                         ),
                       ],
                     ),
+                  // Navy name line on bottom
+                  Text(
+                    nameLine,
+                    style: GlossSurfaces.tileName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ),
             ),
@@ -882,7 +884,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                 ),
                 icon: Icon(
                   Icons.more_vert,
-                  color: GlossColors.teal.withValues(alpha: 0.9),
+                  color: GlossColors.tealDeep,
                   size: 20,
                 ),
                 shape: RoundedRectangleBorder(
@@ -934,7 +936,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
               ),
               child: const Icon(
                 Icons.mail_outline,
-                color: GlossColors.teal,
+                color: GlossColors.tealDeep,
                 size: 16,
               ),
             ),
@@ -945,15 +947,19 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // Meta (role · pending) on top — deeper teal
+                  Text(
+                    '${OrgRoles.label(i.role)} · pending',
+                    style: GlossSurfaces.tileMeta,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  // Navy email on bottom
                   Text(
                     i.email,
                     style: GlossSurfaces.tileName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    '${OrgRoles.label(i.role)} · pending',
-                    style: GlossSurfaces.tileMeta,
                   ),
                 ],
               ),
@@ -967,7 +973,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                 ),
                 icon: Icon(
                   Icons.more_vert,
-                  color: GlossColors.teal.withValues(alpha: 0.9),
+                  color: GlossColors.tealDeep,
                   size: 20,
                 ),
                 shape: RoundedRectangleBorder(

@@ -8,6 +8,9 @@ class GlossColors {
   static const Color navy = Color(0xFF272A6D);
   static const Color teal = Color(0xFF55AAAC);
 
+  /// Deeper teal for plate meta lines / icons — stronger contrast on cyan gloss.
+  static const Color tealDeep = Color(0xFF2A7A7C);
+
   /// User-facing errors (friendly messages)
   static const Color danger = Color(0xFFC62828);
 
@@ -51,17 +54,19 @@ class GlossSurfaces {
     height: 1.2,
   );
 
-  /// Primary line on plates (name).
+  /// Primary line on plates (name) — navy, sits on the bottom.
   static TextStyle get tileName => logoMark.copyWith(
         fontSize: 13,
         height: 1.2,
       );
 
-  /// Secondary line on plates (title · depts) — teal depth.
-  static TextStyle get tileMeta => logoAccent.copyWith(
+  /// Meta line on plates (depts / role) — deeper teal for contrast, sits on top.
+  static TextStyle get tileMeta => TextStyle(
         fontSize: 12,
+        fontWeight: FontWeight.w600,
         height: 1.2,
-        color: GlossColors.teal,
+        letterSpacing: 0.2,
+        color: GlossColors.tealDeep,
       );
 
   /// Legacy alias
