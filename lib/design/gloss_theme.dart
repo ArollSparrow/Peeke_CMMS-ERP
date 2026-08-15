@@ -28,8 +28,11 @@ class GlossSurfaces {
   static const double tileRadius = 16;
   static const double tileMinHeight = 50;
 
-  /// Match Material dropdown natural height (not shrink text fields).
-  static const double fieldHeight = 52;
+  /// Locked height for text fields + dropdowns (Team, edit dialogs, forms).
+  static const double fieldHeight = 35;
+
+  /// Vertical gap between consecutive form fields.
+  static const double fieldGap = 2;
 
   static const TextStyle logoMark = TextStyle(
     fontSize: 16,
@@ -125,13 +128,13 @@ class GlossSurfaces {
     final radius = BorderRadius.circular(fieldRadius);
     return InputDecoration(
       labelText: label.isEmpty ? null : label,
-      labelStyle: logoMark.copyWith(fontSize: 14),
-      floatingLabelStyle: logoAccent.copyWith(fontSize: 13),
+      labelStyle: logoMark.copyWith(fontSize: 13),
+      floatingLabelStyle: logoAccent.copyWith(fontSize: 11),
       filled: true,
       fillColor: Colors.white.withValues(alpha: 0.55),
       isDense: true,
       contentPadding:
-          const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
       enabledBorder: OutlineInputBorder(
         borderRadius: radius,
         borderSide:
@@ -152,7 +155,7 @@ class GlossSurfaces {
   static InputDecoration compactField(String label) {
     return fieldDecoration(label).copyWith(
       contentPadding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
     );
   }
 }
@@ -203,9 +206,9 @@ class GlossTheme {
         fillColor: Colors.white.withValues(alpha: 0.55),
         isDense: true,
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-        labelStyle: GlossSurfaces.logoMark.copyWith(fontSize: 14),
-        floatingLabelStyle: GlossSurfaces.logoAccent.copyWith(fontSize: 13),
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+        labelStyle: GlossSurfaces.logoMark.copyWith(fontSize: 13),
+        floatingLabelStyle: GlossSurfaces.logoAccent.copyWith(fontSize: 11),
         border: OutlineInputBorder(
           borderRadius: fieldRadius,
           borderSide: const BorderSide(color: GlossColors.teal),

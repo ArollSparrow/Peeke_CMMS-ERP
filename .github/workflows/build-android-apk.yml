@@ -43,9 +43,13 @@ jobs:
             --dart-define=SUPABASE_URL=https://tappfahlaiixctyliesz.supabase.co \
             --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
 
+      # Short retention + overwrite so we stay under free Actions artifact quota.
+      # Recent "failures" were only upload quota (APK itself built fine).
       - name: Upload APK
         uses: actions/upload-artifact@v6
+        continue-on-error: true
         with:
           name: peeke-cmms-erp-debug
           path: build/app/outputs/flutter-apk/app-debug.apk
-          retention-days: 14
+          retention-days: 3
+          overwrite: true
