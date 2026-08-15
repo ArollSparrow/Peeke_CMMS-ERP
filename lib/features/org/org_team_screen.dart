@@ -237,6 +237,8 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     );
   }
 
+  Widget _fieldGap() => const SizedBox(height: GlossSurfaces.fieldGap);
+
   Future<void> _invite() async {
     final org = ref.read(activeOrganizationProvider);
     if (org == null) return;
@@ -567,43 +569,43 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                               ],
                             ),
                             if (member.email != null) ...[
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 6),
                               Text(member.email!,
                                   style: GlossSurfaces.tileMeta),
                             ],
-                            const SizedBox(height: 10),
+                            const SizedBox(height: GlossSurfaces.fieldGap),
                             _lockedField(
                               child: TextField(
                                 controller: nameCtrl,
                                 style: GlossSurfaces.logoMark
-                                    .copyWith(fontSize: 14),
+                                    .copyWith(fontSize: 13),
                                 decoration:
                                     GlossSurfaces.compactField('Full name'),
                                 textCapitalization: TextCapitalization.words,
                               ),
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: GlossSurfaces.fieldGap),
                             _lockedField(
                               child: TextField(
                                 controller: phoneCtrl,
                                 style: GlossSurfaces.logoMark
-                                    .copyWith(fontSize: 14),
+                                    .copyWith(fontSize: 13),
                                 decoration:
                                     GlossSurfaces.compactField('Phone'),
                                 keyboardType: TextInputType.phone,
                               ),
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: GlossSurfaces.fieldGap),
                             _lockedField(
                               child: TextField(
                                 controller: jobCtrl,
                                 style: GlossSurfaces.logoMark
-                                    .copyWith(fontSize: 14),
+                                    .copyWith(fontSize: 13),
                                 decoration:
                                     GlossSurfaces.compactField('Job title'),
                               ),
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: GlossSurfaces.fieldGap),
                             if (member.role != OrgRoles.owner)
                               _lockedField(
                                 child: DropdownButtonFormField<String>(
@@ -612,7 +614,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                                   isExpanded: true,
                                   iconSize: 18,
                                   style: GlossSurfaces.logoMark
-                                      .copyWith(fontSize: 14),
+                                      .copyWith(fontSize: 13),
                                   decoration:
                                       GlossSurfaces.compactField('Role'),
                                   items: [
@@ -622,7 +624,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                                         child: Text(
                                           OrgRoles.label(r),
                                           style: GlossSurfaces.logoMark
-                                              .copyWith(fontSize: 14),
+                                              .copyWith(fontSize: 13),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
@@ -637,7 +639,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                                 style: GlossSurfaces.logoMark
                                     .copyWith(fontSize: 13),
                               ),
-                            const SizedBox(height: 14),
+                            const SizedBox(height: 12),
                             Text('Departments',
                                 style: GlossSurfaces.logoMark
                                     .copyWith(fontSize: 14)),
@@ -1081,21 +1083,21 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
               child: TextField(
                 controller: _email,
                 keyboardType: TextInputType.emailAddress,
-                style: GlossSurfaces.logoMark.copyWith(fontSize: 14),
+                style: GlossSurfaces.logoMark.copyWith(fontSize: 13),
                 cursorColor: GlossColors.navy,
                 decoration: GlossSurfaces.compactField('Work email').copyWith(
                       hintText: 'colleague@company.com',
                     ),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: GlossSurfaces.fieldGap),
             _lockedField(
               child: DropdownButtonFormField<String>(
                 value: _role,
                 isDense: true,
                 isExpanded: true,
                 iconSize: 18,
-                style: GlossSurfaces.logoMark.copyWith(fontSize: 14),
+                style: GlossSurfaces.logoMark.copyWith(fontSize: 13),
                 decoration: GlossSurfaces.compactField('Role'),
                 items: [
                   for (final r in OrgRoles.inviteChoices)
@@ -1104,7 +1106,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                       child: Text(
                         OrgRoles.label(r),
                         style:
-                            GlossSurfaces.logoMark.copyWith(fontSize: 14),
+                            GlossSurfaces.logoMark.copyWith(fontSize: 13),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -1113,7 +1115,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                     setState(() => _role = v ?? OrgRoles.technician),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             _sendInviteButton(),
             if (_error != null) ...[
               const SizedBox(height: 8),
