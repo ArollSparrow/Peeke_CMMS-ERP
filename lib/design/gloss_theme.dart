@@ -28,8 +28,8 @@ class GlossSurfaces {
   static const double tileRadius = 16;
   static const double tileMinHeight = 50;
 
-  /// Shared control height so TextField and Dropdown match exactly.
-  static const double fieldHeight = 44;
+  /// Match Material dropdown natural height (not shrink text fields).
+  static const double fieldHeight = 52;
 
   static const TextStyle logoMark = TextStyle(
     fontSize: 16,
@@ -92,7 +92,7 @@ class GlossSurfaces {
         ],
       );
 
-  /// Navy / indigo CTA plate (Send invite, primary actions).
+  /// Navy / indigo CTA plate (Save, elevated actions).
   static BoxDecoration get navyPlate => BoxDecoration(
         borderRadius: BorderRadius.circular(tileRadius),
         gradient: const LinearGradient(
@@ -131,7 +131,7 @@ class GlossSurfaces {
       fillColor: Colors.white.withValues(alpha: 0.55),
       isDense: true,
       contentPadding:
-          const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       enabledBorder: OutlineInputBorder(
         borderRadius: radius,
         borderSide:
@@ -148,7 +148,7 @@ class GlossSurfaces {
     );
   }
 
-  /// Force identical outer height for text + dropdown fields.
+  /// Same outer box for text + dropdown (height driven by fieldHeight wrapper).
   static InputDecoration compactField(String label) {
     return fieldDecoration(label).copyWith(
       contentPadding:

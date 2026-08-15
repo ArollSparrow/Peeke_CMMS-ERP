@@ -230,15 +230,13 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     super.dispose();
   }
 
-  /// Locked height so Work email and Role share the same outer box.
+  /// Same outer height for Work email + Role (dropdown-led).
   Widget _lockedField({required Widget child}) {
     return SizedBox(
       height: GlossSurfaces.fieldHeight,
       child: child,
     );
   }
-
-  InputDecoration get _fieldDeco => GlossSurfaces.compactField('');
 
   Future<void> _invite() async {
     final org = ref.read(activeOrganizationProvider);
@@ -510,7 +508,6 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            // Compact avatar row
                             Row(
                               children: [
                                 CircleAvatar(
@@ -1013,7 +1010,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     );
   }
 
-  /// Self-fit navy gloss CTA — width follows label, not full row.
+  /// Self-fit width; same cyan gloss plate as member tiles (not navy).
   Widget _sendInviteButton() {
     return Align(
       alignment: Alignment.center,
@@ -1025,7 +1022,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
           child: Ink(
             height: GlossSurfaces.tileMinHeight,
             padding: const EdgeInsets.symmetric(horizontal: 28),
-            decoration: GlossSurfaces.navyPlate,
+            decoration: GlossSurfaces.plate,
             child: Center(
               child: _busy
                   ? const SizedBox(
@@ -1033,15 +1030,12 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                       width: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: GlossColors.sky,
+                        color: GlossColors.navy,
                       ),
                     )
                   : Text(
                       'Send invite',
-                      style: GlossSurfaces.logoMark.copyWith(
-                        fontSize: 15,
-                        color: GlossColors.sky,
-                      ),
+                      style: GlossSurfaces.logoMark.copyWith(fontSize: 15),
                     ),
             ),
           ),
