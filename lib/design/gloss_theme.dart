@@ -35,7 +35,7 @@ class GlossSurfaces {
   /// (35px clipped labels; Material3 needs ~48.)
   static const double fieldHeight = 48;
 
-  /// Comfortable gap between consecutive form fields.
+  /// Comfortable gap between consecutive form fields / list tiles.
   static const double fieldGap = 8;
 
   static const TextStyle logoMark = TextStyle(
@@ -60,7 +60,7 @@ class GlossSurfaces {
         height: 1.2,
       );
 
-  /// Meta line on plates (depts / role) — deeper teal for contrast, sits on top.
+  /// Meta line on plates (role / depts) — deeper teal for contrast, sits on top.
   static TextStyle get tileMeta => TextStyle(
         fontSize: 12,
         fontWeight: FontWeight.w600,
@@ -197,9 +197,9 @@ class GlossSurfaces {
     );
   }
 
-  /// Self-fitting cyan gloss CTA (SEND INVITE, Save) — same plate language
-  /// as tiles and fields for app-wide uniformity.
-  static Widget navyCta({
+  /// Self-fitting cyan gloss CTA (SEND INVITE, SAVE) — same plate language
+  /// as tiles and fields for app-wide uniformity. Navy text on cyan plate.
+  static Widget glossCta({
     required String label,
     required VoidCallback? onTap,
     bool busy = false,
@@ -242,6 +242,23 @@ class GlossSurfaces {
       ),
     );
   }
+
+  /// @deprecated Use [glossCta] — kept as alias for any leftover call sites.
+  static Widget navyCta({
+    required String label,
+    required VoidCallback? onTap,
+    bool busy = false,
+    double? height,
+    EdgeInsetsGeometry padding =
+        const EdgeInsets.symmetric(horizontal: 18, vertical: 0),
+  }) =>
+      glossCta(
+        label: label,
+        onTap: onTap,
+        busy: busy,
+        height: height,
+        padding: padding,
+      );
 }
 
 class GlossTheme {

@@ -645,7 +645,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                               style: GlossSurfaces.logoAccent
                                   .copyWith(fontSize: 11),
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: GlossSurfaces.fieldGap),
                             if (depts.isEmpty)
                               Text('No departments seeded yet.',
                                   style: GlossSurfaces.logoAccent)
@@ -701,7 +701,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                                 style: GlossSurfaces.logoMark),
                           ),
                           const SizedBox(width: 8),
-                          GlossSurfaces.navyCta(
+                          GlossSurfaces.glossCta(
                             label: 'SAVE',
                             onTap: () => Navigator.pop(ctx, true),
                             height: 42,
@@ -773,7 +773,8 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
           child: Text(
             label,
             style: GlossSurfaces.tileName.copyWith(
-              color: selected ? GlossColors.teal : GlossColors.navy,
+              // Sky on navy plate for readable contrast; navy on cyan plate.
+              color: selected ? GlossColors.sky : GlossColors.navy,
               fontSize: 12,
             ),
           ),
@@ -789,6 +790,10 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: GlossColors.sky,
+        border: Border.all(
+          color: GlossColors.navy.withValues(alpha: 0.28),
+          width: 1.5,
+        ),
         image: (url != null && url.isNotEmpty)
             ? DecorationImage(
                 image: NetworkImage(url),
@@ -824,12 +829,16 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
       for (final h in hods)
         if (!depts.contains(h)) '$h(HoD)',
     ];
-    final metaLine = deptLabels.isEmpty ? null : deptLabels.join('-');
+
+    // Meta: role first, then departments — always show role at a glance.
+    final metaParts = <String>[OrgRoles.label(m.role)];
+    if (deptLabels.isNotEmpty) metaParts.addAll(deptLabels);
+    final metaLine = metaParts.join(' · ');
 
     return Container(
       width: double.infinity,
       height: GlossSurfaces.tileMinHeight,
-      margin: EdgeInsets.zero,
+      margin: const EdgeInsets.only(bottom: GlossSurfaces.fieldGap),
       decoration: GlossSurfaces.plate,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(10, 0, 2, 0),
@@ -844,26 +853,25 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Meta (icon + depts) on top — deeper teal
-                  if (metaLine != null)
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.apartment_outlined,
-                          size: 12,
-                          color: GlossColors.tealDeep,
+                  // Meta (role · depts) on top — deeper teal
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.apartment_outlined,
+                        size: 12,
+                        color: GlossColors.tealDeep,
+                      ),
+                      const SizedBox(width: 3),
+                      Expanded(
+                        child: Text(
+                          metaLine,
+                          style: GlossSurfaces.tileMeta,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(width: 3),
-                        Expanded(
-                          child: Text(
-                            metaLine,
-                            style: GlossSurfaces.tileMeta,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
+                  ),
                   // Navy name line on bottom
                   Text(
                     nameLine,
@@ -920,7 +928,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     return Container(
       width: double.infinity,
       height: GlossSurfaces.tileMinHeight,
-      margin: EdgeInsets.zero,
+      margin: const EdgeInsets.only(bottom: GlossSurfaces.fieldGap),
       decoration: GlossSurfaces.plate,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(10, 0, 2, 0),
@@ -930,9 +938,13 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
             Container(
               width: 30,
               height: 30,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: GlossColors.sky,
+                border: Border.all(
+                  color: GlossColors.navy.withValues(alpha: 0.28),
+                  width: 1.5,
+                ),
               ),
               child: const Icon(
                 Icons.mail_outline,
@@ -1004,7 +1016,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
   Widget _sendInviteButton() {
     return Align(
       alignment: Alignment.center,
-      child: GlossSurfaces.navyCta(
+      child: GlossSurfaces.glossCta(
         label: 'SEND INVITE',
         onTap: _invite,
         busy: _busy,
@@ -1079,12 +1091,12 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
             const SizedBox(height: 12),
             _sendInviteButton(),
             if (_error != null) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: GlossSurfaces.fieldGap),
               Text(_error!,
                   style: const TextStyle(color: GlossColors.danger)),
             ],
             if (_message != null) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: GlossSurfaces.fieldGap),
               Text(_message!, style: GlossSurfaces.logoAccent),
             ],
             if (_actionLink != null) ...[
@@ -1120,7 +1132,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
               letterSpacing: 0.6,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: GlossSurfaces.fieldGap),
           members.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Text(friendlyError(e)),
@@ -1145,7 +1157,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
               letterSpacing: 0.6,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: GlossSurfaces.fieldGap),
           invites.when(
             loading: () => const SizedBox.shrink(),
             error: (e, _) => Text(friendlyError(e)),
