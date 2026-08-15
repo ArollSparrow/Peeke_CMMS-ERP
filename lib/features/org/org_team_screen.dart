@@ -230,7 +230,6 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     super.dispose();
   }
 
-  /// Same outer height for Work email + Role (dropdown-led).
   Widget _lockedField({required Widget child}) {
     return SizedBox(
       height: GlossSurfaces.fieldHeight,
@@ -1010,7 +1009,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     );
   }
 
-  /// Self-fit width; same cyan gloss plate as member tiles (not navy).
+  /// Navy gloss plate · cyan text · width fits SEND INVITE only.
   Widget _sendInviteButton() {
     return Align(
       alignment: Alignment.center,
@@ -1021,21 +1020,27 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
           borderRadius: BorderRadius.circular(GlossSurfaces.tileRadius),
           child: Ink(
             height: GlossSurfaces.tileMinHeight,
-            padding: const EdgeInsets.symmetric(horizontal: 28),
-            decoration: GlossSurfaces.plate,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: GlossSurfaces.navyPlate,
             child: Center(
+              widthFactor: 1,
               child: _busy
                   ? const SizedBox(
                       height: 18,
                       width: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: GlossColors.navy,
+                        color: GlossColors.teal,
                       ),
                     )
                   : Text(
-                      'Send invite',
-                      style: GlossSurfaces.logoMark.copyWith(fontSize: 15),
+                      'SEND INVITE',
+                      style: GlossSurfaces.logoAccent.copyWith(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.8,
+                        color: GlossColors.teal,
+                      ),
                     ),
             ),
           ),
