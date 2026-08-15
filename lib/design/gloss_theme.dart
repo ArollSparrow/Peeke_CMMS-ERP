@@ -28,6 +28,9 @@ class GlossSurfaces {
   static const double tileRadius = 16;
   static const double tileMinHeight = 50;
 
+  /// Shared control height so TextField and Dropdown match exactly.
+  static const double fieldHeight = 44;
+
   static const TextStyle logoMark = TextStyle(
     fontSize: 16,
     fontWeight: FontWeight.w500,
@@ -89,17 +92,46 @@ class GlossSurfaces {
         ],
       );
 
+  /// Navy / indigo CTA plate (Send invite, primary actions).
+  static BoxDecoration get navyPlate => BoxDecoration(
+        borderRadius: BorderRadius.circular(tileRadius),
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFF3A3F8F),
+            Color(0xFF2E3278),
+            Color(0xFF272A6D),
+            Color(0xFF1E2154),
+          ],
+          stops: [0.0, 0.35, 0.75, 1.0],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: GlossColors.navy.withValues(alpha: 0.28),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+            spreadRadius: -1,
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 3,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      );
+
   static InputDecoration fieldDecoration(String label) {
     final radius = BorderRadius.circular(fieldRadius);
     return InputDecoration(
-      labelText: label,
+      labelText: label.isEmpty ? null : label,
       labelStyle: logoMark.copyWith(fontSize: 14),
       floatingLabelStyle: logoAccent.copyWith(fontSize: 13),
       filled: true,
       fillColor: Colors.white.withValues(alpha: 0.55),
       isDense: true,
       contentPadding:
-          const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+          const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
       enabledBorder: OutlineInputBorder(
         borderRadius: radius,
         borderSide:
@@ -113,6 +145,14 @@ class GlossSurfaces {
         borderRadius: radius,
         borderSide: const BorderSide(color: GlossColors.teal),
       ),
+    );
+  }
+
+  /// Force identical outer height for text + dropdown fields.
+  static InputDecoration compactField(String label) {
+    return fieldDecoration(label).copyWith(
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
     );
   }
 }
@@ -163,7 +203,7 @@ class GlossTheme {
         fillColor: Colors.white.withValues(alpha: 0.55),
         isDense: true,
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
         labelStyle: GlossSurfaces.logoMark.copyWith(fontSize: 14),
         floatingLabelStyle: GlossSurfaces.logoAccent.copyWith(fontSize: 13),
         border: OutlineInputBorder(

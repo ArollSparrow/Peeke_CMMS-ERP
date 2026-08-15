@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -231,6 +230,16 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     super.dispose();
   }
 
+  /// Locked height so Work email and Role share the same outer box.
+  Widget _lockedField({required Widget child}) {
+    return SizedBox(
+      height: GlossSurfaces.fieldHeight,
+      child: child,
+    );
+  }
+
+  InputDecoration get _fieldDeco => GlossSurfaces.compactField('');
+
   Future<void> _invite() async {
     final org = ref.read(activeOrganizationProvider);
     if (org == null) return;
@@ -276,7 +285,6 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
         final status = map['status']?.toString();
         setState(() {
           _message = msg ?? 'Invite saved for $email';
-          // Shareable link only when email path needs a manual fallback
           _actionLink = (status == 'invite_saved' &&
                   link != null &&
                   link.isNotEmpty)
@@ -457,210 +465,274 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     String? avatarUrl = member.avatarUrl;
     var avatarBusy = false;
 
+    final maxH = MediaQuery.sizeOf(context).height * 0.78;
+
     final saved = await showDialog<bool>(
       context: context,
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setLocal) {
-            return AlertDialog(
+            return Dialog(
+              backgroundColor: GlossColors.sky,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
-              backgroundColor: GlossColors.sky,
-              title: Text(
-                'Member details',
-                style: GlossSurfaces.logoMark.copyWith(fontSize: 18),
-              ),
-              content: SizedBox(
-                width: 420,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Center(
-                        child: Column(
-                          children: [
-                            CircleAvatar(
-                              radius: 36,
-                              backgroundColor: GlossColors.sky,
-                              backgroundImage: (avatarUrl != null &&
-                                      avatarUrl!.isNotEmpty)
-                                  ? NetworkImage(avatarUrl!)
-                                  : null,
-                              child: (avatarUrl == null || avatarUrl!.isEmpty)
-                                  ? const Icon(Icons.person_outline,
-                                      size: 36, color: GlossColors.navy)
-                                  : null,
-                            ),
-                            TextButton.icon(
-                              onPressed: avatarBusy
-                                  ? null
-                                  : () async {
-                                      setLocal(() => avatarBusy = true);
-                                      try {
-                                        final url = await _uploadAvatar(
-                                          orgId: org.id,
-                                          userId: member.userId,
-                                        );
-                                        if (url != null) {
-                                          setLocal(() => avatarUrl = url);
-                                        }
-                                      } catch (e) {
-                                        if (mounted) {
-                                          setState(() =>
-                                              _error = friendlyError(e));
-                                        }
-                                      } finally {
-                                        setLocal(() => avatarBusy = false);
-                                      }
-                                    },
-                              icon: avatarBusy
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2),
-                                    )
-                                  : const Icon(Icons.photo_camera_outlined,
-                                      size: 18),
-                              label: Text(
-                                avatarBusy ? 'Uploading…' : 'Change photo',
-                                style: GlossSurfaces.logoAccent,
+              insetPadding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: 420, maxHeight: maxH),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Member details',
+                              style: GlossSurfaces.logoMark.copyWith(
+                                fontSize: 17,
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                          IconButton(
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () => Navigator.pop(ctx, false),
+                            icon: const Icon(Icons.close, size: 20),
+                          ),
+                        ],
                       ),
-                      if (member.email != null) ...[
-                        Text('Email', style: GlossSurfaces.logoAccent),
-                        const SizedBox(height: 4),
-                        SelectableText(
-                          member.email!,
-                          style: GlossSurfaces.logoMark.copyWith(fontSize: 14),
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-                      TextField(
-                        controller: nameCtrl,
-                        style: GlossSurfaces.logoMark.copyWith(fontSize: 14),
-                        decoration:
-                            GlossSurfaces.fieldDecoration('Full name'),
-                        textCapitalization: TextCapitalization.words,
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: phoneCtrl,
-                        style: GlossSurfaces.logoMark.copyWith(fontSize: 14),
-                        decoration: GlossSurfaces.fieldDecoration('Phone'),
-                        keyboardType: TextInputType.phone,
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: jobCtrl,
-                        style: GlossSurfaces.logoMark.copyWith(fontSize: 14),
-                        decoration:
-                            GlossSurfaces.fieldDecoration('Job title'),
-                      ),
-                      const SizedBox(height: 12),
-                      if (member.role != OrgRoles.owner)
-                        DropdownButtonFormField<String>(
-                          value: role,
-                          isDense: true,
-                          iconSize: 20,
-                          decoration: GlossSurfaces.fieldDecoration('Role'),
-                          items: [
-                            for (final r in OrgRoles.inviteChoices)
-                              DropdownMenuItem(
-                                value: r,
-                                child: Text(
-                                  OrgRoles.label(r),
+                    ),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Compact avatar row
+                            Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 26,
+                                  backgroundColor:
+                                      GlossColors.sky.withValues(alpha: 0.9),
+                                  backgroundImage: (avatarUrl != null &&
+                                          avatarUrl!.isNotEmpty)
+                                      ? NetworkImage(avatarUrl!)
+                                      : null,
+                                  child: (avatarUrl == null ||
+                                          avatarUrl!.isEmpty)
+                                      ? const Icon(Icons.person_outline,
+                                          size: 26, color: GlossColors.navy)
+                                      : null,
+                                ),
+                                const SizedBox(width: 10),
+                                TextButton.icon(
+                                  onPressed: avatarBusy
+                                      ? null
+                                      : () async {
+                                          setLocal(() => avatarBusy = true);
+                                          try {
+                                            final url = await _uploadAvatar(
+                                              orgId: org.id,
+                                              userId: member.userId,
+                                            );
+                                            if (url != null) {
+                                              setLocal(() => avatarUrl = url);
+                                            }
+                                          } catch (e) {
+                                            if (mounted) {
+                                              setState(() => _error =
+                                                  friendlyError(e));
+                                            }
+                                          } finally {
+                                            setLocal(
+                                                () => avatarBusy = false);
+                                          }
+                                        },
+                                  icon: avatarBusy
+                                      ? const SizedBox(
+                                          width: 14,
+                                          height: 14,
+                                          child: CircularProgressIndicator(
+                                              strokeWidth: 2),
+                                        )
+                                      : const Icon(
+                                          Icons.photo_camera_outlined,
+                                          size: 16),
+                                  label: Text(
+                                    avatarBusy
+                                        ? 'Uploading…'
+                                        : 'Change photo',
+                                    style: GlossSurfaces.logoAccent,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (member.email != null) ...[
+                              const SizedBox(height: 8),
+                              Text(member.email!,
+                                  style: GlossSurfaces.tileMeta),
+                            ],
+                            const SizedBox(height: 10),
+                            _lockedField(
+                              child: TextField(
+                                controller: nameCtrl,
+                                style: GlossSurfaces.logoMark
+                                    .copyWith(fontSize: 14),
+                                decoration:
+                                    GlossSurfaces.compactField('Full name'),
+                                textCapitalization: TextCapitalization.words,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            _lockedField(
+                              child: TextField(
+                                controller: phoneCtrl,
+                                style: GlossSurfaces.logoMark
+                                    .copyWith(fontSize: 14),
+                                decoration:
+                                    GlossSurfaces.compactField('Phone'),
+                                keyboardType: TextInputType.phone,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            _lockedField(
+                              child: TextField(
+                                controller: jobCtrl,
+                                style: GlossSurfaces.logoMark
+                                    .copyWith(fontSize: 14),
+                                decoration:
+                                    GlossSurfaces.compactField('Job title'),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            if (member.role != OrgRoles.owner)
+                              _lockedField(
+                                child: DropdownButtonFormField<String>(
+                                  value: role,
+                                  isDense: true,
+                                  isExpanded: true,
+                                  iconSize: 18,
                                   style: GlossSurfaces.logoMark
                                       .copyWith(fontSize: 14),
+                                  decoration:
+                                      GlossSurfaces.compactField('Role'),
+                                  items: [
+                                    for (final r in OrgRoles.inviteChoices)
+                                      DropdownMenuItem(
+                                        value: r,
+                                        child: Text(
+                                          OrgRoles.label(r),
+                                          style: GlossSurfaces.logoMark
+                                              .copyWith(fontSize: 14),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                  ],
+                                  onChanged: (v) => setLocal(
+                                      () => role = v ?? OrgRoles.technician),
                                 ),
+                              )
+                            else
+                              Text(
+                                'Role: Owner / System Admin',
+                                style: GlossSurfaces.logoMark
+                                    .copyWith(fontSize: 13),
                               ),
-                          ],
-                          onChanged: (v) => setLocal(
-                              () => role = v ?? OrgRoles.technician),
-                        )
-                      else
-                        Text(
-                          'Role: Owner / System Admin (fixed)',
-                          style: GlossSurfaces.logoMark.copyWith(fontSize: 14),
-                        ),
-                      const SizedBox(height: 16),
-                      Text('Departments', style: GlossSurfaces.logoMark),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Any role can belong to departments. '
-                        'Head of department is optional.',
-                        style: GlossSurfaces.logoAccent.copyWith(height: 1.35),
-                      ),
-                      const SizedBox(height: 8),
-                      if (depts.isEmpty)
-                        Text('No departments seeded yet.',
-                            style: GlossSurfaces.logoAccent)
-                      else
-                        for (final d in depts) ...[
-                          CheckboxListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            controlAffinity: ListTileControlAffinity.leading,
-                            title: Text(d.name,
+                            const SizedBox(height: 14),
+                            Text('Departments',
                                 style: GlossSurfaces.logoMark
                                     .copyWith(fontSize: 14)),
-                            value: selectedDepts.contains(d.id),
-                            activeColor: GlossColors.teal,
-                            onChanged: (v) {
-                              setLocal(() {
-                                if (v == true) {
-                                  selectedDepts.add(d.id);
-                                } else {
-                                  selectedDepts.remove(d.id);
-                                  hodDepts.remove(d.id);
-                                }
-                              });
-                            },
+                            const SizedBox(height: 4),
+                            Text(
+                              'Tap to assign · long-press for HoD',
+                              style: GlossSurfaces.logoAccent
+                                  .copyWith(fontSize: 11),
+                            ),
+                            const SizedBox(height: 8),
+                            if (depts.isEmpty)
+                              Text('No departments seeded yet.',
+                                  style: GlossSurfaces.logoAccent)
+                            else
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  for (final d in depts)
+                                    _deptChip(
+                                      dept: d,
+                                      selected:
+                                          selectedDepts.contains(d.id),
+                                      isHod: hodDepts.contains(d.id),
+                                      onTap: () {
+                                        setLocal(() {
+                                          if (selectedDepts.contains(d.id)) {
+                                            selectedDepts.remove(d.id);
+                                            hodDepts.remove(d.id);
+                                          } else {
+                                            selectedDepts.add(d.id);
+                                          }
+                                        });
+                                      },
+                                      onLongPress: () {
+                                        setLocal(() {
+                                          if (!selectedDepts
+                                              .contains(d.id)) {
+                                            selectedDepts.add(d.id);
+                                          }
+                                          if (hodDepts.contains(d.id)) {
+                                            hodDepts.remove(d.id);
+                                          } else {
+                                            hodDepts.add(d.id);
+                                          }
+                                        });
+                                      },
+                                    ),
+                                ],
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: Text('Cancel',
+                                style: GlossSurfaces.logoMark),
                           ),
-                          if (selectedDepts.contains(d.id))
-                            Padding(
-                              padding:
-                                  const EdgeInsets.only(left: 28, bottom: 4),
-                              child: SwitchListTile(
-                                dense: true,
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(
-                                  'Head of this department',
-                                  style: GlossSurfaces.logoMark
-                                      .copyWith(fontSize: 13),
+                          const SizedBox(width: 8),
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () => Navigator.pop(ctx, true),
+                              borderRadius: BorderRadius.circular(
+                                  GlossSurfaces.tileRadius),
+                              child: Ink(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 22, vertical: 12),
+                                decoration: GlossSurfaces.navyPlate,
+                                child: Text(
+                                  'Save',
+                                  style: GlossSurfaces.logoMark.copyWith(
+                                    color: GlossColors.sky,
+                                    fontSize: 14,
+                                  ),
                                 ),
-                                value: hodDepts.contains(d.id),
-                                activeColor: GlossColors.teal,
-                                onChanged: (v) {
-                                  setLocal(() {
-                                    if (v) {
-                                      hodDepts.add(d.id);
-                                    } else {
-                                      hodDepts.remove(d.id);
-                                    }
-                                  });
-                                },
                               ),
                             ),
+                          ),
                         ],
-                    ],
-                  ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                    child: Text('Cancel',
-                        style: GlossSurfaces.logoMark)),
-                FilledButton(
-                    onPressed: () => Navigator.pop(ctx, true),
-                    child: const Text('Save')),
-              ],
             );
           },
         );
@@ -696,6 +768,37 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     } catch (e) {
       if (mounted) setState(() => _error = friendlyError(e));
     }
+  }
+
+  Widget _deptChip({
+    required OrgDept dept,
+    required bool selected,
+    required bool isHod,
+    required VoidCallback onTap,
+    required VoidCallback onLongPress,
+  }) {
+    final label = isHod ? '${dept.name} · HoD' : dept.name;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        borderRadius: BorderRadius.circular(GlossSurfaces.tileRadius),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: selected
+              ? GlossSurfaces.navyPlate
+              : GlossSurfaces.plate,
+          child: Text(
+            label,
+            style: GlossSurfaces.tileName.copyWith(
+              color: selected ? GlossColors.sky : GlossColors.navy,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _avatarDisc(String? url) {
@@ -910,40 +1013,42 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     );
   }
 
+  /// Self-fit navy gloss CTA — width follows label, not full row.
   Widget _sendInviteButton() {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: _busy ? null : _invite,
-        borderRadius: BorderRadius.circular(GlossSurfaces.tileRadius),
-        child: Ink(
-          width: double.infinity,
-          height: GlossSurfaces.tileMinHeight,
-          decoration: GlossSurfaces.plate,
-          child: Center(
-            child: _busy
-                ? const SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: GlossColors.navy,
+    return Align(
+      alignment: Alignment.center,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _busy ? null : _invite,
+          borderRadius: BorderRadius.circular(GlossSurfaces.tileRadius),
+          child: Ink(
+            height: GlossSurfaces.tileMinHeight,
+            padding: const EdgeInsets.symmetric(horizontal: 28),
+            decoration: GlossSurfaces.navyPlate,
+            child: Center(
+              child: _busy
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: GlossColors.sky,
+                      ),
+                    )
+                  : Text(
+                      'Send invite',
+                      style: GlossSurfaces.logoMark.copyWith(
+                        fontSize: 15,
+                        color: GlossColors.sky,
+                      ),
                     ),
-                  )
-                : Text(
-                    'Send invite',
-                    style: GlossSurfaces.logoMark.copyWith(fontSize: 15),
-                  ),
+            ),
           ),
         ),
       ),
     );
   }
-
-  InputDecoration get _formField => GlossSurfaces.fieldDecoration('').copyWith(
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-      );
 
   @override
   Widget build(BuildContext context) {
@@ -973,37 +1078,43 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
           ),
           const SizedBox(height: 20),
           if (canInvite) ...[
-            TextField(
-              controller: _email,
-              keyboardType: TextInputType.emailAddress,
-              style: GlossSurfaces.logoMark.copyWith(fontSize: 14),
-              cursorColor: GlossColors.navy,
-              decoration: _formField.copyWith(
-                labelText: 'Work email',
-                hintText: 'colleague@company.com',
+            _lockedField(
+              child: TextField(
+                controller: _email,
+                keyboardType: TextInputType.emailAddress,
+                style: GlossSurfaces.logoMark.copyWith(fontSize: 14),
+                cursorColor: GlossColors.navy,
+                decoration: GlossSurfaces.compactField('Work email').copyWith(
+                      hintText: 'colleague@company.com',
+                    ),
               ),
             ),
             const SizedBox(height: 10),
-            DropdownButtonFormField<String>(
-              value: _role,
-              isDense: true,
-              iconSize: 20,
-              style: GlossSurfaces.logoMark.copyWith(fontSize: 14),
-              decoration: _formField.copyWith(labelText: 'Role'),
-              items: [
-                for (final r in OrgRoles.inviteChoices)
-                  DropdownMenuItem(
-                    value: r,
-                    child: Text(
-                      OrgRoles.label(r),
-                      style: GlossSurfaces.logoMark.copyWith(fontSize: 14),
+            _lockedField(
+              child: DropdownButtonFormField<String>(
+                value: _role,
+                isDense: true,
+                isExpanded: true,
+                iconSize: 18,
+                style: GlossSurfaces.logoMark.copyWith(fontSize: 14),
+                decoration: GlossSurfaces.compactField('Role'),
+                items: [
+                  for (final r in OrgRoles.inviteChoices)
+                    DropdownMenuItem(
+                      value: r,
+                      child: Text(
+                        OrgRoles.label(r),
+                        style:
+                            GlossSurfaces.logoMark.copyWith(fontSize: 14),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-              ],
-              onChanged: (v) =>
-                  setState(() => _role = v ?? OrgRoles.technician),
+                ],
+                onChanged: (v) =>
+                    setState(() => _role = v ?? OrgRoles.technician),
+              ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             _sendInviteButton(),
             if (_error != null) ...[
               const SizedBox(height: 8),
