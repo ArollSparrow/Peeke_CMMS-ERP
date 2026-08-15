@@ -230,14 +230,10 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     super.dispose();
   }
 
-  Widget _lockedField({required Widget child}) {
-    return SizedBox(
-      height: GlossSurfaces.fieldHeight,
-      child: child,
-    );
+  /// Cyan gloss plate shell — same visual language as member tiles.
+  Widget _glossField({required Widget child}) {
+    return GlossSurfaces.fieldShell(child: child);
   }
-
-  Widget _fieldGap() => const SizedBox(height: GlossSurfaces.fieldGap);
 
   Future<void> _invite() async {
     final org = ref.read(activeOrganizationProvider);
@@ -574,7 +570,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                                   style: GlossSurfaces.tileMeta),
                             ],
                             const SizedBox(height: GlossSurfaces.fieldGap),
-                            _lockedField(
+                            _glossField(
                               child: TextField(
                                 controller: nameCtrl,
                                 style: GlossSurfaces.logoMark
@@ -585,7 +581,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                               ),
                             ),
                             const SizedBox(height: GlossSurfaces.fieldGap),
-                            _lockedField(
+                            _glossField(
                               child: TextField(
                                 controller: phoneCtrl,
                                 style: GlossSurfaces.logoMark
@@ -596,7 +592,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                               ),
                             ),
                             const SizedBox(height: GlossSurfaces.fieldGap),
-                            _lockedField(
+                            _glossField(
                               child: TextField(
                                 controller: jobCtrl,
                                 style: GlossSurfaces.logoMark
@@ -607,7 +603,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                             ),
                             const SizedBox(height: GlossSurfaces.fieldGap),
                             if (member.role != OrgRoles.owner)
-                              _lockedField(
+                              _glossField(
                                 child: DropdownButtonFormField<String>(
                                   value: role,
                                   isDense: true,
@@ -695,7 +691,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
@@ -705,25 +701,12 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                                 style: GlossSurfaces.logoMark),
                           ),
                           const SizedBox(width: 8),
-                          Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () => Navigator.pop(ctx, true),
-                              borderRadius: BorderRadius.circular(
-                                  GlossSurfaces.tileRadius),
-                              child: Ink(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 22, vertical: 12),
-                                decoration: GlossSurfaces.navyPlate,
-                                child: Text(
-                                  'Save',
-                                  style: GlossSurfaces.logoMark.copyWith(
-                                    color: GlossColors.sky,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ),
-                            ),
+                          GlossSurfaces.navyCta(
+                            label: 'SAVE',
+                            onTap: () => Navigator.pop(ctx, true),
+                            height: 42,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 22),
                           ),
                         ],
                       ),
@@ -790,7 +773,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
           child: Text(
             label,
             style: GlossSurfaces.tileName.copyWith(
-              color: selected ? GlossColors.sky : GlossColors.navy,
+              color: selected ? GlossColors.teal : GlossColors.navy,
               fontSize: 12,
             ),
           ),
@@ -1015,38 +998,10 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
   Widget _sendInviteButton() {
     return Align(
       alignment: Alignment.center,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: _busy ? null : _invite,
-          borderRadius: BorderRadius.circular(GlossSurfaces.tileRadius),
-          child: Ink(
-            height: GlossSurfaces.tileMinHeight,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: GlossSurfaces.navyPlate,
-            child: Center(
-              widthFactor: 1,
-              child: _busy
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: GlossColors.teal,
-                      ),
-                    )
-                  : Text(
-                      'SEND INVITE',
-                      style: GlossSurfaces.logoAccent.copyWith(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.8,
-                        color: GlossColors.teal,
-                      ),
-                    ),
-            ),
-          ),
-        ),
+      child: GlossSurfaces.navyCta(
+        label: 'SEND INVITE',
+        onTap: _invite,
+        busy: _busy,
       ),
     );
   }
@@ -1079,7 +1034,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
           ),
           const SizedBox(height: 20),
           if (canInvite) ...[
-            _lockedField(
+            _glossField(
               child: TextField(
                 controller: _email,
                 keyboardType: TextInputType.emailAddress,
@@ -1091,7 +1046,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
               ),
             ),
             const SizedBox(height: GlossSurfaces.fieldGap),
-            _lockedField(
+            _glossField(
               child: DropdownButtonFormField<String>(
                 value: _role,
                 isDense: true,
@@ -1115,7 +1070,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                     setState(() => _role = v ?? OrgRoles.technician),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             _sendInviteButton(),
             if (_error != null) ...[
               const SizedBox(height: 8),
