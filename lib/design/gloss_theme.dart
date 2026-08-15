@@ -97,7 +97,7 @@ class GlossSurfaces {
       );
 
   /// Navy gloss plate — same depth model as [plate]: bright top specular →
-  /// mid body → deep base, dual shadow. Used for SEND INVITE, Save, selected chips.
+  /// mid body → deep base, dual shadow. Used for selected chips (contrast).
   static BoxDecoration get navyPlate => BoxDecoration(
         borderRadius: BorderRadius.circular(tileRadius),
         gradient: const LinearGradient(
@@ -156,6 +156,8 @@ class GlossSurfaces {
       );
 
   /// Borderless input on top of [fieldPlate] — label floats in the gloss.
+  /// Vertical padding tuned so floating label + value + dropdown icon fit
+  /// inside [fieldHeight] without bottom clipping.
   static InputDecoration fieldDecoration(String label) {
     return InputDecoration(
       labelText: label.isEmpty ? null : label,
@@ -165,7 +167,7 @@ class GlossSurfaces {
       filled: true,
       fillColor: Colors.white.withValues(alpha: 0.28),
       isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      contentPadding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
       border: InputBorder.none,
       enabledBorder: InputBorder.none,
       focusedBorder: InputBorder.none,
@@ -179,17 +181,19 @@ class GlossSurfaces {
   static InputDecoration compactField(String label) => fieldDecoration(label);
 
   /// Gloss field shell: cyan plate + fixed height + borderless input child.
+  /// No hard clip on the child so dropdown value / floating label are not
+  /// truncated at the bottom; the plate radius still soft-clips via decoration.
   static Widget fieldShell({required Widget child}) {
     return Container(
       height: fieldHeight,
       decoration: fieldPlate,
-      clipBehavior: Clip.antiAlias,
       alignment: Alignment.center,
       child: child,
     );
   }
 
-  /// Self-fitting navy gloss CTA (SEND INVITE, Save).
+  /// Self-fitting cyan gloss CTA (SEND INVITE, Save) — same plate language
+  /// as tiles and fields for app-wide uniformity.
   static Widget navyCta({
     required String label,
     required VoidCallback? onTap,
@@ -207,7 +211,7 @@ class GlossSurfaces {
         child: Ink(
           height: h,
           padding: padding,
-          decoration: navyPlate,
+          decoration: plate,
           child: Center(
             widthFactor: 1,
             child: busy
@@ -216,16 +220,16 @@ class GlossSurfaces {
                     width: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: GlossColors.teal,
+                      color: GlossColors.navy,
                     ),
                   )
                 : Text(
                     label,
-                    style: logoAccent.copyWith(
+                    style: logoMark.copyWith(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.8,
-                      color: GlossColors.teal,
+                      color: GlossColors.navy,
                     ),
                   ),
           ),
@@ -279,7 +283,7 @@ class GlossTheme {
         fillColor: Colors.white.withValues(alpha: 0.28),
         isDense: true,
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            const EdgeInsets.fromLTRB(16, 10, 12, 10),
         labelStyle: GlossSurfaces.logoMark.copyWith(fontSize: 13),
         floatingLabelStyle: GlossSurfaces.logoAccent.copyWith(fontSize: 11),
         border: InputBorder.none,

@@ -994,7 +994,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     );
   }
 
-  /// Navy gloss plate · cyan text · width fits SEND INVITE only.
+  /// Cyan gloss plate · navy text · width fits SEND INVITE only.
   Widget _sendInviteButton() {
     return Align(
       alignment: Alignment.center,
