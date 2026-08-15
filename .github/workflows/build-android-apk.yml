@@ -12,8 +12,63 @@ on:
       - "pubspec.yaml"
       - ".github/workflows/build-android-apk.yml"
 
+permissions:
+  actions: write
+  contents: read
+
 jobs:
+  # Only on manual runs: wipe existing APK artifacts first so upload has a chance.
+  cleanup:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete all existing APK artifacts
+        env:
+          OWNER: ArollSparrow
+          REPO: Peeke_CMMS-ERP
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          deleted=0
+          page=1
+          while true; do
+            resp=$(curl -sS -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${OWNER}/${REPO}/actions/artifacts?per_page=100&page=${page}")
+            count=$(echo "$resp" | jq '.artifacts | length')
+            if [ "$count" = "0" ] || [ "$count" = "null" ]; then
+              break
+            fi
+            mapfile -t ids < <(echo "$resp" | jq -r '
+              .artifacts[]
+              | select(
+                  ((.name | test("peeke-cmms-erp-debug"; "i")) or (.name | test("apk"; "i")))
+                  and (.expired == false)
+                )
+              | .id
+            ')
+            for id in "${ids[@]:-}"; do
+              [ -z "$id" ] && continue
+              code=$(curl -sS -o /dev/null -w "%{http_code}" -X DELETE \
+                -H "Authorization: Bearer $GITHUB_TOKEN" \
+                -H "Accept: application/vnd.github+json" \
+                "https://api.github.com/repos/${OWNER}/${REPO}/actions/artifacts/${id}")
+              echo "delete $id -> $code"
+              if [ "$code" = "204" ] || [ "$code" = "200" ]; then
+                deleted=$((deleted + 1))
+              fi
+            done
+            if [ "$count" -lt 100 ]; then
+              break
+            fi
+            page=$((page + 1))
+          done
+          echo "Deleted $deleted APK artifact(s). Quota meter may lag 6–12h."
+
   apk:
+    needs: [cleanup]
+    # When push: no cleanup job → needs is skipped; use if so push still runs.
+    if: always() && (github.event_name == 'push' || needs.cleanup.result == 'success' || needs.cleanup.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -46,7 +101,6 @@ jobs:
 
       # Free plan artifact quota fills fast (APK ~50–80MB × many runs).
       # Upload only when manually triggered; push runs still verify the build.
-      # retention-days: 1 matches typical repo max and frees space quickly.
       - name: Upload APK
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v6
