@@ -273,9 +273,15 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
       } else {
         final msg = map['message']?.toString();
         final link = map['action_link']?.toString();
+        final status = map['status']?.toString();
         setState(() {
           _message = msg ?? 'Invite saved for $email';
-          _actionLink = (link != null && link.isNotEmpty) ? link : null;
+          // Shareable link only when email path needs a manual fallback
+          _actionLink = (status == 'invite_saved' &&
+                  link != null &&
+                  link.isNotEmpty)
+              ? link
+              : null;
         });
         _email.clear();
       }
@@ -322,7 +328,10 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
       );
       ref.invalidate(orgInvitesProvider);
       if (mounted) {
-        setState(() => _message = 'Invite cancelled for ${invite.email}');
+        setState(() {
+          _message = 'Invite cancelled for ${invite.email}';
+          _actionLink = null;
+        });
       }
     } catch (e) {
       if (mounted) setState(() => _error = friendlyError(e));
@@ -349,7 +358,9 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
         title: const Text('Remove member?'),
         content: Text(
           'Remove ${member.fullName ?? 'this member'} '
-          '(${OrgRoles.label(member.role)}) from ${org.name}?',
+          '(${OrgRoles.label(member.role)}) from ${org.name}?\n\n'
+          'Their role, departments, and invites for this organisation '
+          'will be cleared completely.',
         ),
         actions: [
           TextButton(
@@ -371,7 +382,14 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
         },
       );
       ref.invalidate(orgMembersProvider);
-      if (mounted) setState(() => _message = 'Member removed');
+      ref.invalidate(orgInvitesProvider);
+      ref.invalidate(orgDepartmentsProvider);
+      if (mounted) {
+        setState(() {
+          _message = 'Member removed — all organisation traces cleared';
+          _actionLink = null;
+        });
+      }
     } catch (e) {
       if (mounted) setState(() => _error = friendlyError(e));
     }
@@ -712,13 +730,11 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     final depts = m.departmentLabels;
     final hods = m.hodLabels;
 
-    // Line 1: Name · Job title · You
     final nameParts = <String>[name];
     if (title != null) nameParts.add(title);
     if (isMe) nameParts.add('You');
     final nameLine = nameParts.join(' · ');
 
-    // Line 2: departments only (icon + joined with -)
     final deptLabels = <String>[
       for (final d in depts) hods.contains(d) ? '$d(HoD)' : d,
       for (final h in hods)
@@ -924,7 +940,6 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     );
   }
 
-  /// Shared field — vertical 10 → ~40px height matching Work email.
   InputDecoration get _formField => GlossSurfaces.fieldDecoration('').copyWith(
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
@@ -1001,8 +1016,10 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
             ],
             if (_actionLink != null) ...[
               const SizedBox(height: 12),
-              Text('Share this link (WhatsApp / SMS):',
-                  style: GlossSurfaces.logoMark),
+              Text(
+                'Email may be delayed — share this link (WhatsApp / SMS):',
+                style: GlossSurfaces.logoMark,
+              ),
               const SizedBox(height: 6),
               SelectableText(_actionLink!,
                   style: GlossSurfaces.logoAccent.copyWith(fontSize: 12)),
