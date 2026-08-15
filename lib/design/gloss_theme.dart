@@ -28,11 +28,12 @@ class GlossSurfaces {
   static const double tileRadius = 16;
   static const double tileMinHeight = 50;
 
-  /// Locked height for text fields + dropdowns (Team, edit dialogs, forms).
-  static const double fieldHeight = 35;
+  /// Practical locked height: fits floating label + dense input + dropdown.
+  /// (35px clipped labels; Material3 needs ~48.)
+  static const double fieldHeight = 48;
 
-  /// Vertical gap between consecutive form fields.
-  static const double fieldGap = 2;
+  /// Comfortable gap between consecutive form fields.
+  static const double fieldGap = 8;
 
   static const TextStyle logoMark = TextStyle(
     fontSize: 16,
@@ -66,7 +67,7 @@ class GlossSurfaces {
   /// Legacy alias
   static TextStyle get tileLine => tileName;
 
-  /// 3D gloss plate — depth from gradient + shadow only (no stroke).
+  /// 3D gloss plate — cyan/sky depth from gradient + shadow only (no stroke).
   static BoxDecoration get plate => BoxDecoration(
         borderRadius: BorderRadius.circular(tileRadius),
         gradient: const LinearGradient(
@@ -95,67 +96,141 @@ class GlossSurfaces {
         ],
       );
 
-  /// Navy / indigo CTA plate (Save, elevated actions).
+  /// Navy gloss plate — same depth model as [plate]: bright top specular →
+  /// mid body → deep base, dual shadow. Used for SEND INVITE, Save, selected chips.
   static BoxDecoration get navyPlate => BoxDecoration(
         borderRadius: BorderRadius.circular(tileRadius),
         gradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Color(0xFF3A3F8F),
-            Color(0xFF2E3278),
-            Color(0xFF272A6D),
-            Color(0xFF1E2154),
+            Color(0xFF5B62C4), // specular highlight
+            Color(0xFF3E4498),
+            Color(0xFF2A2E78),
+            Color(0xFF1A1D52), // deep base
           ],
-          stops: [0.0, 0.35, 0.75, 1.0],
+          stops: [0.0, 0.32, 0.72, 1.0],
         ),
         boxShadow: [
           BoxShadow(
-            color: GlossColors.navy.withValues(alpha: 0.28),
+            color: GlossColors.navy.withValues(alpha: 0.32),
             blurRadius: 14,
             offset: const Offset(0, 6),
             spreadRadius: -1,
           ),
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
+            color: Colors.black.withValues(alpha: 0.14),
             blurRadius: 3,
             offset: const Offset(0, 1),
           ),
         ],
       );
 
+  /// Field outer shell — same cyan gloss as member tiles, pill radius.
+  static BoxDecoration get fieldPlate => BoxDecoration(
+        borderRadius: BorderRadius.circular(fieldRadius),
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFFD0EEF7),
+            Color(0xFFB0DCEB),
+            Color(0xFF7EB9CE),
+            Color(0xFF5FA3BB),
+          ],
+          stops: [0.0, 0.35, 0.75, 1.0],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: GlossColors.navy.withValues(alpha: 0.12),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+            spreadRadius: -1,
+          ),
+          BoxShadow(
+            color: GlossColors.navy.withValues(alpha: 0.05),
+            blurRadius: 2,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      );
+
+  /// Borderless input on top of [fieldPlate] — label floats in the gloss.
   static InputDecoration fieldDecoration(String label) {
-    final radius = BorderRadius.circular(fieldRadius);
     return InputDecoration(
       labelText: label.isEmpty ? null : label,
       labelStyle: logoMark.copyWith(fontSize: 13),
       floatingLabelStyle: logoAccent.copyWith(fontSize: 11),
+      floatingLabelBehavior: FloatingLabelBehavior.auto,
       filled: true,
-      fillColor: Colors.white.withValues(alpha: 0.55),
+      fillColor: Colors.white.withValues(alpha: 0.28),
       isDense: true,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: radius,
-        borderSide:
-            BorderSide(color: GlossColors.teal.withValues(alpha: 0.55)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: radius,
-        borderSide: const BorderSide(color: GlossColors.navy, width: 1.5),
-      ),
-      border: OutlineInputBorder(
-        borderRadius: radius,
-        borderSide: const BorderSide(color: GlossColors.teal),
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      border: InputBorder.none,
+      enabledBorder: InputBorder.none,
+      focusedBorder: InputBorder.none,
+      disabledBorder: InputBorder.none,
+      errorBorder: InputBorder.none,
+      focusedErrorBorder: InputBorder.none,
     );
   }
 
-  /// Same outer box for text + dropdown (height driven by fieldHeight wrapper).
-  static InputDecoration compactField(String label) {
-    return fieldDecoration(label).copyWith(
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+  /// Alias — text + dropdown share the same decoration.
+  static InputDecoration compactField(String label) => fieldDecoration(label);
+
+  /// Gloss field shell: cyan plate + fixed height + borderless input child.
+  static Widget fieldShell({required Widget child}) {
+    return Container(
+      height: fieldHeight,
+      decoration: fieldPlate,
+      clipBehavior: Clip.antiAlias,
+      alignment: Alignment.center,
+      child: child,
+    );
+  }
+
+  /// Self-fitting navy gloss CTA (SEND INVITE, Save).
+  static Widget navyCta({
+    required String label,
+    required VoidCallback? onTap,
+    bool busy = false,
+    double? height,
+    EdgeInsetsGeometry padding =
+        const EdgeInsets.symmetric(horizontal: 18, vertical: 0),
+  }) {
+    final h = height ?? tileMinHeight;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: busy ? null : onTap,
+        borderRadius: BorderRadius.circular(tileRadius),
+        child: Ink(
+          height: h,
+          padding: padding,
+          decoration: navyPlate,
+          child: Center(
+            widthFactor: 1,
+            child: busy
+                ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: GlossColors.teal,
+                    ),
+                  )
+                : Text(
+                    label,
+                    style: logoAccent.copyWith(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.8,
+                      color: GlossColors.teal,
+                    ),
+                  ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -180,8 +255,6 @@ class GlossTheme {
       scaffoldBackgroundColor: GlossColors.sky,
     );
 
-    final fieldRadius = BorderRadius.circular(GlossSurfaces.fieldRadius);
-
     return base.copyWith(
       appBarTheme: const AppBarTheme(
         backgroundColor: GlossColors.sky,
@@ -203,25 +276,15 @@ class GlossTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.55),
+        fillColor: Colors.white.withValues(alpha: 0.28),
         isDense: true,
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         labelStyle: GlossSurfaces.logoMark.copyWith(fontSize: 13),
         floatingLabelStyle: GlossSurfaces.logoAccent.copyWith(fontSize: 11),
-        border: OutlineInputBorder(
-          borderRadius: fieldRadius,
-          borderSide: const BorderSide(color: GlossColors.teal),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: fieldRadius,
-          borderSide:
-              BorderSide(color: GlossColors.teal.withValues(alpha: 0.55)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: fieldRadius,
-          borderSide: const BorderSide(color: GlossColors.navy, width: 1.5),
-        ),
+        border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
