@@ -94,20 +94,20 @@ jobs:
           echo "Published icons:"
           ls -la build/web/favicon* build/web/icons/ || true
 
+      # cloudflare/pages-action@v1 is DEPRECATED (archived Oct 2024) and has
+      # CVE-2026-11325 (RCE / secret leak). Sunset 2026-09-18. Use wrangler-action.
       - name: Publish to Cloudflare Pages
         id: cloudflare
-        uses: cloudflare/pages-action@v1
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: peeke-cmms-erp
-          directory: build/web
+          command: pages deploy build/web --project-name=peeke-cmms-erp --branch=${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
-          branch: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
 
       - name: Deployment summary
         run: |
           echo "### Cloudflare Pages" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Git branch:** \`${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Deployment URL:** ${{ steps.cloudflare.outputs.url }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Environment:** ${{ steps.cloudflare.outputs.environment }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Deployment URL:** ${{ steps.cloudflare.outputs.deployment-url || steps.cloudflare.outputs.pages-deployment-alias-url || 'see Actions log' }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Command:** pages deploy (wrangler-action@v4)" >> "$GITHUB_STEP_SUMMARY"
