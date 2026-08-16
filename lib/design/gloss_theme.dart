@@ -9,6 +9,7 @@ class GlossColors {
   static const Color teal = Color(0xFF55AAAC);
 
   /// Deeper teal for plate meta lines / icons — stronger contrast on cyan gloss.
+  /// Use on cyan plates for role/dept meta, secondary icons, and invite status.
   static const Color tealDeep = Color(0xFF2A7A7C);
 
   /// User-facing errors (friendly messages)
@@ -54,18 +55,20 @@ class GlossSurfaces {
     height: 1.2,
   );
 
-  /// Primary line on plates (name) — navy, sits on the bottom.
+  /// Primary line on cyan plates (name) — navy, sits on the bottom.
   static TextStyle get tileName => logoMark.copyWith(
         fontSize: 13,
+        fontWeight: FontWeight.w500,
         height: 1.2,
       );
 
-  /// Meta line on plates (role / depts) — deeper teal for contrast, sits on top.
+  /// Meta line on cyan plates (role / depts / pending) — deeper teal, normal weight.
+  /// Depth comes from [GlossColors.tealDeep], not from heavier type.
   static TextStyle get tileMeta => TextStyle(
         fontSize: 12,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w500,
         height: 1.2,
-        letterSpacing: 0.2,
+        letterSpacing: 0.15,
         color: GlossColors.tealDeep,
       );
 
@@ -73,6 +76,7 @@ class GlossSurfaces {
   static TextStyle get tileLine => tileName;
 
   /// 3D gloss plate — cyan/sky depth from gradient + shadow only (no stroke).
+  /// Gradient ends near teal family so meta/icons in tealDeep read as one system.
   static BoxDecoration get plate => BoxDecoration(
         borderRadius: BorderRadius.circular(tileRadius),
         gradient: const LinearGradient(
@@ -81,8 +85,8 @@ class GlossSurfaces {
           colors: [
             Color(0xFFD0EEF7),
             Color(0xFFB0DCEB),
-            Color(0xFF7EB9CE),
-            Color(0xFF5FA3BB),
+            Color(0xFF6FA8B8),
+            Color(0xFF4A8A96),
           ],
           stops: [0.0, 0.35, 0.75, 1.0],
         ),
@@ -131,7 +135,7 @@ class GlossSurfaces {
         ],
       );
 
-  /// Field outer shell — same cyan gloss as member tiles, pill radius.
+  /// Field outer shell — same cyan gloss language as member tiles, pill radius.
   static BoxDecoration get fieldPlate => BoxDecoration(
         borderRadius: BorderRadius.circular(fieldRadius),
         gradient: const LinearGradient(
@@ -140,8 +144,8 @@ class GlossSurfaces {
           colors: [
             Color(0xFFD0EEF7),
             Color(0xFFB0DCEB),
-            Color(0xFF7EB9CE),
-            Color(0xFF5FA3BB),
+            Color(0xFF6FA8B8),
+            Color(0xFF4A8A96),
           ],
           stops: [0.0, 0.35, 0.75, 1.0],
         ),
