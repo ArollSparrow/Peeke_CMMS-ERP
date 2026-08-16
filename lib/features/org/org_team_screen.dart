@@ -467,6 +467,26 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setLocal) {
+            Future<void> pickAvatar() async {
+              if (avatarBusy) return;
+              setLocal(() => avatarBusy = true);
+              try {
+                final url = await _uploadAvatar(
+                  orgId: org.id,
+                  userId: member.userId,
+                );
+                if (url != null) {
+                  setLocal(() => avatarUrl = url);
+                }
+              } catch (e) {
+                if (mounted) {
+                  setState(() => _error = friendlyError(e));
+                }
+              } finally {
+                setLocal(() => avatarBusy = false);
+              }
+            }
+
             return Dialog(
               backgroundColor: GlossColors.sky,
               shape: RoundedRectangleBorder(
@@ -505,67 +525,67 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 26,
-                                  backgroundColor:
-                                      GlossColors.sky.withValues(alpha: 0.9),
-                                  backgroundImage: (avatarUrl != null &&
-                                          avatarUrl!.isNotEmpty)
-                                      ? NetworkImage(avatarUrl!)
-                                      : null,
-                                  child: (avatarUrl == null ||
-                                          avatarUrl!.isEmpty)
-                                      ? const Icon(Icons.person_outline,
-                                          size: 26, color: GlossColors.navy)
-                                      : null,
-                                ),
-                                const SizedBox(width: 10),
-                                TextButton.icon(
-                                  onPressed: avatarBusy
-                                      ? null
-                                      : () async {
-                                          setLocal(() => avatarBusy = true);
-                                          try {
-                                            final url = await _uploadAvatar(
-                                              orgId: org.id,
-                                              userId: member.userId,
-                                            );
-                                            if (url != null) {
-                                              setLocal(() => avatarUrl = url);
-                                            }
-                                          } catch (e) {
-                                            if (mounted) {
-                                              setState(() => _error =
-                                                  friendlyError(e));
-                                            }
-                                          } finally {
-                                            setLocal(
-                                                () => avatarBusy = false);
-                                          }
-                                        },
-                                  icon: avatarBusy
-                                      ? const SizedBox(
-                                          width: 14,
-                                          height: 14,
-                                          child: CircularProgressIndicator(
-                                              strokeWidth: 2),
-                                        )
-                                      : const Icon(
-                                          Icons.photo_camera_outlined,
-                                          size: 16),
-                                  label: Text(
-                                    avatarBusy
+                            // Tap avatar to change photo — no camera icon / label.
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: avatarBusy ? null : pickAvatar,
+                                  customBorder: const CircleBorder(),
+                                  child: Tooltip(
+                                    message: avatarBusy
                                         ? 'Uploading…'
-                                        : 'Change photo',
-                                    style: GlossSurfaces.logoAccent,
+                                        : 'Tap to change photo',
+                                    child: Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 32,
+                                          backgroundColor: GlossColors.sky
+                                              .withValues(alpha: 0.9),
+                                          backgroundImage: (avatarUrl != null &&
+                                                  avatarUrl!.isNotEmpty)
+                                              ? NetworkImage(avatarUrl!)
+                                              : null,
+                                          child: (avatarUrl == null ||
+                                                  avatarUrl!.isEmpty)
+                                              ? const Icon(
+                                                  Icons.person_outline,
+                                                  size: 32,
+                                                  color: GlossColors.navy,
+                                                )
+                                              : null,
+                                        ),
+                                        if (avatarBusy)
+                                          Container(
+                                            width: 64,
+                                            height: 64,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: GlossColors.navy
+                                                  .withValues(alpha: 0.35),
+                                            ),
+                                            child: const Center(
+                                              child: SizedBox(
+                                                width: 22,
+                                                height: 22,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  color: GlossColors.sky,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ],
+                              ),
                             ),
                             if (member.email != null) ...[
-                              const SizedBox(height: 6),
+                              const SizedBox(height: 8),
                               Text(member.email!,
                                   style: GlossSurfaces.tileMeta),
                             ],
@@ -605,6 +625,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                             if (member.role != OrgRoles.owner)
                               _glossField(
                                 child: DropdownButtonFormField<String>(
+                                  // ignore: deprecated_member_use
                                   value: role,
                                   isDense: true,
                                   isExpanded: true,
@@ -751,6 +772,8 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     }
   }
 
+  /// Department chips in member details: cyan gloss by default;
+  /// navy gloss when selected (and HoD suffix in label).
   Widget _deptChip({
     required OrgDept dept,
     required bool selected,
@@ -767,15 +790,14 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
         borderRadius: BorderRadius.circular(GlossSurfaces.tileRadius),
         child: Ink(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: selected
-              ? GlossSurfaces.navyPlate
-              : GlossSurfaces.plate,
+          decoration:
+              selected ? GlossSurfaces.navyPlate : GlossSurfaces.plate,
           child: Text(
             label,
             style: GlossSurfaces.tileName.copyWith(
-              // Sky on navy plate for readable contrast; navy on cyan plate.
               color: selected ? GlossColors.sky : GlossColors.navy,
               fontSize: 12,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ),
@@ -959,14 +981,12 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Meta (role · pending) on top — deeper teal
                   Text(
                     '${OrgRoles.label(i.role)} · pending',
                     style: GlossSurfaces.tileMeta,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  // Navy email on bottom
                   Text(
                     i.email,
                     style: GlossSurfaces.tileName,
@@ -1012,7 +1032,6 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     );
   }
 
-  /// Cyan gloss plate · navy text · width fits SEND INVITE only.
   Widget _sendInviteButton() {
     return Align(
       alignment: Alignment.center,
@@ -1066,6 +1085,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
             const SizedBox(height: GlossSurfaces.fieldGap),
             _glossField(
               child: DropdownButtonFormField<String>(
+                // ignore: deprecated_member_use
                 value: _role,
                 isDense: true,
                 isExpanded: true,
