@@ -7,7 +7,7 @@ import '../../design/gloss_theme.dart';
 import '../../infra/friendly_error.dart';
 import 'auth_providers.dart';
 
-/// Dedicated path for **team invitees** only (`type=invite` email link).
+/// Dedicated path for **team invitees** only.
 /// Tenant signup / Create Organisation must never land here.
 class AcceptInviteScreen extends ConsumerStatefulWidget {
   const AcceptInviteScreen({super.key});
@@ -34,6 +34,23 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
     super.dispose();
   }
 
+  /// Session must be the invitee: email has a pending organization_invites row.
+  Future<bool> _sessionIsInvitee(SupabaseClient client, User user) async {
+    final email = user.email?.trim().toLowerCase();
+    if (email == null || email.isEmpty) return false;
+    try {
+      final rows = await client
+          .from('organization_invites')
+          .select('id')
+          .eq('email', email)
+          .eq('status', 'pending')
+          .limit(1);
+      return (rows as List).isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> _complete() async {
     final name = _fullName.text.trim();
     final phone = _phone.text.trim();
@@ -53,8 +70,20 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
     final user = ref.read(currentUserProvider);
     if (user == null) {
       setState(() => _error =
-          'Invite session not active. Open the latest “Accept invitation” link '
-          'from your email (links expire). Do not use Create Organisation.');
+          'Invite session not active. Open the latest Accept invitation link '
+          'while signed out (or in a private window). Do not use Create Organisation.');
+      return;
+    }
+
+    final client = ref.read(supabaseClientProvider);
+
+    // Guard: wrong session (e.g. owner still signed in after WhatsApp link)
+    final okInvitee = await _sessionIsInvitee(client, user);
+    if (!okInvitee) {
+      setState(() => _error =
+          'This session (${user.email}) has no pending team invite. '
+          'Sign out completely, then open the invite link in a private window '
+          'so you join as the invited email — not as the organisation owner.');
       return;
     }
 
@@ -63,7 +92,6 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
       _error = null;
     });
 
-    final client = ref.read(supabaseClientProvider);
     try {
       await client.auth.updateUser(
         UserAttributes(
@@ -80,7 +108,6 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
         await client.rpc('accept_pending_org_invites');
       } catch (_) {}
 
-      // Best-effort: sync details via self-service RPC if available
       try {
         final memberships = await client
             .from('organization_members')
@@ -98,9 +125,7 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
             },
           );
         }
-      } catch (_) {
-        // Name/phone already on membership via accept_pending_org_invites
-      }
+      } catch (_) {}
 
       ref.read(invitePasswordPendingProvider.notifier).state = false;
       ref.read(teamInviteLandingProvider.notifier).state = true;
@@ -195,11 +220,11 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
                     sessionReady
                         ? 'Invited as $email\n'
                             'Enter your details and create a password to become a member. '
-                            'This is not organisation registration.'
+                            'This is not organisation registration.\n'
+                            'If this is not the invited email, sign out and open the link in a private window.'
                         : 'Waiting for invite session…\n'
-                            'Open the full Accept invitation link from the '
-                            'email (or the shared action link). '
-                            'Expired links will not activate this form.',
+                            'Open the full Accept invitation link while signed out '
+                            '(or in a private window). Expired links will not activate this form.',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: GlossColors.teal,
@@ -207,18 +232,6 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
                       height: 1.35,
                     ),
                   ),
-                  if (!sessionReady) ...[
-                    const SizedBox(height: 16),
-                    const Text(
-                      'If you intended to create your own organisation, '
-                      'use Sign in → Create Organisation instead.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: GlossColors.navy,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
                   const SizedBox(height: 20),
                   TextField(
                     controller: _fullName,
