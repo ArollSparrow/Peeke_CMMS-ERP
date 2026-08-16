@@ -371,7 +371,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20)),
+            borderRadius: BorderRadius.circular(GlossSurfaces.dialogRadius)),
         title: const Text('Remove member?'),
         content: Text(
           'Remove ${member.fullName ?? 'this member'} '
@@ -504,7 +504,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
             return Dialog(
               backgroundColor: GlossColors.sky,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(GlossSurfaces.dialogRadius),
               ),
               insetPadding:
                   const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
@@ -1127,7 +1127,8 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
             if (_error != null) ...[
               const SizedBox(height: GlossSurfaces.fieldGap),
               Text(_error!,
-                  style: const TextStyle(color: GlossColors.danger)),
+                  style: GlossSurfaces.logoMark
+                      .copyWith(color: GlossColors.danger)),
             ],
             if (_message != null) ...[
               const SizedBox(height: GlossSurfaces.fieldGap),

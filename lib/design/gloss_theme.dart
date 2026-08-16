@@ -30,6 +30,11 @@ class GlossSurfaces {
 
   static const double fieldRadius = 28;
   static const double tileRadius = 16;
+
+  /// Corner radius for confirmation/detail dialogs (AlertDialog, Dialog).
+  /// Distinct from [tileRadius]/[fieldRadius] — dialogs read closer to a
+  /// system surface, so they get a bit more roundness than list tiles.
+  static const double dialogRadius = 20;
   static const double tileMinHeight = 50;
 
   /// Practical locked height: fits floating label + dense input + dropdown.
@@ -297,6 +302,12 @@ class GlossTheme {
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(GlossSurfaces.tileRadius),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: GlossColors.sky,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(GlossSurfaces.dialogRadius),
         ),
       ),
       dividerColor: GlossColors.teal,
