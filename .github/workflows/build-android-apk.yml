@@ -25,7 +25,6 @@ permissions:
   contents: read
 
 jobs:
-  # Only when explicitly requesting GitHub artifact upload.
   cleanup:
     if: github.event_name == 'workflow_dispatch' && inputs.upload_github_artifact == true
     runs-on: ubuntu-latest
@@ -107,13 +106,6 @@ jobs:
             --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
           ls -lh build/app/outputs/flutter-apk/
 
-      # ── Cloudflare R2 (default path for downloadable APKs) ──────────────
-      # Secrets required (repo Settings → Secrets):
-      #   CLOUDFLARE_ACCOUNT_ID  (already used by Pages deploy)
-      #   R2_ACCESS_KEY_ID
-      #   R2_SECRET_ACCESS_KEY
-      #   R2_BUCKET              (e.g. peeke-ci or your existing bucket)
-      # Object key: ci/apk/peeke-cmms-erp-debug.apk (+ dated copy)
       - name: Publish APK to R2
         id: r2
         if: github.event_name == 'workflow_dispatch' && inputs.publish_r2 == true
@@ -131,7 +123,7 @@ jobs:
             exit 1
           fi
           if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ] || [ -z "${R2_ACCOUNT_ID:-}" ] || [ -z "${R2_BUCKET:-}" ]; then
-            echo "Missing R2 secrets. Add R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, and CLOUDFLARE_ACCOUNT_ID." >&2
+            echo "Missing R2 secrets." >&2
             exit 1
           fi
 
@@ -139,7 +131,6 @@ jobs:
           STABLE_KEY="ci/apk/peeke-cmms-erp-debug.apk"
           DATED_KEY="ci/apk/peeke-cmms-erp-debug-${{ github.run_id }}.apk"
 
-          # ubuntu-latest includes awscli v2
           aws s3 cp "$APK" "s3://${R2_BUCKET}/${STABLE_KEY}" \
             --endpoint-url "$ENDPOINT" \
             --content-type "application/vnd.android.package-archive" \
@@ -150,20 +141,11 @@ jobs:
             --content-type "application/vnd.android.package-archive" \
             --only-show-errors
 
-          # Short-lived download URL (1 hour) — works with private buckets
-          PRESIGN=$(aws s3 presign "s3://${R2_BUCKET}/${STABLE_KEY}" \
-            --endpoint-url "$ENDPOINT" \
-            --expires-in 3600)
-
           echo "stable_key=${STABLE_KEY}" >> "$GITHUB_OUTPUT"
           echo "dated_key=${DATED_KEY}" >> "$GITHUB_OUTPUT"
           echo "bucket=${R2_BUCKET}" >> "$GITHUB_OUTPUT"
-          # Multline-safe: write presign to a file for summary step
-          echo "$PRESIGN" > /tmp/r2-presign.txt
           echo "Published to s3://${R2_BUCKET}/${STABLE_KEY}"
-          echo "Presigned URL expires in 1 hour."
 
-      # Legacy GitHub artifact path — off by default (quota).
       - name: Upload GitHub artifact
         if: github.event_name == 'workflow_dispatch' && inputs.upload_github_artifact == true
         uses: actions/upload-artifact@v6
@@ -187,23 +169,22 @@ jobs:
             echo "- **Event:** \`$EVENT\`"
             echo "- **Build:** see job log for success/failure"
             if [ "$EVENT" = "workflow_dispatch" ] && [ "$PUBLISH_R2" = "true" ]; then
-              if [ "${R2_OK:-}" = "success" ] && [ -f /tmp/r2-presign.txt ]; then
-                echo "- **R2:** published"
-                echo "  - Bucket object: \`ci/apk/peeke-cmms-erp-debug.apk\`"
-                echo "  - Run copy: \`ci/apk/peeke-cmms-erp-debug-${{ github.run_id }}.apk\`"
-                echo "- **Download (presigned, ~1h):**"
+              if [ "${R2_OK:-}" = "success" ]; then
+                echo "- **R2:** published (\`ci/apk/peeke-cmms-erp-debug.apk\`)"
+                echo "- **Download (short, always current):**"
                 echo "  "
-                echo "  $(cat /tmp/r2-presign.txt)"
+                echo "  **https://peeke-apk.peeke.workers.dev/**"
                 echo "  "
+                echo "  Opens a fresh 1-hour R2 link and starts the download."
               else
-                echo "- **R2:** publish requested but step did not succeed — check secrets (R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, CLOUDFLARE_ACCOUNT_ID)"
+                echo "- **R2:** publish failed — check secrets"
               fi
             else
-              echo "- **R2:** skipped (push verify-only, or publish_r2 unchecked)"
+              echo "- **R2:** skipped"
             fi
             if [ "$EVENT" = "workflow_dispatch" ] && [ "$GH_ARTIFACT" = "true" ]; then
               echo "- **GitHub artifact:** requested"
             else
-              echo "- **GitHub artifact:** skipped (quota-safe)"
+              echo "- **GitHub artifact:** skipped"
             fi
           } >> "$GITHUB_STEP_SUMMARY"

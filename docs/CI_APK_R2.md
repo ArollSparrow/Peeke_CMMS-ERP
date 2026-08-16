@@ -1,49 +1,40 @@
 # CI Android APK → Cloudflare R2
 
-**Status:** Wired in `.github/workflows/build-android-apk.yml`  
-**Goal:** Downloadable debug APKs without using GitHub Actions artifact storage quota.
+**Status:** Wired in `.github/workflows/build-android-apk.yml` + short download Worker  
+**Goal:** Downloadable debug APKs without GitHub Actions artifact quota.
+
+## Short download link (use this)
+
+**https://peeke-apk.peeke.workers.dev/**
+
+- Always points at the latest `ci/apk/peeke-cmms-erp-debug.apk` in bucket `peeke-ci`.
+- Worker issues a fresh 1-hour R2 presigned URL and **302 redirects** (APK is ~150 MB; avoids Worker response size limits).
+- Bookmark this URL; no need to copy long presign strings from Actions.
+
+Health check: `https://peeke-apk.peeke.workers.dev/health`
 
 ## Behaviour
 
 | Trigger | Build | Publish to R2 | GitHub artifact |
 |---------|-------|---------------|-----------------|
-| Push to `main` (lib/android/…) | Yes | No | No |
+| Push to `main` | Yes | No | No |
 | Manual *Run workflow* (defaults) | Yes | **Yes** | No |
-| Manual + “Also upload to GitHub…” | Yes | Yes | Optional |
 
-R2 object keys:
+R2 keys:
 
-- `ci/apk/peeke-cmms-erp-debug.apk` — latest stable pointer (overwritten each publish)
-- `ci/apk/peeke-cmms-erp-debug-<run_id>.apk` — immutable copy per run
-
-Job summary prints a **presigned GET URL** (expires in **1 hour**).
+- `ci/apk/peeke-cmms-erp-debug.apk` — latest (what the short link serves)
+- `ci/apk/peeke-cmms-erp-debug-<run_id>.apk` — immutable per run
 
 ## Required GitHub secrets
 
-Repo → **Settings → Secrets and variables → Actions**:
-
 | Secret | Purpose |
 |--------|--------|
-| `CLOUDFLARE_ACCOUNT_ID` | Already used by Pages deploy; R2 S3 endpoint host |
-| `R2_ACCESS_KEY_ID` | R2 API token Access Key ID |
-| `R2_SECRET_ACCESS_KEY` | R2 API token Secret Access Key |
-| `R2_BUCKET` | Bucket name (e.g. `peeke-ci` or an existing private bucket) |
+| `CLOUDFLARE_ACCOUNT_ID` | R2 S3 endpoint |
+| `R2_ACCESS_KEY_ID` | R2 S3 API |
+| `R2_SECRET_ACCESS_KEY` | R2 S3 API |
+| `R2_BUCKET` | `peeke-ci` |
 
-### Create R2 API token (Cloudflare dashboard)
-
-1. **R2** → **Manage R2 API Tokens** → **Create API token**.
-2. Permissions: **Object Read & Write** on the chosen bucket (or account).
-3. Copy Access Key ID + Secret Access Key into the GitHub secrets above.
-4. Create a bucket if needed (e.g. `peeke-ci`). Keep it **private**; CI uses presigned URLs.
-
-Optional later: R2 lifecycle rule on `ci/apk/` to expire dated objects after 7–14 days (keep the stable key or overwrite only).
-
-## How to get an APK
-
-1. Actions → **Build Android APK** → **Run workflow**.
-2. Leave **Publish APK to Cloudflare R2** checked (default).
-3. When the job finishes, open the run → **Summary** → copy the presigned link (valid ~1 hour).
-4. Or re-presign yourself with AWS CLI / a Worker if the link expired.
+Worker `peeke-apk` uses the same R2 S3 credentials as secrets on the Worker.
 
 ## Related
 
