@@ -1,15 +1,9 @@
-# Team member invite flow (testing phase)
+# Team member invite flow
 
 ## Mail provider
 
-- **Resend / Custom SMTP / Send Email hook: OFF** for this building phase.
-- Use **Supabase built-in Auth email** only (~**2 emails per hour** — expect delays).
-- Dashboard checks:
-  1. **Authentication → Hooks → Send Email** → **disabled**
-  2. **Authentication → SMTP** → Custom SMTP **off**
-- Edge Function `send-email` may remain deployed but is **not** used while the hook is off.
-
----
+- Prefer production SMTP / Resend when available.
+- Built-in Auth email is rate-limited (~2/hour) — delays are normal in testing.
 
 ## Intended logic
 
@@ -21,48 +15,28 @@ organization_invites.status = pending
   (NOT yet in organization_members)
         │
         ▼
-Supabase Auth invite email (built-in)
-  → open link → set password (personal account)
-  → redirect → /login
+Auth invite email (type=invite)  OR  shareable action_link (WhatsApp/SMS)
+  → invitee opens link **signed out** (private window if needed)
+  → /accept-invite → set password + name
+  → accept_pending_org_invites()
         │
         ▼
-Invitee: Sign in with email + password  (must succeed)
-        │
-        ▼
-PostAuthGate → rpc accept_pending_org_invites()
-        │
-        ▼
-organization_members row created → status accepted
-  → they appear under Team → Members
+organization_members row → invite status accepted
 ```
 
-### Rules
+## Critical rules
 
-| Step | Member? |
-|------|---------|
-| Invite saved / email sent | **No** — pending only |
-| Password set via invite link | **No** until login |
-| Successful sign-in + gate | **Yes** |
+1. **Never open the shareable link while signed in as the owner** (or any other account). That is what caused the “Kiai became owner” incident: password/name updated on the wrong Auth user.
+2. Email links use `type=invite` and establish the **invitee** session.
+3. For emails that already have a confirmed Auth user, Supabase often cannot send another invite email; the app returns an **action_link** (`type=invite` preferred, else `magiclink` → `/accept-invite`). Share that only with the invitee.
+4. **Cancel invite** removes the `organization_invites` row and, if that email is **not a member of any organisation**, deletes the residual Auth user so a later invite can hit the inbox again via `inviteUserByEmail`.
 
-Auth **Users** list may show the email as soon as invite is issued. That is normal. Users ≠ org members.
+## Accept-invite guards
 
-### Existing accounts
-
-If the email already has a **confirmed** Auth user: invite stays **pending** until they **sign in** once (no extra email required).
-
-### Rate limit
-
-If built-in mail fails or is delayed, Team UI may show a **shareable action_link** — same path: set password → sign in → member.
-
----
+- Session email must match a **pending** `organization_invites` row.
+- If the signed-in user has no pending invite for their email, join is blocked (wrong session).
 
 ## Admin controls
 
-- Cancel pending invite → `revoke_org_invite`
+- Cancel pending invite → Edge Function `revoke-org-invite` (invite row + residual Auth cleanup)
 - Remove member → `remove_org_member`
-
----
-
-## Later (production mail)
-
-Re-enable Custom SMTP or Send Email hook + Resend when ready. Until then stay on built-in for testing.

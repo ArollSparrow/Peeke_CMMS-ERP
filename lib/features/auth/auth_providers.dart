@@ -34,14 +34,13 @@ final passwordRecoveryPendingProvider = StateProvider<bool>((ref) {
   return false;
 });
 
-/// True only for **team Auth invites** (`type=invite` in the email link).
-/// Never true for tenant signup / email confirm (`type=signup` / `email`).
+/// True for team Auth invites (`type=invite`) and shareable links that land
+/// on `/accept-invite` with `type=magiclink` (existing accounts via WhatsApp).
 final invitePasswordPendingProvider = StateProvider<bool>((ref) {
   if (kIsWeb && uriIndicatesInvite(Uri.base)) return true;
   return false;
 });
 
-/// Soft flag for UI copy (hide Create Organisation on login).
 final teamInviteLandingProvider = StateProvider<bool>((ref) {
   if (kIsWeb && uriIndicatesInvite(Uri.base)) return true;
   return false;
@@ -85,25 +84,35 @@ bool uriIndicatesPasswordRecovery(Uri uri) {
   return false;
 }
 
-/// Team member invite only — requires Auth `type=invite`.
-/// Path `/accept-invite` alone is **not** enough (avoids trapping tenant signup).
+/// Team member invite link detection.
+/// - Email invite: `type=invite`
+/// - WhatsApp/SMS share for existing Auth users: often `type=magiclink`
+///   with redirect path `/accept-invite`
 bool uriIndicatesInvite(Uri uri) {
-  final qp = uri.queryParameters['type'];
-  if (qp == 'invite') return true;
+  final path = uri.path;
+  final onAcceptPath = path == '/accept-invite' || path.endsWith('/accept-invite');
 
-  final frag = uri.fragment;
-  if (frag.isNotEmpty) {
+  String? typeFrom(Uri u) {
+    final qp = u.queryParameters['type'];
+    if (qp != null && qp.isNotEmpty) return qp;
+    final frag = u.fragment;
+    if (frag.isEmpty) return null;
     try {
       final params = Uri.splitQueryString(frag);
-      if (params['type'] == 'invite') return true;
-    } catch (_) {}
-    // Prefer exact query segment so we never match unrelated fragments
-    if (RegExp(r'(^|&)type=invite(&|$)').hasMatch(frag)) return true;
+      return params['type'];
+    } catch (_) {
+      final m = RegExp(r'(?:^|&)type=([^&]*)').firstMatch(frag);
+      return m?.group(1);
+    }
   }
+
+  final t = typeFrom(uri);
+  if (t == 'invite') return true;
+  // Shared action links for already-confirmed emails use magiclink → accept-invite
+  if (t == 'magiclink' && onAcceptPath) return true;
   return false;
 }
 
-/// Signup / email confirmation — tenant path, not team join.
 bool uriIndicatesSignupConfirm(Uri uri) {
   final qp = uri.queryParameters['type'];
   if (qp == 'signup' || qp == 'email') return true;
