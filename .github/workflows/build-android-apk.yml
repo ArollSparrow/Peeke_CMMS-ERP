@@ -1,8 +1,12 @@
 name: Build Android APK
 
 on:
-  # Manual only for artifact upload — avoids burning free Actions storage on every UI push.
   workflow_dispatch:
+    inputs:
+      upload_artifact:
+        description: "Upload APK to GitHub Actions artifacts (uses free storage quota)"
+        type: boolean
+        default: false
   push:
     branches: [main]
     paths:
@@ -17,9 +21,9 @@ permissions:
   contents: read
 
 jobs:
-  # Only on manual runs: wipe existing APK artifacts first so upload has a chance.
+  # Only when manually requesting an artifact upload: wipe old APK artifacts first.
   cleanup:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && inputs.upload_artifact == true
     runs-on: ubuntu-latest
     steps:
       - name: Delete all existing APK artifacts
@@ -67,7 +71,7 @@ jobs:
 
   apk:
     needs: [cleanup]
-    # When push: no cleanup job → needs is skipped; use if so push still runs.
+    # Push: cleanup skipped → still run. Manual without upload: cleanup skipped → still run.
     if: always() && (github.event_name == 'push' || needs.cleanup.result == 'success' || needs.cleanup.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -99,10 +103,12 @@ jobs:
             --dart-define=SUPABASE_URL=https://tappfahlaiixctyliesz.supabase.co \
             --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
 
-      # Free plan artifact quota fills fast (APK ~50–80MB × many runs).
-      # Upload only when manually triggered; push runs still verify the build.
-      - name: Upload APK
-        if: github.event_name == 'workflow_dispatch'
+      # Default: do NOT upload. Free-tier artifact quota is account-wide and
+      # fills quickly (~50–80MB per APK). Push runs only verify the build.
+      # Manual run: leave "Upload APK…" unchecked unless quota has recovered.
+      # Future: optional R2 publish (see docs/EDGE_AND_STORAGE_OPTIMIZATIONS.md).
+      - name: Upload APK artifact
+        if: github.event_name == 'workflow_dispatch' && inputs.upload_artifact == true
         uses: actions/upload-artifact@v6
         continue-on-error: true
         with:
@@ -110,3 +116,18 @@ jobs:
           path: build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 1
           overwrite: true
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Android APK build"
+            echo "- **Event:** \`${{ github.event_name }}\`"
+            echo "- **Build:** completed (see job log for success/failure)"
+            if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.upload_artifact }}" = "true" ]; then
+              echo "- **Artifact upload:** requested (may fail if storage quota is still full)"
+            else
+              echo "- **Artifact upload:** skipped (quota-safe default)"
+              echo "- **Get an APK:** run workflow manually with *Upload APK…* checked only after quota recovers, or build locally / publish to R2 later"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
