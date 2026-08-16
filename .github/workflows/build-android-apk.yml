@@ -3,8 +3,12 @@ name: Build Android APK
 on:
   workflow_dispatch:
     inputs:
-      upload_artifact:
-        description: "Upload APK to GitHub Actions artifacts (uses free storage quota)"
+      publish_r2:
+        description: "Publish APK to Cloudflare R2 (recommended)"
+        type: boolean
+        default: true
+      upload_github_artifact:
+        description: "Also upload to GitHub Actions artifacts (uses free storage quota)"
         type: boolean
         default: false
   push:
@@ -21,9 +25,9 @@ permissions:
   contents: read
 
 jobs:
-  # Only when manually requesting an artifact upload: wipe old APK artifacts first.
+  # Only when explicitly requesting GitHub artifact upload.
   cleanup:
-    if: github.event_name == 'workflow_dispatch' && inputs.upload_artifact == true
+    if: github.event_name == 'workflow_dispatch' && inputs.upload_github_artifact == true
     runs-on: ubuntu-latest
     steps:
       - name: Delete all existing APK artifacts
@@ -67,11 +71,10 @@ jobs:
             fi
             page=$((page + 1))
           done
-          echo "Deleted $deleted APK artifact(s). Quota meter may lag 6–12h."
+          echo "Deleted $deleted APK artifact(s)."
 
   apk:
     needs: [cleanup]
-    # Push: cleanup skipped → still run. Manual without upload: cleanup skipped → still run.
     if: always() && (github.event_name == 'push' || needs.cleanup.result == 'success' || needs.cleanup.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -102,13 +105,67 @@ jobs:
           flutter build apk --debug \
             --dart-define=SUPABASE_URL=https://tappfahlaiixctyliesz.supabase.co \
             --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+          ls -lh build/app/outputs/flutter-apk/
 
-      # Default: do NOT upload. Free-tier artifact quota is account-wide and
-      # fills quickly (~50–80MB per APK). Push runs only verify the build.
-      # Manual run: leave "Upload APK…" unchecked unless quota has recovered.
-      # Future: optional R2 publish (see docs/EDGE_AND_STORAGE_OPTIMIZATIONS.md).
-      - name: Upload APK artifact
-        if: github.event_name == 'workflow_dispatch' && inputs.upload_artifact == true
+      # ── Cloudflare R2 (default path for downloadable APKs) ──────────────
+      # Secrets required (repo Settings → Secrets):
+      #   CLOUDFLARE_ACCOUNT_ID  (already used by Pages deploy)
+      #   R2_ACCESS_KEY_ID
+      #   R2_SECRET_ACCESS_KEY
+      #   R2_BUCKET              (e.g. peeke-ci or your existing bucket)
+      # Object key: ci/apk/peeke-cmms-erp-debug.apk (+ dated copy)
+      - name: Publish APK to R2
+        id: r2
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_r2 == true
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          set -euo pipefail
+          APK="build/app/outputs/flutter-apk/app-debug.apk"
+          if [ ! -f "$APK" ]; then
+            echo "APK not found at $APK" >&2
+            exit 1
+          fi
+          if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ] || [ -z "${R2_ACCOUNT_ID:-}" ] || [ -z "${R2_BUCKET:-}" ]; then
+            echo "Missing R2 secrets. Add R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, and CLOUDFLARE_ACCOUNT_ID." >&2
+            exit 1
+          fi
+
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          STABLE_KEY="ci/apk/peeke-cmms-erp-debug.apk"
+          DATED_KEY="ci/apk/peeke-cmms-erp-debug-${{ github.run_id }}.apk"
+
+          # ubuntu-latest includes awscli v2
+          aws s3 cp "$APK" "s3://${R2_BUCKET}/${STABLE_KEY}" \
+            --endpoint-url "$ENDPOINT" \
+            --content-type "application/vnd.android.package-archive" \
+            --only-show-errors
+
+          aws s3 cp "$APK" "s3://${R2_BUCKET}/${DATED_KEY}" \
+            --endpoint-url "$ENDPOINT" \
+            --content-type "application/vnd.android.package-archive" \
+            --only-show-errors
+
+          # Short-lived download URL (1 hour) — works with private buckets
+          PRESIGN=$(aws s3 presign "s3://${R2_BUCKET}/${STABLE_KEY}" \
+            --endpoint-url "$ENDPOINT" \
+            --expires-in 3600)
+
+          echo "stable_key=${STABLE_KEY}" >> "$GITHUB_OUTPUT"
+          echo "dated_key=${DATED_KEY}" >> "$GITHUB_OUTPUT"
+          echo "bucket=${R2_BUCKET}" >> "$GITHUB_OUTPUT"
+          # Multline-safe: write presign to a file for summary step
+          echo "$PRESIGN" > /tmp/r2-presign.txt
+          echo "Published to s3://${R2_BUCKET}/${STABLE_KEY}"
+          echo "Presigned URL expires in 1 hour."
+
+      # Legacy GitHub artifact path — off by default (quota).
+      - name: Upload GitHub artifact
+        if: github.event_name == 'workflow_dispatch' && inputs.upload_github_artifact == true
         uses: actions/upload-artifact@v6
         continue-on-error: true
         with:
@@ -119,15 +176,34 @@ jobs:
 
       - name: Summary
         if: always()
+        env:
+          EVENT: ${{ github.event_name }}
+          PUBLISH_R2: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_r2 || false }}
+          GH_ARTIFACT: ${{ github.event_name == 'workflow_dispatch' && inputs.upload_github_artifact || false }}
+          R2_OK: ${{ steps.r2.outcome }}
         run: |
           {
             echo "### Android APK build"
-            echo "- **Event:** \`${{ github.event_name }}\`"
-            echo "- **Build:** completed (see job log for success/failure)"
-            if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.upload_artifact }}" = "true" ]; then
-              echo "- **Artifact upload:** requested (may fail if storage quota is still full)"
+            echo "- **Event:** \`$EVENT\`"
+            echo "- **Build:** see job log for success/failure"
+            if [ "$EVENT" = "workflow_dispatch" ] && [ "$PUBLISH_R2" = "true" ]; then
+              if [ "${R2_OK:-}" = "success" ] && [ -f /tmp/r2-presign.txt ]; then
+                echo "- **R2:** published"
+                echo "  - Bucket object: \`ci/apk/peeke-cmms-erp-debug.apk\`"
+                echo "  - Run copy: \`ci/apk/peeke-cmms-erp-debug-${{ github.run_id }}.apk\`"
+                echo "- **Download (presigned, ~1h):**"
+                echo "  "
+                echo "  $(cat /tmp/r2-presign.txt)"
+                echo "  "
+              else
+                echo "- **R2:** publish requested but step did not succeed — check secrets (R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, CLOUDFLARE_ACCOUNT_ID)"
+              fi
             else
-              echo "- **Artifact upload:** skipped (quota-safe default)"
-              echo "- **Get an APK:** run workflow manually with *Upload APK…* checked only after quota recovers, or build locally / publish to R2 later"
+              echo "- **R2:** skipped (push verify-only, or publish_r2 unchecked)"
+            fi
+            if [ "$EVENT" = "workflow_dispatch" ] && [ "$GH_ARTIFACT" = "true" ]; then
+              echo "- **GitHub artifact:** requested"
+            else
+              echo "- **GitHub artifact:** skipped (quota-safe)"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
