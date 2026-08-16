@@ -307,12 +307,19 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     }
   }
 
+  /// Cancel pending invite via edge function so residual Auth users are
+  /// cleaned when the email is not a member of any organisation. That
+  /// unblocks a later inviteUserByEmail so mail can reach the inbox again.
   Future<void> _revokeInvite(OrgInviteRow invite) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Cancel invite?'),
-        content: Text('Revoke pending invite for ${invite.email}?'),
+        content: Text(
+          'Revoke pending invite for ${invite.email}?\n\n'
+          'Any leftover Auth account that is not a member of any organisation '
+          'will also be removed so a fresh invite can reach the inbox.',
+        ),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -325,14 +332,21 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     );
     if (ok != true) return;
     try {
-      await ref.read(supabaseClientProvider).rpc(
-        'revoke_org_invite',
-        params: {'p_invite_id': invite.id},
+      final res = await ref.read(supabaseClientProvider).functions.invoke(
+        'revoke-org-invite',
+        body: {'invite_id': invite.id},
       );
+      final data = res.data;
+      if (data is Map && data['error'] != null) {
+        throw Exception(data['error'].toString());
+      }
       ref.invalidate(orgInvitesProvider);
       if (mounted) {
+        final cleaned = data is Map && data['auth_user_deleted'] == true;
         setState(() {
-          _message = 'Invite cancelled for ${invite.email}';
+          _message = cleaned
+              ? 'Invite cancelled for ${invite.email} (residual Auth user cleaned)'
+              : 'Invite cancelled for ${invite.email}';
           _actionLink = null;
         });
       }

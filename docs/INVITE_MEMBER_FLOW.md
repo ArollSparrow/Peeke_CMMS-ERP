@@ -40,3 +40,26 @@ organization_members row → invite status accepted
 
 - Cancel pending invite → Edge Function `revoke-org-invite` (invite row + residual Auth cleanup)
 - Remove member → `remove_org_member`
+
+## Residual Auth cleanup (why cancel must use the edge function)
+
+`inviteUserByEmail` / `generateLink` creates an Auth user even when the invite email never arrives. A plain RPC that only deletes `organization_invites` leaves that Auth user behind. The next invite then cannot send mail and falls back to the WhatsApp/SMS action_link.
+
+**Cancel path (client):** `functions.invoke('revoke-org-invite', { invite_id })`
+
+**Edge function responsibilities:**
+
+1. Verify caller is elevated in the invite’s organisation.
+2. Delete the pending `organization_invites` row.
+3. If the invitee email has **no** `organization_members` row and **no** other pending invites → `auth.admin.deleteUser` for that residual Auth user.
+4. Return `{ ok, email, auth_user_deleted }`.
+
+After a successful cancel with `auth_user_deleted: true`, a fresh **Send invite** can create a clean Auth user and deliver the invite email again.
+
+## Deploy note
+
+```bash
+supabase functions deploy revoke-org-invite --project-ref <your-ref>
+```
+
+Ensure the function has access to `SUPABASE_SERVICE_ROLE_KEY` (default on hosted projects).
