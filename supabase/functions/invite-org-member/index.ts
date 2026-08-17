@@ -14,6 +14,10 @@ const ELEVATED = new Set([
   "general_manager",
 ]);
 
+// Pragmatic format check — not full RFC 5322, just enough to reject
+// obviously malformed input before it reaches the Admin API.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 /** Find Auth user id by email (paginate; tenant projects stay small). */
 async function findAuthUserIdByEmail(
   admin: ReturnType<typeof createClient>,
@@ -118,7 +122,7 @@ serve(async (req) => {
     const redirectTo = (body.redirect_to as string | undefined) ??
       undefined;
 
-    if (!organizationId || !emailRaw || !emailRaw.includes("@")) {
+    if (!organizationId || !emailRaw || !EMAIL_RE.test(emailRaw.trim())) {
       return new Response(
         JSON.stringify({ error: "organization_id and valid email required" }),
         {
@@ -173,12 +177,18 @@ serve(async (req) => {
     }
 
     // Remove prior pending invites for this email in this org (re-invite)
-    await admin
+    const { error: delPendingErr } = await admin
       .from("organization_invites")
       .delete()
       .eq("organization_id", organizationId)
       .eq("email", email)
       .eq("status", "pending");
+    if (delPendingErr) {
+      console.error(
+        "invite-org-member: failed to clear prior pending invite:",
+        delPendingErr.message,
+      );
+    }
 
     // SaaS: auto-purge residual Auth user that blocks inviteUserByEmail.
     // Only when they have zero memberships anywhere.
