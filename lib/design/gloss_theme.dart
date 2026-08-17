@@ -304,10 +304,21 @@ class GlossTheme {
           borderRadius: BorderRadius.circular(GlossSurfaces.tileRadius),
         ),
       ),
+      // App-wide dialog template — AlertDialog/Dialog inherit these by default.
+      // Override per-screen only when layout needs it (e.g. insetPadding).
       dialogTheme: DialogThemeData(
         backgroundColor: GlossColors.sky,
+        surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(GlossSurfaces.dialogRadius),
+        ),
+        titleTextStyle: GlossSurfaces.logoMark.copyWith(
+          fontSize: 17,
+          fontWeight: FontWeight.w600,
+        ),
+        contentTextStyle: GlossSurfaces.logoMark.copyWith(
+          fontSize: 14,
+          height: 1.35,
         ),
       ),
       dividerColor: GlossColors.teal,
