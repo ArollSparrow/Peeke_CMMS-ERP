@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../design/gloss_theme.dart';
 import '../../infra/friendly_error.dart';
@@ -231,45 +230,9 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     super.dispose();
   }
 
+  /// Cyan gloss plate shell — same visual language as member tiles.
   Widget _glossField({required Widget child}) {
     return GlossSurfaces.fieldShell(child: child);
-  }
-
-  /// Start a phone call when the member has a number on file.
-  Future<void> _callMember(OrgMemberRow m) async {
-    final raw = m.phone?.trim() ?? '';
-    if (raw.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No phone number on this member')),
-        );
-      }
-      return;
-    }
-    final digits = raw.replaceAll(RegExp(r'[^\d+]'), '');
-    if (digits.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Phone number is not dialable')),
-        );
-      }
-      return;
-    }
-    final uri = Uri(scheme: 'tel', path: digits);
-    try {
-      final ok = await launchUrl(uri);
-      if (!ok && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open the phone dialer')),
-        );
-      }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open the phone dialer')),
-        );
-      }
-    }
   }
 
   Future<void> _invite() async {
@@ -314,11 +277,14 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
       } else {
         final msg = map['message']?.toString();
         final link = map['action_link']?.toString();
+        final status = map['status']?.toString();
         setState(() {
           _message = msg ?? 'Invite saved for $email';
-          // Always show Copy when backend returns a link (admin fallback).
-          _actionLink =
-              (link != null && link.isNotEmpty) ? link : null;
+          _actionLink = (status == 'invite_saved' &&
+                  link != null &&
+                  link.isNotEmpty)
+              ? link
+              : null;
         });
         _email.clear();
       }
@@ -341,6 +307,9 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     }
   }
 
+  /// Cancel pending invite via edge function so residual Auth users are
+  /// cleaned when the email is not a member of any organisation. That
+  /// unblocks a later inviteUserByEmail so mail can reach the inbox again.
   Future<void> _revokeInvite(OrgInviteRow invite) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -400,6 +369,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     }
     final ok = await showDialog<bool>(
       context: context,
+      // Shape + sky background from GlossTheme.dialogTheme.
       builder: (ctx) => AlertDialog(
         title: const Text('Remove member?'),
         content: Text(
@@ -530,6 +500,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
               }
             }
 
+            // Sky + radius from GlossTheme.dialogTheme; insetPadding is layout-only.
             return Dialog(
               insetPadding:
                   const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
@@ -564,6 +535,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
+                            // Tap avatar to change photo — no camera icon / label.
                             Align(
                               alignment: Alignment.centerLeft,
                               child: Material(
@@ -810,6 +782,8 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     }
   }
 
+  /// Department chips in member details: cyan gloss by default;
+  /// navy gloss when selected (and HoD suffix in label).
   Widget _deptChip({
     required OrgDept dept,
     required bool selected,
@@ -876,7 +850,6 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     final isMe = m.userId == me;
     final depts = m.departmentLabels;
     final hods = m.hodLabels;
-    final hasPhone = (m.phone != null && m.phone!.trim().isNotEmpty);
 
     final nameParts = <String>[name];
     if (title != null) nameParts.add(title);
@@ -889,6 +862,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
         if (!depts.contains(h)) '$h(HoD)',
     ];
 
+    // Meta: role first, then departments — always show role at a glance.
     final metaParts = <String>[OrgRoles.label(m.role)];
     if (deptLabels.isNotEmpty) metaParts.addAll(deptLabels);
     final metaLine = metaParts.join(' · ');
@@ -911,6 +885,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // Meta (role · depts) on top — deeper teal
                   Row(
                     children: [
                       Icon(
@@ -929,6 +904,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                       ),
                     ],
                   ),
+                  // Navy name line on bottom
                   Text(
                     nameLine,
                     style: GlossSurfaces.tileName,
@@ -938,21 +914,6 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                 ],
               ),
             ),
-            if (hasPhone)
-              IconButton(
-                tooltip: 'Call ${m.phone}',
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(
-                  minWidth: 36,
-                  minHeight: 36,
-                ),
-                icon: Icon(
-                  Icons.call_outlined,
-                  color: GlossColors.tealDeep,
-                  size: 20,
-                ),
-                onPressed: () => _callMember(m),
-              ),
             if (canManage)
               PopupMenuButton<String>(
                 tooltip: 'Actions',
@@ -974,18 +935,12 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                 onSelected: (value) {
                   if (value == 'edit') _editMember(m);
                   if (value == 'remove') _removeMember(m);
-                  if (value == 'call') _callMember(m);
                 },
                 itemBuilder: (ctx) => [
                   PopupMenuItem(
                     value: 'edit',
                     child: Text('Edit', style: GlossSurfaces.logoMark),
                   ),
-                  if (hasPhone)
-                    PopupMenuItem(
-                      value: 'call',
-                      child: Text('Call', style: GlossSurfaces.logoMark),
-                    ),
                   if (!isMe && m.role != OrgRoles.owner)
                     PopupMenuItem(
                       value: 'remove',
@@ -993,7 +948,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                     ),
                 ],
               )
-            else if (!hasPhone)
+            else
               const SizedBox(width: 8),
           ],
         ),
@@ -1178,7 +1133,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
             if (_actionLink != null) ...[
               const SizedBox(height: 12),
               Text(
-                'Share invite link (WhatsApp / SMS) if email is delayed:',
+                'Email may be delayed — share this link (WhatsApp / SMS):',
                 style: GlossSurfaces.logoMark,
               ),
               const SizedBox(height: 6),
