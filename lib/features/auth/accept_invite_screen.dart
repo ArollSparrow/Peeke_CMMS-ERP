@@ -11,8 +11,8 @@ import 'auth_providers.dart';
 /// Dedicated path for **team invitees** only.
 /// Tenant signup / Create Organisation must never land here.
 ///
-/// Primary activation path: **email invite link** (type=invite session).
-/// Admin WhatsApp/SMS action_link is fallback only when mail cannot deliver.
+/// Primary activation path: **email invite link**.
+/// Admin WhatsApp/SMS action_link is fallback when mail cannot deliver.
 class AcceptInviteScreen extends ConsumerStatefulWidget {
   const AcceptInviteScreen({super.key});
 
@@ -49,78 +49,156 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
     super.dispose();
   }
 
-  /// Email invite lands as /accept-invite#access_token=…&type=invite (or error=…).
-  /// Explicit recovery covers races where detectSessionInUri has not finished yet.
+  void _markInviteSession() {
+    ref.read(invitePasswordPendingProvider.notifier).state = true;
+    ref.read(teamInviteLandingProvider.notifier).state = true;
+  }
+
+  /// Recover session from whatever the email (or admin action_link) put in the URL:
+  /// - PKCE: ?code=
+  /// - Implicit: #access_token=…&type=invite
+  /// - token_hash: ?token_hash=…&type=invite (custom templates)
   Future<void> _recoverInviteSessionFromUrl() async {
     if (!kIsWeb) return;
     final client = ref.read(supabaseClientProvider);
     if (client.auth.currentUser != null) {
-      ref.read(invitePasswordPendingProvider.notifier).state = true;
-      ref.read(teamInviteLandingProvider.notifier).state = true;
+      _markInviteSession();
       return;
     }
 
     final uri = Uri.base;
     final linkError = _authErrorFromUri(uri);
     if (linkError != null) {
-      setState(() => _error = linkError);
+      if (mounted) setState(() => _error = linkError);
       return;
     }
 
-    final hasTokenPayload = _uriHasAuthTokens(uri);
-    if (!hasTokenPayload && !uriIndicatesInvite(uri)) {
-      // Bare /accept-invite with no tokens — wait briefly in case session is mid-load.
-      setState(() => _recovering = true);
-      await Future<void>.delayed(const Duration(milliseconds: 800));
-      if (!mounted) return;
-      if (client.auth.currentUser != null) {
-        ref.read(invitePasswordPendingProvider.notifier).state = true;
-        ref.read(teamInviteLandingProvider.notifier).state = true;
-        setState(() => _recovering = false);
-        return;
-      }
+    if (mounted) {
       setState(() {
-        _recovering = false;
-        _error ==
-            'This page needs a valid invite from your email. '
-            'Open the latest “Accept invitation” link from your inbox '
-            '(not a bookmarked page). If the link was already used or expired, '
-            'ask your organisation admin to send a new invite.';
+        _recovering = true;
+        _error = null;
       });
-      return;
     }
-
-    setState(() {
-      _recovering = true;
-      _error = null;
-    });
 
     try {
-      // Stores session + emits signedIn when tokens are present.
-      await client.auth.getSessionFromUrl(uri);
-      ref.read(invitePasswordPendingProvider.notifier).state = true;
-      ref.read(teamInviteLandingProvider.notifier).state = true;
+      // 1) token_hash + type (works even when ConfirmationURL was customized)
+      final tokenHash = uri.queryParameters['token_hash'] ??
+          _fragParam(uri, 'token_hash');
+      final otpType = uri.queryParameters['type'] ?? _fragParam(uri, 'type');
+      if (tokenHash != null &&
+          tokenHash.isNotEmpty &&
+          (otpType == 'invite' ||
+              otpType == 'magiclink' ||
+              otpType == 'email')) {
+        final type = otpType == 'magiclink'
+            ? OtpType.magiclink
+            : otpType == 'email'
+                ? OtpType.email
+                : OtpType.invite;
+        await client.auth.verifyOTP(
+          tokenHash: tokenHash,
+          type: type,
+        );
+        if (client.auth.currentUser != null) {
+          _markInviteSession();
+          return;
+        }
+      }
+
+      // 2) PKCE auth code
+      final code =
+          uri.queryParameters['code'] ?? _fragParam(uri, 'code');
+      if (code != null && code.isNotEmpty) {
+        await client.auth.exchangeCodeForSession(code);
+        if (client.auth.currentUser != null) {
+          _markInviteSession();
+          return;
+        }
+      }
+
+      // 3) Implicit hash / query tokens
+      if (_uriHasAuthTokens(uri) || uriIndicatesInvite(uri)) {
+        try {
+          await client.auth.getSessionFromUrl(uri);
+        } catch (_) {
+          // detectSessionInUri may already have consumed the fragment
+        }
+        if (client.auth.currentUser != null) {
+          _markInviteSession();
+          return;
+        }
+      }
+
+      // 4) Brief wait for auto detectSessionInUri
+      for (var i = 0; i < 6; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+        if (!mounted) return;
+        if (client.auth.currentUser != null) {
+          _markInviteSession();
+          return;
+        }
+      }
+
+      if (!mounted) return;
+      final bare = !_uriHasAuthTokens(uri) &&
+          (uri.queryParameters['code']?.isEmpty ?? true) &&
+          (uri.queryParameters['token_hash']?.isEmpty ?? true) &&
+          !_fragHasAuth(uri);
+      setState(() {
+        _error = bare
+            ? 'This page has no invite session tokens. '
+                'Usually that means the email link was already opened once '
+                '(Gmail/Chrome preview can use up a one-time link), '
+                'or the redirect lost the tokens.\n\n'
+                'Ask the organisation admin to cancel and send a new invite, '
+                'then open the new email link once in a private window '
+                '(do not preview the link first).'
+            : 'Could not activate this invite link. '
+                'It may be expired or already used. '
+                'Ask your organisation admin to send a fresh invite email.';
+      });
     } on AuthException catch (e) {
       final msg = e.message.toLowerCase();
-      if (msg.contains('expired') ||
-          msg.contains('invalid') ||
-          msg.contains('access_denied')) {
-        setState(() => _error =
-            'This invite link is invalid or has expired. '
-            'Ask your organisation admin to send a fresh invite email, '
-            'then open the new link while signed out.');
-      } else {
-        setState(() => _error = friendlyError(e));
+      if (mounted) {
+        setState(() {
+          if (msg.contains('expired') ||
+              msg.contains('invalid') ||
+              msg.contains('access_denied') ||
+              msg.contains('otp')) {
+            _error =
+                'This invite link is invalid or has expired. '
+                'Ask your organisation admin to send a fresh invite email, '
+                'then open the new link once in a private window.';
+          } else {
+            _error = friendlyError(e);
+          }
+        });
       }
     } catch (e) {
-      // If auto-detect already consumed the hash, currentUser may still appear.
-      await Future<void>.delayed(const Duration(milliseconds: 400));
-      if (client.auth.currentUser == null && mounted) {
+      if (mounted && client.auth.currentUser == null) {
         setState(() => _error = friendlyError(e));
       }
     } finally {
       if (mounted) setState(() => _recovering = false);
     }
+  }
+
+  static String? _fragParam(Uri uri, String key) {
+    final frag = uri.fragment;
+    if (frag.isEmpty) return null;
+    try {
+      return Uri.splitQueryString(frag)[key];
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static bool _fragHasAuth(Uri uri) {
+    final frag = uri.fragment;
+    if (frag.isEmpty) return false;
+    return frag.contains('access_token=') ||
+        frag.contains('refresh_token=') ||
+        frag.contains('type=invite');
   }
 
   static bool _uriHasAuthTokens(Uri uri) {
@@ -138,7 +216,6 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
     }
   }
 
-  /// Surfaces Supabase redirect errors (expired OTP, access_denied, etc.).
   static String? _authErrorFromUri(Uri uri) {
     String? pick(Map<String, String> m) {
       final desc = m['error_description'] ?? m['error'];
@@ -148,7 +225,7 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
       if (lower.contains('expired') || lower.contains('invalid')) {
         return 'This invite link is invalid or has expired. '
             'Ask your organisation admin to send a fresh invite email, '
-            'then open the new link while signed out.';
+            'then open the new link once in a private window.';
       }
       return decoded;
     }
@@ -164,7 +241,6 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
     }
   }
 
-  /// Session must be the invitee: email has a pending organization_invites row.
   Future<bool> _sessionIsInvitee(SupabaseClient client, User user) async {
     final email = user.email?.trim().toLowerCase();
     if (email == null || email.isEmpty) return false;
@@ -207,7 +283,6 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
 
     final client = ref.read(supabaseClientProvider);
 
-    // Guard: wrong session (e.g. owner still signed in after opening link)
     final okInvitee = await _sessionIsInvitee(client, user);
     if (!okInvitee) {
       setState(() => _error =
