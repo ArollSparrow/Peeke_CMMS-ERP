@@ -170,6 +170,8 @@ class GlossSurfaces {
       );
 
   /// Borderless input on top of [fieldPlate] — label floats in the gloss.
+  /// Vertical padding tuned so floating label + value + dropdown icon fit
+  /// inside [fieldHeight] without bottom clipping.
   static InputDecoration fieldDecoration(String label) {
     return InputDecoration(
       labelText: label.isEmpty ? null : label,
@@ -189,8 +191,12 @@ class GlossSurfaces {
     );
   }
 
+  /// Alias — text + dropdown share the same decoration.
   static InputDecoration compactField(String label) => fieldDecoration(label);
 
+  /// Gloss field shell: cyan plate + fixed height + borderless input child.
+  /// No hard clip on the child so dropdown value / floating label are not
+  /// truncated at the bottom; the plate radius still soft-clips via decoration.
   static Widget fieldShell({required Widget child}) {
     return Container(
       height: fieldHeight,
@@ -200,6 +206,8 @@ class GlossSurfaces {
     );
   }
 
+  /// Self-fitting cyan gloss CTA (SEND INVITE, SAVE) — same plate language
+  /// as tiles and fields for app-wide uniformity. Navy text on cyan plate.
   static Widget glossCta({
     required String label,
     required VoidCallback? onTap,
@@ -244,6 +252,7 @@ class GlossSurfaces {
     );
   }
 
+  /// @deprecated Use [glossCta] — kept as alias for any leftover call sites.
   static Widget navyCta({
     required String label,
     required VoidCallback? onTap,
@@ -295,6 +304,8 @@ class GlossTheme {
           borderRadius: BorderRadius.circular(GlossSurfaces.tileRadius),
         ),
       ),
+      // App-wide dialog template — AlertDialog/Dialog inherit these by default.
+      // Override per-screen only when layout needs it (e.g. insetPadding).
       dialogTheme: DialogThemeData(
         backgroundColor: GlossColors.sky,
         surfaceTintColor: Colors.transparent,
