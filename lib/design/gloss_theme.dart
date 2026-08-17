@@ -9,7 +9,6 @@ class GlossColors {
   static const Color teal = Color(0xFF55AAAC);
 
   /// Deeper teal for plate meta lines / icons — stronger contrast on cyan gloss.
-  /// Use on cyan plates for role/dept meta, secondary icons, and invite status.
   static const Color tealDeep = Color(0xFF2A7A7C);
 
   /// User-facing errors (friendly messages)
@@ -32,13 +31,10 @@ class GlossSurfaces {
   static const double tileRadius = 16;
 
   /// Corner radius for confirmation/detail dialogs (AlertDialog, Dialog).
-  /// Distinct from [tileRadius]/[fieldRadius] — dialogs read closer to a
-  /// system surface, so they get a bit more roundness than list tiles.
   static const double dialogRadius = 20;
   static const double tileMinHeight = 50;
 
   /// Practical locked height: fits floating label + dense input + dropdown.
-  /// (35px clipped labels; Material3 needs ~48.)
   static const double fieldHeight = 48;
 
   /// Comfortable gap between consecutive form fields / list tiles.
@@ -60,7 +56,7 @@ class GlossSurfaces {
     height: 1.2,
   );
 
-  /// Primary line on cyan plates (name) — navy, sits on the bottom.
+  /// Primary line on cyan plates (name) — navy.
   static TextStyle get tileName => logoMark.copyWith(
         fontSize: 13,
         fontWeight: FontWeight.w500,
@@ -68,7 +64,6 @@ class GlossSurfaces {
       );
 
   /// Meta line on cyan plates (role / depts / pending) — deeper teal, normal weight.
-  /// Depth comes from [GlossColors.tealDeep], not from heavier type.
   static TextStyle get tileMeta => TextStyle(
         fontSize: 12,
         fontWeight: FontWeight.w500,
@@ -80,98 +75,112 @@ class GlossSurfaces {
   /// Legacy alias
   static TextStyle get tileLine => tileName;
 
-  /// 3D gloss plate — cyan/sky depth from gradient + shadow only (no stroke).
-  /// Gradient ends near teal family so meta/icons in tealDeep read as one system.
+  /// Full-round deep gloss — depth on all sides, not only the bottom edge.
+  /// Diagonal light + dual soft shadows (down + slight up-rim) keep the plate
+  /// balanced so list rows don't look "heavy" at the base.
   static BoxDecoration get plate => BoxDecoration(
         borderRadius: BorderRadius.circular(tileRadius),
         gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
+          begin: Alignment(-0.85, -1.0),
+          end: Alignment(0.85, 1.0),
           colors: [
-            Color(0xFFD0EEF7),
-            Color(0xFFB0DCEB),
-            Color(0xFF6FA8B8),
-            Color(0xFF4A8A96),
+            Color(0xFFE8F7FC), // top-left specular
+            Color(0xFFC5E8F4),
+            Color(0xFF8EBFCE),
+            Color(0xFF5A9AAB), // deep body
+            Color(0xFF4A8A96), // rim
           ],
-          stops: [0.0, 0.35, 0.75, 1.0],
+          stops: [0.0, 0.22, 0.55, 0.82, 1.0],
         ),
         boxShadow: [
           BoxShadow(
-            color: GlossColors.navy.withValues(alpha: 0.14),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-            spreadRadius: -1,
+            color: GlossColors.navy.withValues(alpha: 0.16),
+            blurRadius: 12,
+            offset: const Offset(0, 5),
+            spreadRadius: -2,
           ),
           BoxShadow(
-            color: GlossColors.navy.withValues(alpha: 0.06),
-            blurRadius: 3,
+            color: GlossColors.navy.withValues(alpha: 0.08),
+            blurRadius: 4,
+            offset: const Offset(0, -1),
+            spreadRadius: 0,
+          ),
+          BoxShadow(
+            color: Colors.white.withValues(alpha: 0.35),
+            blurRadius: 2,
             offset: const Offset(0, 1),
+            spreadRadius: -1,
           ),
         ],
       );
 
-  /// Navy gloss plate — same depth model as [plate]: bright top specular →
-  /// mid body → deep base, dual shadow. Used for selected chips (contrast).
+  /// Navy gloss — same omnidirectional depth model as [plate].
   static BoxDecoration get navyPlate => BoxDecoration(
         borderRadius: BorderRadius.circular(tileRadius),
         gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
+          begin: Alignment(-0.85, -1.0),
+          end: Alignment(0.85, 1.0),
           colors: [
-            Color(0xFF5B62C4), // specular highlight
-            Color(0xFF3E4498),
-            Color(0xFF2A2E78),
-            Color(0xFF1A1D52), // deep base
+            Color(0xFF6B72D4),
+            Color(0xFF4A50B0),
+            Color(0xFF2E3388),
+            Color(0xFF1E2258),
+            Color(0xFF15183F),
           ],
-          stops: [0.0, 0.32, 0.72, 1.0],
+          stops: [0.0, 0.22, 0.55, 0.82, 1.0],
         ),
         boxShadow: [
           BoxShadow(
-            color: GlossColors.navy.withValues(alpha: 0.32),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-            spreadRadius: -1,
+            color: GlossColors.navy.withValues(alpha: 0.36),
+            blurRadius: 12,
+            offset: const Offset(0, 5),
+            spreadRadius: -2,
           ),
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.14),
-            blurRadius: 3,
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 4,
+            offset: const Offset(0, -1),
+          ),
+          BoxShadow(
+            color: Colors.white.withValues(alpha: 0.12),
+            blurRadius: 2,
             offset: const Offset(0, 1),
+            spreadRadius: -1,
           ),
         ],
       );
 
-  /// Field outer shell — same cyan gloss language as member tiles, pill radius.
+  /// Field outer shell — full-round cyan gloss, pill radius.
   static BoxDecoration get fieldPlate => BoxDecoration(
         borderRadius: BorderRadius.circular(fieldRadius),
         gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
+          begin: Alignment(-0.85, -1.0),
+          end: Alignment(0.85, 1.0),
           colors: [
-            Color(0xFFD0EEF7),
-            Color(0xFFB0DCEB),
-            Color(0xFF6FA8B8),
+            Color(0xFFE8F7FC),
+            Color(0xFFC5E8F4),
+            Color(0xFF8EBFCE),
+            Color(0xFF5A9AAB),
             Color(0xFF4A8A96),
           ],
-          stops: [0.0, 0.35, 0.75, 1.0],
+          stops: [0.0, 0.22, 0.55, 0.82, 1.0],
         ),
         boxShadow: [
           BoxShadow(
             color: GlossColors.navy.withValues(alpha: 0.12),
             blurRadius: 10,
             offset: const Offset(0, 4),
-            spreadRadius: -1,
+            spreadRadius: -2,
           ),
           BoxShadow(
-            color: GlossColors.navy.withValues(alpha: 0.05),
-            blurRadius: 2,
-            offset: const Offset(0, 1),
+            color: GlossColors.navy.withValues(alpha: 0.06),
+            blurRadius: 3,
+            offset: const Offset(0, -1),
           ),
         ],
       );
 
-  /// Borderless input on top of [fieldPlate] — label floats in the gloss.
-  /// Vertical padding tuned so floating label + value + dropdown icon fit
-  /// inside [fieldHeight] without bottom clipping.
+  /// Borderless input on top of [fieldPlate].
   static InputDecoration fieldDecoration(String label) {
     return InputDecoration(
       labelText: label.isEmpty ? null : label,
@@ -191,12 +200,8 @@ class GlossSurfaces {
     );
   }
 
-  /// Alias — text + dropdown share the same decoration.
   static InputDecoration compactField(String label) => fieldDecoration(label);
 
-  /// Gloss field shell: cyan plate + fixed height + borderless input child.
-  /// No hard clip on the child so dropdown value / floating label are not
-  /// truncated at the bottom; the plate radius still soft-clips via decoration.
   static Widget fieldShell({required Widget child}) {
     return Container(
       height: fieldHeight,
@@ -206,8 +211,6 @@ class GlossSurfaces {
     );
   }
 
-  /// Self-fitting cyan gloss CTA (SEND INVITE, SAVE) — same plate language
-  /// as tiles and fields for app-wide uniformity. Navy text on cyan plate.
   static Widget glossCta({
     required String label,
     required VoidCallback? onTap,
@@ -252,7 +255,6 @@ class GlossSurfaces {
     );
   }
 
-  /// @deprecated Use [glossCta] — kept as alias for any leftover call sites.
   static Widget navyCta({
     required String label,
     required VoidCallback? onTap,
@@ -304,8 +306,6 @@ class GlossTheme {
           borderRadius: BorderRadius.circular(GlossSurfaces.tileRadius),
         ),
       ),
-      // App-wide dialog template — AlertDialog/Dialog inherit these by default.
-      // Override per-screen only when layout needs it (e.g. insetPadding).
       dialogTheme: DialogThemeData(
         backgroundColor: GlossColors.sky,
         surfaceTintColor: Colors.transparent,
@@ -330,8 +330,7 @@ class GlossTheme {
         filled: true,
         fillColor: Colors.white.withValues(alpha: 0.28),
         isDense: true,
-        contentPadding:
-            const EdgeInsets.fromLTRB(16, 10, 12, 10),
+        contentPadding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
         labelStyle: GlossSurfaces.logoMark.copyWith(fontSize: 13),
         floatingLabelStyle: GlossSurfaces.logoAccent.copyWith(fontSize: 11),
         border: InputBorder.none,
