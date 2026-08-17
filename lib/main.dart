@@ -19,6 +19,15 @@ Future<void> main() async {
   await Supabase.initialize(
     url: SupabaseEnv.url,
     anonKey: SupabaseEnv.anonKey,
+    // Team invite emails (inviteUserByEmail) redirect with #access_token=…&type=invite
+    // (implicit grant). Default PKCE expects ?code= and leaves the invitee with no
+    // session → Accept invite shows “Link not active yet”. Implicit on web is
+    // required so mail remains the primary path for members.
+    authOptions: FlutterAuthClientOptions(
+      authFlowType: kIsWeb ? AuthFlowType.implicit : AuthFlowType.pkce,
+      detectSessionInUri: true,
+      autoRefreshToken: true,
+    ),
   );
 
   runApp(

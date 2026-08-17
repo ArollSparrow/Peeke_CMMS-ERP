@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +10,9 @@ import 'auth_providers.dart';
 
 /// Dedicated path for **team invitees** only.
 /// Tenant signup / Create Organisation must never land here.
+///
+/// Primary activation path: **email invite link** (type=invite session).
+/// Admin WhatsApp/SMS action_link is fallback only when mail cannot deliver.
 class AcceptInviteScreen extends ConsumerStatefulWidget {
   const AcceptInviteScreen({super.key});
 
@@ -23,7 +27,18 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
   final _confirm = TextEditingController();
   bool _busy = false;
   bool _show = false;
+  bool _recovering = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    if (kIsWeb) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _recoverInviteSessionFromUrl();
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -32,6 +47,121 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
     _password.dispose();
     _confirm.dispose();
     super.dispose();
+  }
+
+  /// Email invite lands as /accept-invite#access_token=…&type=invite (or error=…).
+  /// Explicit recovery covers races where detectSessionInUri has not finished yet.
+  Future<void> _recoverInviteSessionFromUrl() async {
+    if (!kIsWeb) return;
+    final client = ref.read(supabaseClientProvider);
+    if (client.auth.currentUser != null) {
+      ref.read(invitePasswordPendingProvider.notifier).state = true;
+      ref.read(teamInviteLandingProvider.notifier).state = true;
+      return;
+    }
+
+    final uri = Uri.base;
+    final linkError = _authErrorFromUri(uri);
+    if (linkError != null) {
+      setState(() => _error = linkError);
+      return;
+    }
+
+    final hasTokenPayload = _uriHasAuthTokens(uri);
+    if (!hasTokenPayload && !uriIndicatesInvite(uri)) {
+      // Bare /accept-invite with no tokens — wait briefly in case session is mid-load.
+      setState(() => _recovering = true);
+      await Future<void>.delayed(const Duration(milliseconds: 800));
+      if (!mounted) return;
+      if (client.auth.currentUser != null) {
+        ref.read(invitePasswordPendingProvider.notifier).state = true;
+        ref.read(teamInviteLandingProvider.notifier).state = true;
+        setState(() => _recovering = false);
+        return;
+      }
+      setState(() {
+        _recovering = false;
+        _error ==
+            'This page needs a valid invite from your email. '
+            'Open the latest “Accept invitation” link from your inbox '
+            '(not a bookmarked page). If the link was already used or expired, '
+            'ask your organisation admin to send a new invite.';
+      });
+      return;
+    }
+
+    setState(() {
+      _recovering = true;
+      _error = null;
+    });
+
+    try {
+      // Stores session + emits signedIn when tokens are present.
+      await client.auth.getSessionFromUrl(uri);
+      ref.read(invitePasswordPendingProvider.notifier).state = true;
+      ref.read(teamInviteLandingProvider.notifier).state = true;
+    } on AuthException catch (e) {
+      final msg = e.message.toLowerCase();
+      if (msg.contains('expired') ||
+          msg.contains('invalid') ||
+          msg.contains('access_denied')) {
+        setState(() => _error =
+            'This invite link is invalid or has expired. '
+            'Ask your organisation admin to send a fresh invite email, '
+            'then open the new link while signed out.');
+      } else {
+        setState(() => _error = friendlyError(e));
+      }
+    } catch (e) {
+      // If auto-detect already consumed the hash, currentUser may still appear.
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      if (client.auth.currentUser == null && mounted) {
+        setState(() => _error = friendlyError(e));
+      }
+    } finally {
+      if (mounted) setState(() => _recovering = false);
+    }
+  }
+
+  static bool _uriHasAuthTokens(Uri uri) {
+    bool hasIn(Map<String, String> m) =>
+        (m['access_token']?.isNotEmpty ?? false) ||
+        (m['refresh_token']?.isNotEmpty ?? false);
+
+    if (hasIn(uri.queryParameters)) return true;
+    final frag = uri.fragment;
+    if (frag.isEmpty) return false;
+    try {
+      return hasIn(Uri.splitQueryString(frag));
+    } catch (_) {
+      return frag.contains('access_token=');
+    }
+  }
+
+  /// Surfaces Supabase redirect errors (expired OTP, access_denied, etc.).
+  static String? _authErrorFromUri(Uri uri) {
+    String? pick(Map<String, String> m) {
+      final desc = m['error_description'] ?? m['error'];
+      if (desc == null || desc.isEmpty) return null;
+      final decoded = Uri.decodeComponent(desc.replaceAll('+', ' '));
+      final lower = decoded.toLowerCase();
+      if (lower.contains('expired') || lower.contains('invalid')) {
+        return 'This invite link is invalid or has expired. '
+            'Ask your organisation admin to send a fresh invite email, '
+            'then open the new link while signed out.';
+      }
+      return decoded;
+    }
+
+    final fromQuery = pick(uri.queryParameters);
+    if (fromQuery != null) return fromQuery;
+    final frag = uri.fragment;
+    if (frag.isEmpty) return null;
+    try {
+      return pick(Uri.splitQueryString(frag));
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Session must be the invitee: email has a pending organization_invites row.
@@ -71,19 +201,20 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
     if (user == null) {
       setState(() => _error =
           'Invite session not active. Open the latest Accept invitation link '
-          'while signed out (or in a private window). Do not use Create Organisation.');
+          'from your email while signed out (or in a private window).');
       return;
     }
 
     final client = ref.read(supabaseClientProvider);
 
-    // Guard: wrong session (e.g. owner still signed in after WhatsApp link)
+    // Guard: wrong session (e.g. owner still signed in after opening link)
     final okInvitee = await _sessionIsInvitee(client, user);
     if (!okInvitee) {
       setState(() => _error =
           'This session (${user.email}) has no pending team invite. '
-          'Sign out completely, then open the invite link in a private window '
-          'so you join as the invited email — not as the organisation owner.');
+          'Sign out completely, then open the invite link from your email '
+          'in a private window so you join as the invited email — '
+          'not as the organisation owner.');
       return;
     }
 
@@ -175,6 +306,7 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
     final user = ref.watch(currentUserProvider);
     final email = user?.email;
     final sessionReady = user != null;
+    final fieldsEnabled = sessionReady && !_busy && !_recovering;
 
     return Scaffold(
       backgroundColor: GlossColors.sky,
@@ -221,10 +353,12 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
                         ? 'Invited as $email\n'
                             'Enter your details and create a password to become a member. '
                             'This is not organisation registration.\n'
-                            'If this is not the invited email, sign out and open the link in a private window.'
-                        : 'Waiting for invite session…\n'
-                            'Open the full Accept invitation link while signed out '
-                            '(or in a private window). Expired links will not activate this form.',
+                            'If this is not the invited email, sign out and open the link from your email in a private window.'
+                        : _recovering
+                            ? 'Activating your invite from email…'
+                            : 'Open the Accept invitation link from your email '
+                                'while signed out (or in a private window). '
+                                'Expired or already-used links will not activate this form.',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: GlossColors.teal,
@@ -235,7 +369,7 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
                   const SizedBox(height: 20),
                   TextField(
                     controller: _fullName,
-                    enabled: sessionReady && !_busy,
+                    enabled: fieldsEnabled,
                     textCapitalization: TextCapitalization.words,
                     style: const TextStyle(color: GlossColors.navy),
                     cursorColor: GlossColors.navy,
@@ -245,7 +379,7 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: _phone,
-                    enabled: sessionReady && !_busy,
+                    enabled: fieldsEnabled,
                     keyboardType: TextInputType.phone,
                     style: const TextStyle(color: GlossColors.navy),
                     cursorColor: GlossColors.navy,
@@ -255,7 +389,7 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: _password,
-                    enabled: sessionReady && !_busy,
+                    enabled: fieldsEnabled,
                     obscureText: !_show,
                     style: const TextStyle(color: GlossColors.navy),
                     cursorColor: GlossColors.navy,
@@ -273,7 +407,7 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: _confirm,
-                    enabled: sessionReady && !_busy,
+                    enabled: fieldsEnabled,
                     obscureText: !_show,
                     style: const TextStyle(color: GlossColors.navy),
                     cursorColor: GlossColors.navy,
@@ -293,7 +427,9 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
                   ],
                   const SizedBox(height: 20),
                   FilledButton(
-                    onPressed: (_busy || !sessionReady) ? null : _complete,
+                    onPressed: (_busy || !sessionReady || _recovering)
+                        ? null
+                        : _complete,
                     style: FilledButton.styleFrom(
                       backgroundColor: GlossColors.teal,
                       foregroundColor: GlossColors.sky,
@@ -302,7 +438,7 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: _busy
+                    child: _busy || _recovering
                         ? const SizedBox(
                             height: 20,
                             width: 20,
@@ -314,7 +450,7 @@ class _AcceptInviteScreenState extends ConsumerState<AcceptInviteScreen> {
                         : Text(
                             sessionReady
                                 ? 'Create password & join team'
-                                : 'Link not active yet',
+                                : 'Waiting for email invite link',
                           ),
                   ),
                   TextButton(
