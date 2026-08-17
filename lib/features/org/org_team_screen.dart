@@ -369,9 +369,8 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     }
     final ok = await showDialog<bool>(
       context: context,
+      // Shape + sky background from GlossTheme.dialogTheme.
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20)),
         title: const Text('Remove member?'),
         content: Text(
           'Remove ${member.fullName ?? 'this member'} '
@@ -501,11 +500,8 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
               }
             }
 
+            // Sky + radius from GlossTheme.dialogTheme; insetPadding is layout-only.
             return Dialog(
-              backgroundColor: GlossColors.sky,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
               insetPadding:
                   const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
               child: ConstrainedBox(
@@ -1127,7 +1123,8 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
             if (_error != null) ...[
               const SizedBox(height: GlossSurfaces.fieldGap),
               Text(_error!,
-                  style: const TextStyle(color: GlossColors.danger)),
+                  style: GlossSurfaces.logoMark
+                      .copyWith(color: GlossColors.danger)),
             ],
             if (_message != null) ...[
               const SizedBox(height: GlossSurfaces.fieldGap),
