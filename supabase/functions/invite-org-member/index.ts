@@ -16,12 +16,8 @@ const ELEVATED = new Set([
   "general_manager",
 ]);
 
-// Pragmatic format check — not full RFC 5322, just enough to reject
-// obviously malformed input before it reaches the Admin API.
-// (Claude polish — kept)
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** Find Auth user id by email (paginate; tenant projects stay small). */
 async function findAuthUserIdByEmail(
   admin: ReturnType<typeof createClient>,
   email: string,
@@ -42,11 +38,6 @@ async function findAuthUserIdByEmail(
   return null;
 }
 
-/**
- * Safe residual cleanup for SaaS: delete Auth user only when they have
- * zero organization_members rows. Optionally also require no other pending
- * invites for this email outside the current org (caller decides).
- */
 async function deleteResidualAuthUserIfSafe(
   admin: ReturnType<typeof createClient>,
   email: string,
@@ -85,15 +76,11 @@ async function deleteResidualAuthUserIfSafe(
   return !error;
 }
 
-/**
- * App-native invite URL. Flutter AcceptInviteScreen calls
- * verifyOTP({ tokenHash, type: invite }). Bare /auth/v1/verify redirects
- * often land on /accept-invite with no session tokens on this SPA.
- */
-function acceptInviteUrl(tokenHash: string): string {
+/** Must match generateLink type so verifyOTP succeeds. */
+function acceptInviteUrl(tokenHash: string, otpType: "invite" | "magiclink"): string {
   const q = new URLSearchParams({
     token_hash: tokenHash,
-    type: "invite",
+    type: otpType,
   });
   return `${APP_ORIGIN}/accept-invite?${q.toString()}`;
 }
@@ -153,7 +140,8 @@ async function sendInviteEmailResend(opts: {
       }),
     });
     if (!res.ok) {
-      return { ok: false, note: `resend_status_${res.status}` };
+      const body = await res.text().catch(() => "");
+      return { ok: false, note: `resend_status_${res.status}:${body.slice(0, 120)}` };
     }
     return { ok: true, note: null };
   } catch (e) {
@@ -250,7 +238,6 @@ serve(async (req) => {
       }
     }
 
-    // Claude polish: log failures instead of silent swallow
     const { error: delPendingErr } = await admin
       .from("organization_invites")
       .delete()
@@ -308,11 +295,11 @@ serve(async (req) => {
     let actionLink: string | null = null;
     let mailOk = false;
     let mailNote: string | null = null;
+    let linkType: "invite" | "magiclink" | null = null;
     let hashedToken: string | null = null;
 
-    // Primary: generateLink → hashed_token → app URL → Resend.
-    // Does not depend on Auth Send Email Hook or default ConfirmationURL.
     try {
+      let otpType: "invite" | "magiclink" = "invite";
       let gen = await admin.auth.admin.generateLink({
         type: "invite",
         email,
@@ -327,10 +314,18 @@ serve(async (req) => {
       });
 
       if (gen.error) {
+        otpType = "magiclink";
         gen = await admin.auth.admin.generateLink({
           type: "magiclink",
           email,
-          options: { redirectTo: siteRedirect },
+          options: {
+            redirectTo: siteRedirect,
+            data: {
+              invited_organization_id: organizationId,
+              invited_role: role,
+              invited_at: new Date().toISOString(),
+            },
+          },
         });
       }
 
@@ -339,10 +334,18 @@ serve(async (req) => {
         hashed_token?: string;
       } | undefined;
 
-      hashedToken = props?.hashed_token ?? null;
+      const dataAny = gen.data as Record<string, unknown> | null;
+      const hashed =
+        props?.hashed_token ??
+        (typeof dataAny?.hashed_token === "string"
+          ? (dataAny.hashed_token as string)
+          : null);
+
+      hashedToken = hashed;
+      linkType = otpType;
 
       if (hashedToken) {
-        actionLink = acceptInviteUrl(hashedToken);
+        actionLink = acceptInviteUrl(hashedToken, otpType);
       } else if (props?.action_link) {
         actionLink = props.action_link;
       }
@@ -355,34 +358,20 @@ serve(async (req) => {
         mailOk = sent.ok;
         mailNote = sent.note;
       } else {
-        mailNote = gen.error?.message ?? "no_hashed_token";
+        mailNote =
+          gen.error?.message ??
+          (hashedToken ? "resend_skipped_bad_url" : "no_hashed_token");
       }
     } catch (e) {
       mailNote = String(e);
-    }
-
-    // Last resort: create Auth invitee if generateLink failed entirely
-    if (!hashedToken) {
-      try {
-        await admin.auth.admin.inviteUserByEmail(email, {
-          redirectTo: siteRedirect,
-          data: {
-            invited_organization_id: organizationId,
-            invited_role: role,
-            invited_at: new Date().toISOString(),
-          },
-        });
-      } catch (_) {
-        /* ignore */
-      }
     }
 
     const status = mailOk ? "invite_emailed" : "invite_saved";
     const message = mailOk
       ? `Invite sent to ${email}`
       : residualCleared
-      ? `Invite saved for ${email}. Residual account was cleared — share the link if email is delayed.`
-      : `Invite saved for ${email}. Email may be delayed — share the link if needed.`;
+      ? `Invite saved for ${email}. Residual account was cleared — use Copy invite link if email is delayed.`
+      : `Invite saved for ${email}. Use Copy invite link if email is delayed or still the default Supabase template.`;
 
     return new Response(
       JSON.stringify({
@@ -395,6 +384,7 @@ serve(async (req) => {
         mail_ok: mailOk,
         mail_note: mailNote,
         action_link: actionLink,
+        link_type: linkType,
         link_has_token_hash: !!(actionLink && actionLink.includes("token_hash=")),
       }),
       { headers: { ...cors, "Content-Type": "application/json" } },
