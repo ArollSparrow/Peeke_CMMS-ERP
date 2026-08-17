@@ -7,6 +7,8 @@ const cors = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+const APP_ORIGIN = "https://peeke-cmms-erp.pages.dev";
+
 const ELEVATED = new Set([
   "owner",
   "system_admin",
@@ -16,6 +18,7 @@ const ELEVATED = new Set([
 
 // Pragmatic format check — not full RFC 5322, just enough to reject
 // obviously malformed input before it reaches the Admin API.
+// (Claude polish — kept)
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** Find Auth user id by email (paginate; tenant projects stay small). */
@@ -60,7 +63,6 @@ async function deleteResidualAuthUserIfSafe(
 
   if ((memberships?.length ?? 0) > 0) return false;
 
-  // Any pending invite for this email?
   const { data: pending } = await admin
     .from("organization_invites")
     .select("id, organization_id")
@@ -81,6 +83,82 @@ async function deleteResidualAuthUserIfSafe(
 
   const { error } = await admin.auth.admin.deleteUser(userId);
   return !error;
+}
+
+/**
+ * App-native invite URL. Flutter AcceptInviteScreen calls
+ * verifyOTP({ tokenHash, type: invite }). Bare /auth/v1/verify redirects
+ * often land on /accept-invite with no session tokens on this SPA.
+ */
+function acceptInviteUrl(tokenHash: string): string {
+  const q = new URLSearchParams({
+    token_hash: tokenHash,
+    type: "invite",
+  });
+  return `${APP_ORIGIN}/accept-invite?${q.toString()}`;
+}
+
+async function sendInviteEmailResend(opts: {
+  to: string;
+  acceptUrl: string;
+}): Promise<{ ok: boolean; note: string | null }> {
+  const apiKey = Deno.env.get("RESEND_API_KEY");
+  if (!apiKey) {
+    return { ok: false, note: "RESEND_API_KEY not set on invite-org-member" };
+  }
+  const from =
+    Deno.env.get("MAIL_FROM") || "Peeke Automation <onboarding@resend.dev>";
+  const sky = "#D3EFFD";
+  const navy = "#272A6D";
+  const teal = "#55AAAC";
+  const html = `<!DOCTYPE html>
+<html><body style="margin:0;padding:0;background:${sky};font-family:system-ui,-apple-system,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:${sky};padding:32px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:480px;background:${sky};border:1px solid ${teal};border-radius:16px;padding:28px;">
+        <tr><td>
+          <p style="margin:0 0 4px;font-size:13px;font-weight:600;color:${teal};">Peeke Automation</p>
+          <h1 style="margin:0 0 16px;font-size:22px;color:${navy};">You're invited</h1>
+          <p style="margin:0 0 16px;font-size:15px;line-height:1.5;color:${navy};">
+            A team admin invited you to Peeke CMMS-ERP. Open the link to create your password and join the team.
+            This is not organisation registration.
+          </p>
+          <p style="text-align:center;margin:28px 0;">
+            <a href="${opts.acceptUrl}"
+               style="background:${navy};color:${sky};padding:14px 28px;border-radius:10px;
+                      text-decoration:none;font-weight:600;display:inline-block;">Accept invitation</a>
+          </p>
+          <p style="font-size:12px;color:${teal};word-break:break-all;">Or open:<br/>${opts.acceptUrl}</p>
+          <p style="margin:24px 0 0;font-size:11px;color:${teal};">
+            © Peeke Automation · Peeke CMMS-ERP · Do not forward this email
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from,
+        to: [opts.to],
+        subject: "You're invited to Peeke CMMS-ERP",
+        html,
+      }),
+    });
+    if (!res.ok) {
+      return { ok: false, note: `resend_status_${res.status}` };
+    }
+    return { ok: true, note: null };
+  } catch (e) {
+    return { ok: false, note: String(e) };
+  }
 }
 
 serve(async (req) => {
@@ -119,8 +197,7 @@ serve(async (req) => {
     const organizationId = body.organization_id as string | undefined;
     const emailRaw = body.email as string | undefined;
     const roleRaw = (body.role as string | undefined) ?? "technician";
-    const redirectTo = (body.redirect_to as string | undefined) ??
-      undefined;
+    const redirectTo = (body.redirect_to as string | undefined) ?? undefined;
 
     if (!organizationId || !emailRaw || !EMAIL_RE.test(emailRaw.trim())) {
       return new Response(
@@ -134,10 +211,8 @@ serve(async (req) => {
 
     const email = emailRaw.trim().toLowerCase();
     const role = String(roleRaw).trim().toLowerCase() || "technician";
-
     const admin = createClient(supabaseUrl, serviceKey);
 
-    // Caller must be elevated in this org
     const { data: mem } = await admin
       .from("organization_members")
       .select("role")
@@ -153,7 +228,6 @@ serve(async (req) => {
       });
     }
 
-    // Already a member of this org?
     const existingAuthId = await findAuthUserIdByEmail(admin, email);
     if (existingAuthId) {
       const { data: alreadyMember } = await admin
@@ -176,7 +250,7 @@ serve(async (req) => {
       }
     }
 
-    // Remove prior pending invites for this email in this org (re-invite)
+    // Claude polish: log failures instead of silent swallow
     const { error: delPendingErr } = await admin
       .from("organization_invites")
       .delete()
@@ -190,13 +264,23 @@ serve(async (req) => {
       );
     }
 
-    // SaaS: auto-purge residual Auth user that blocks inviteUserByEmail.
-    // Only when they have zero memberships anywhere.
     const residualCleared = await deleteResidualAuthUserIfSafe(admin, email, {
       allowIfOnlyPendingForOrg: organizationId,
     });
 
-    // Insert pending invite row
+    const { error: delPendingErr2 } = await admin
+      .from("organization_invites")
+      .delete()
+      .eq("organization_id", organizationId)
+      .eq("email", email)
+      .eq("status", "pending");
+    if (delPendingErr2) {
+      console.error(
+        "invite-org-member: failed to clear pending after residual purge:",
+        delPendingErr2.message,
+      );
+    }
+
     const { data: inviteRow, error: insErr } = await admin
       .from("organization_invites")
       .insert({
@@ -219,21 +303,20 @@ serve(async (req) => {
       );
     }
 
-    const siteRedirect =
-      redirectTo ??
-      `${Deno.env.get("SITE_URL") ?? "https://peeke-cmms-erp.pages.dev"}/accept-invite`;
+    const siteRedirect = redirectTo ?? `${APP_ORIGIN}/accept-invite`;
 
     let actionLink: string | null = null;
-    let mailAttempted = false;
     let mailOk = false;
     let mailNote: string | null = null;
+    let hashedToken: string | null = null;
 
-    // Prefer real invite email (creates/fresh Auth user + type=invite session)
+    // Primary: generateLink → hashed_token → app URL → Resend.
+    // Does not depend on Auth Send Email Hook or default ConfirmationURL.
     try {
-      mailAttempted = true;
-      const { data: invData, error: invErr } = await admin.auth.admin.inviteUserByEmail(
+      let gen = await admin.auth.admin.generateLink({
+        type: "invite",
         email,
-        {
+        options: {
           redirectTo: siteRedirect,
           data: {
             invited_organization_id: organizationId,
@@ -241,52 +324,56 @@ serve(async (req) => {
             invited_at: new Date().toISOString(),
           },
         },
-      );
-      if (invErr) {
-        mailNote = invErr.message;
+      });
+
+      if (gen.error) {
+        gen = await admin.auth.admin.generateLink({
+          type: "magiclink",
+          email,
+          options: { redirectTo: siteRedirect },
+        });
+      }
+
+      const props = gen.data?.properties as {
+        action_link?: string;
+        hashed_token?: string;
+      } | undefined;
+
+      hashedToken = props?.hashed_token ?? null;
+
+      if (hashedToken) {
+        actionLink = acceptInviteUrl(hashedToken);
+      } else if (props?.action_link) {
+        actionLink = props.action_link;
+      }
+
+      if (actionLink && actionLink.includes("token_hash=")) {
+        const sent = await sendInviteEmailResend({
+          to: email,
+          acceptUrl: actionLink,
+        });
+        mailOk = sent.ok;
+        mailNote = sent.note;
       } else {
-        mailOk = true;
-        // Some setups still expose properties.action_link
-        const link =
-          (invData as { properties?: { action_link?: string } })?.properties
-            ?.action_link ?? null;
-        if (link) actionLink = link;
+        mailNote = gen.error?.message ?? "no_hashed_token";
       }
     } catch (e) {
       mailNote = String(e);
     }
 
-    // Fallback: shareable link when SMTP rate-limited or user already existed
-    if (!mailOk || !actionLink) {
+    // Last resort: create Auth invitee if generateLink failed entirely
+    if (!hashedToken) {
       try {
-        // Prefer type invite; if user already confirmed, magiclink → accept-invite
-        let gen = await admin.auth.admin.generateLink({
-          type: "invite",
-          email,
-          options: {
-            redirectTo: siteRedirect,
-            data: {
-              invited_organization_id: organizationId,
-              invited_role: role,
-              invited_at: new Date().toISOString(),
-            },
+        await admin.auth.admin.inviteUserByEmail(email, {
+          redirectTo: siteRedirect,
+          data: {
+            invited_organization_id: organizationId,
+            invited_role: role,
+            invited_at: new Date().toISOString(),
           },
         });
-        if (gen.error) {
-          gen = await admin.auth.admin.generateLink({
-            type: "magiclink",
-            email,
-            options: { redirectTo: siteRedirect },
-          });
-        }
-        const props = gen.data?.properties as
-          | { action_link?: string }
-          | undefined;
-        if (props?.action_link) {
-          actionLink = props.action_link;
-        }
       } catch (_) {
-        // keep prior state
+        /* ignore */
       }
     }
 
@@ -305,10 +392,10 @@ serve(async (req) => {
         invite_id: inviteRow?.id ?? null,
         email,
         residual_auth_cleared: residualCleared,
-        mail_attempted: mailAttempted,
         mail_ok: mailOk,
         mail_note: mailNote,
         action_link: actionLink,
+        link_has_token_hash: !!(actionLink && actionLink.includes("token_hash=")),
       }),
       { headers: { ...cors, "Content-Type": "application/json" } },
     );
