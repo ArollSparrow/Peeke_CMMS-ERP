@@ -1,8 +1,5 @@
 name: Deploy Web → Cloudflare Pages
 
-# DISABLED 2026-08-18: private-repo Actions minutes exhausted.
-# Cloudflare Pages native Git + build.sh is the deploy path now.
-# To re-enable temporarily: remove the if: false line below.
 on:
   push:
     branches:
@@ -14,7 +11,6 @@ on:
 jobs:
   deploy:
     name: Build Flutter Web & Deploy
-    if: false  # hard-off until Actions quota restored
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -50,6 +46,7 @@ jobs:
             sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick
           fi
 
+          # Lanczos + mild sharpen keeps the wordmark readable at shortcut size
           resize() {
             local size="$1" out="$2"
             convert "$ICON" -filter Lanczos -resize "${size}x${size}" \
@@ -62,6 +59,8 @@ jobs:
           resize 192 web/icons/Icon-maskable-192.png
           resize 512 web/icons/Icon-maskable-512.png
           resize 180 web/icons/apple-touch-icon.png
+
+          ls -la web/favicon.png web/icons/
 
       - run: flutter pub get
 
@@ -81,6 +80,7 @@ jobs:
             KEY="$DEFAULT_KEY"
           fi
 
+          echo "Building with SUPABASE_URL=$URL (key length ${#KEY})"
           flutter build web --release --no-tree-shake-icons \
             --dart-define=SUPABASE_URL="$URL" \
             --dart-define=SUPABASE_ANON_KEY="$KEY"
@@ -91,7 +91,11 @@ jobs:
           cp -f web/icons/* build/web/icons/ 2>/dev/null || true
 
           printf '/*    /index.html   200\n' > build/web/_redirects
+          echo "Published icons:"
+          ls -la build/web/favicon* build/web/icons/ || true
 
+      # cloudflare/pages-action@v1 is DEPRECATED (archived Oct 2024) and has
+      # CVE-2026-11325 (RCE / secret leak). Sunset 2026-09-18. Use wrangler-action.
       - name: Publish to Cloudflare Pages
         id: cloudflare
         uses: cloudflare/wrangler-action@v4
@@ -100,3 +104,10 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy build/web --project-name=peeke-cmms-erp --branch=${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deployment summary
+        run: |
+          echo "### Cloudflare Pages" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Git branch:** \`${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Deployment URL:** ${{ steps.cloudflare.outputs.deployment-url || steps.cloudflare.outputs.pages-deployment-alias-url || 'see Actions log' }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Command:** pages deploy (wrangler-action@v4)" >> "$GITHUB_STEP_SUMMARY"
