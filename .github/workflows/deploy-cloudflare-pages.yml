@@ -1,6 +1,5 @@
 name: Deploy Web → Cloudflare Pages
 
-# Runs from redesign branch only (production). main is a public shell.
 on:
   push:
     branches:
@@ -16,46 +15,32 @@ jobs:
       deployments: write
     steps:
       - uses: actions/checkout@v5
-
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
-
-      - name: Enable web
-        run: flutter config --enable-web
-
+      - run: flutter config --enable-web
       - name: Ensure web platform
         run: |
           if [ ! -d web ]; then
             flutter create . --project-name peeke_cmms_erp --platforms=web
           fi
-
-      - name: Brand favicon + PWA icons
+      - name: Brand icons
         run: |
           mkdir -p web/icons
           ICON="assets/branding/peeke_icon.png"
-          if [ ! -f "$ICON" ]; then
-            echo "Missing $ICON" >&2
-            exit 1
-          fi
+          if [ ! -f "$ICON" ]; then echo "Missing $ICON" >&2; exit 1; fi
           if ! command -v convert >/dev/null 2>&1; then
             sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick
           fi
-          resize() {
-            local size="$1" out="$2"
-            convert "$ICON" -filter Lanczos -resize "${size}x${size}" \
-              -unsharp 0x0.75+0.75+0.02 "$out"
-          }
-          resize 32  web/favicon.png
+          resize() { convert "$ICON" -filter Lanczos -resize "${1}x${1}" -unsharp 0x0.75+0.75+0.02 "$2"; }
+          resize 32 web/favicon.png
           resize 192 web/icons/Icon-192.png
           resize 512 web/icons/Icon-512.png
           resize 192 web/icons/Icon-maskable-192.png
           resize 512 web/icons/Icon-maskable-512.png
           resize 180 web/icons/apple-touch-icon.png
-
       - run: flutter pub get
-
       - name: Build web
         env:
           SUPABASE_URL_INPUT: ${{ vars.SUPABASE_URL }}
@@ -65,20 +50,15 @@ jobs:
           DEFAULT_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhcHBmYWhsYWlpeGN0eWxpZXN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1NzY5NTYsImV4cCI6MjEwMTE1Mjk1Nn0.Z-QK46G21yBuOy0Y3QcNAP_gMfmr_Jo1pRZ1ZKwRvV4"
           URL="${SUPABASE_URL_INPUT:-$DEFAULT_URL}"
           KEY="$SUPABASE_ANON_KEY_INPUT"
-          if [ ${#KEY} -lt 100 ]; then
-            KEY="$DEFAULT_KEY"
-          fi
+          if [ ${#KEY} -lt 100 ]; then KEY="$DEFAULT_KEY"; fi
           flutter build web --release --no-tree-shake-icons \
             --dart-define=SUPABASE_URL="$URL" \
             --dart-define=SUPABASE_ANON_KEY="$KEY"
           mkdir -p build/web/icons
           cp -f web/favicon.png build/web/favicon.png 2>/dev/null || true
-          cp -f web/favicon.svg build/web/favicon.svg 2>/dev/null || true
           cp -f web/icons/* build/web/icons/ 2>/dev/null || true
           printf '/*    /index.html   200\n' > build/web/_redirects
-
-      - name: Publish to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v4
+      - uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
