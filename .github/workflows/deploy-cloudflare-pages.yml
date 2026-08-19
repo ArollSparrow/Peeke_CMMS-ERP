@@ -1,12 +1,11 @@
 name: Deploy Web → Cloudflare Pages
 
-# Disabled: GitHub Actions minutes exhausted + Cloudflare native Git still blocked.
-# Deploys use Direct Upload (wrangler pages deploy build/web --project-name=peeke-web).
-# Re-enable only after minutes reset or Git connection is fixed.
+# Repo is public → free GitHub Actions minutes available again.
+# Deploys to Cloudflare Pages project peeke-web via wrangler.
 on:
   push:
     branches:
-      - '**'
+      - main
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -14,7 +13,6 @@ on:
 jobs:
   deploy:
     name: Build Flutter Web & Deploy
-    if: false
     runs-on: ubuntu-latest
     permissions:
       contents: read
