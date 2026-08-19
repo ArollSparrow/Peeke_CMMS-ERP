@@ -1,13 +1,11 @@
 name: Deploy Web → Cloudflare Pages
 
-# Repo is public → free GitHub Actions minutes available again.
-# Deploys to Cloudflare Pages project peeke-web via wrangler.
+# Cloudflare Pages is now primary (configured to build from redesign/gloss-restrained-full-depth).
+# This workflow is kept as a fallback / manual path and only auto-runs on the redesign branch.
 on:
   push:
     branches:
-      - main
-  pull_request:
-    branches: [main]
+      - redesign/gloss-restrained-full-depth
   workflow_dispatch:
 
 jobs:
