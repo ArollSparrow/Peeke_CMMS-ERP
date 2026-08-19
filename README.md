@@ -8,8 +8,6 @@ Clean-slate multi-tenant CMMS-ERP (Flutter · Riverpod).
 
 Web is published via Cloudflare Pages (`peeke-web`).
 
-Active production branch: `redesign/gloss-restrained-full-depth`.
-
 ## Development
 
 - Flutter stable
