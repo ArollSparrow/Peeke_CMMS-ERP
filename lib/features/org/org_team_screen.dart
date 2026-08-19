@@ -294,8 +294,8 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     final hods = m.hodLabels;
     final hasPhone = (m.phone != null && m.phone!.trim().isNotEmpty);
 
+    // Name line: identity only (never role, never Owner).
     final nameParts = <String>[name];
-    if (title != null) nameParts.add(title);
     if (isMe) nameParts.add('You');
     final nameLine = nameParts.join(' · ');
 
@@ -305,9 +305,11 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
         if (!depts.contains(h)) '$h(HoD)',
     ];
 
-    final metaParts = <String>[OrgRoles.label(m.role)];
+    // Meta line: job title + departments. Org role (including Owner) is never shown on the plate.
+    final metaParts = <String>[];
+    if (title != null) metaParts.add(title);
     if (deptLabels.isNotEmpty) metaParts.addAll(deptLabels);
-    final metaLine = metaParts.join(' · ');
+    final metaLine = metaParts.isEmpty ? '—' : metaParts.join(' · ');
 
     return Container(
       width: double.infinity,
@@ -330,7 +332,9 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                   Row(
                     children: [
                       Icon(
-                        Icons.apartment_outlined,
+                        title != null
+                            ? Icons.work_outline
+                            : Icons.apartment_outlined,
                         size: 12,
                         color: GlossColors.tealDeep,
                       ),
