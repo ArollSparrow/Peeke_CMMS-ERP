@@ -1,3 +1,1 @@
--- Phase 5: Maintenance — technicians, PM plans, SOP templates, service records, downtime
--- Applied via Supabase MCP on project tappfahlaiixctyliesz
--- See live schema; mirrored here for source-of-truth.
+//..

@@ -1,2 +1,1 @@
--- Applied via MCP: platform_admins, platform_payment_settings,
--- subscription_plans, organization_subscriptions, is_platform_admin()
+//..

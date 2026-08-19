@@ -1,2 +1,1 @@
--- Phase 6: Operations — applied via Supabase MCP on tappfahlaiixctyliesz
--- Tables: operation_records; RPCs: latest_system_hour_meter, count_ops_today
+//..
