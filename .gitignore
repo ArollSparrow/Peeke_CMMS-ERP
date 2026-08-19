@@ -6,7 +6,6 @@
 build/
 .flutter-plugins
 .flutter-plugins-dependencies
-.flutter-plugins-dependencies
 *.iml
 
 # IDEs
@@ -61,10 +60,6 @@ build/
 **/ios/Flutter/flutter_export_environment.sh
 **/ios/ServiceDefinitions.json
 **/ios/Runner/GeneratedPluginRegistrant.*
-
-# macOS (if ever enabled)
-**/macos/Flutter/GeneratedPluginRegistrant.swift
-**/macos/Flutter/ephemeral
 
 # Coverage / test
 coverage/

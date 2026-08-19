@@ -2,17 +2,11 @@
 
 **Peeke™**
 
-Clean-slate multi-tenant CMMS-ERP (Flutter · Riverpod).
+Public repository shell.
 
-## Live
+Active development and production builds live on:
 
-Web is published via Cloudflare Pages (`peeke-web`).
-
-## Development
-
-- Flutter stable
-- Primary targets: Android + iOS (mobile-first)
-- Web for office users
+`redesign/gloss-restrained-full-depth`
 
 ```bash
 git clone https://github.com/ArollSparrow/Peeke_CMMS-ERP.git
@@ -22,7 +16,4 @@ flutter pub get
 flutter run
 ```
 
-## Deploy
-
-Cloudflare Pages builds from the production branch above.  
-GitHub Actions workflow (`.github/workflows/deploy-cloudflare-pages.yml`) is available as a manual fallback.
+Web → Cloudflare Pages (`peeke-web`).
