@@ -11,6 +11,7 @@ import '../auth/auth_providers.dart';
 import '../auth/login_screen.dart' show authRedirectTo;
 import 'org_providers.dart';
 import 'org_roles.dart';
+import 'widgets/dept_chip.dart';
 
 class OrgMemberRow {
   const OrgMemberRow({
@@ -714,7 +715,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                                 runSpacing: 8,
                                 children: [
                                   for (final d in depts)
-                                    _deptChip(
+                                    DeptChip(
                                       dept: d,
                                       selected:
                                           selectedDepts.contains(d.id),
@@ -808,37 +809,6 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     } catch (e) {
       if (mounted) setState(() => _error = friendlyError(e));
     }
-  }
-
-  Widget _deptChip({
-    required OrgDept dept,
-    required bool selected,
-    required bool isHod,
-    required VoidCallback onTap,
-    required VoidCallback onLongPress,
-  }) {
-    final label = isHod ? '${dept.name} · HoD' : dept.name;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        borderRadius: BorderRadius.circular(GlossSurfaces.tileRadius),
-        child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration:
-              selected ? GlossSurfaces.navyPlate : GlossSurfaces.plate,
-          child: Text(
-            label,
-            style: GlossSurfaces.tileName.copyWith(
-              color: selected ? GlossColors.sky : GlossColors.navy,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      ),
-    );
   }
 
   Widget _avatarDisc(String? url) {
