@@ -1,6 +1,6 @@
 # Peeke CMMS-ERP
 
-**Peeke™** — multi-tenant CMMS-ERP (Flutter + Riverpod + Supabase).
+**Peeke™*
 
 This repository is the clean-slate development line.
 
@@ -14,6 +14,4 @@ Web builds are published via Cloudflare Pages.
 - Primary targets: Android + iOS (mobile-first)
 - Web for office users
 
-Clone, run `flutter pub get`, then `flutter run`.
-
-Operational documentation, ADRs, and internal setup guides live on private working branches only.
+Clone, run `flutter pub get`, then `flutter run`. 
