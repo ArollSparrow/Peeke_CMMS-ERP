@@ -290,24 +290,20 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
         ? m.jobTitle!.trim()
         : null;
     final isMe = m.userId == me;
-    final depts = m.departmentLabels;
-    final hods = m.hodLabels;
     final hasPhone = (m.phone != null && m.phone!.trim().isNotEmpty);
 
+    // Name line: identity only.
     final nameParts = <String>[name];
-    if (title != null) nameParts.add(title);
     if (isMe) nameParts.add('You');
     final nameLine = nameParts.join(' · ');
 
-    final deptLabels = <String>[
-      for (final d in depts) hods.contains(d) ? '$d(HoD)' : d,
-      for (final h in hods)
-        if (!depts.contains(h)) '$h(HoD)',
-    ];
-
-    final metaParts = <String>[OrgRoles.label(m.role)];
-    if (deptLabels.isNotEmpty) metaParts.addAll(deptLabels);
-    final metaLine = metaParts.join(' · ');
+    // Meta line: Title · Department only — no org role, no HoD tags.
+    // e.g. "Plant Manager · Engineering"
+    final depts = m.departmentLabels;
+    final metaParts = <String>[];
+    if (title != null) metaParts.add(title);
+    if (depts.isNotEmpty) metaParts.addAll(depts);
+    final metaLine = metaParts.isEmpty ? '—' : metaParts.join(' · ');
 
     return Container(
       width: double.infinity,
@@ -330,7 +326,9 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                   Row(
                     children: [
                       Icon(
-                        Icons.apartment_outlined,
+                        title != null
+                            ? Icons.work_outline
+                            : Icons.apartment_outlined,
                         size: 12,
                         color: GlossColors.tealDeep,
                       ),
