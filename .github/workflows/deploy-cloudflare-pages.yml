@@ -1,5 +1,8 @@
 name: Deploy Web → Cloudflare Pages
 
+# Disabled: GitHub Actions minutes exhausted + Cloudflare native Git still blocked.
+# Deploys use Direct Upload (wrangler pages deploy build/web --project-name=peeke-web).
+# Re-enable only after minutes reset or Git connection is fixed.
 on:
   push:
     branches:
@@ -11,6 +14,7 @@ on:
 jobs:
   deploy:
     name: Build Flutter Web & Deploy
+    if: false
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -46,7 +50,6 @@ jobs:
             sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick
           fi
 
-          # Lanczos + mild sharpen keeps the wordmark readable at shortcut size
           resize() {
             local size="$1" out="$2"
             convert "$ICON" -filter Lanczos -resize "${size}x${size}" \
@@ -94,15 +97,13 @@ jobs:
           echo "Published icons:"
           ls -la build/web/favicon* build/web/icons/ || true
 
-      # cloudflare/pages-action@v1 is DEPRECATED (archived Oct 2024) and has
-      # CVE-2026-11325 (RCE / secret leak). Sunset 2026-09-18. Use wrangler-action.
       - name: Publish to Cloudflare Pages
         id: cloudflare
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy build/web --project-name=peeke-cmms-erp --branch=${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+          command: pages deploy build/web --project-name=peeke-web --branch=${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Deployment summary
