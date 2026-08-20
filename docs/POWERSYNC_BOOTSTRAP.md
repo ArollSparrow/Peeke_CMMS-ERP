@@ -2,6 +2,12 @@
 
 Branch: `infra/powersync-cloud-bootstrap`
 
+## Policy: every branch gets a dry run
+
+Push to this branch runs **Dry run (analyze)** then **Cloudflare Pages** deploy
+(see `.github/workflows/deploy-cloudflare-pages.yml`). Fix analyze failures
+before relying on the preview URL.
+
 ## What this bite includes
 
 | Artifact | Purpose |
@@ -24,6 +30,12 @@ providers are watched from a screen.
 3. Apply publication allowlist (edit SQL stub, then run on project).
 4. Deploy `powersync/sync-streams.yaml` in the Dashboard (Validate → Deploy).
 5. Confirm two-tenant test: user B never downloads org A clients.
+
+## Preview URL (after Actions succeed)
+
+https://infra-powersync-cloud-bootstrap.peeke-cmms-erp.pages.dev
+
+(May require Cloudflare Access if enabled on the project.)
 
 ## Run with sync enabled
 
