@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../infra/sync/powersync_env.dart';
 import '../../infra/sync/sync_providers.dart';
+
 import '../auth/auth_providers.dart';
 import '../org/org_providers.dart';
 import 'client_models.dart';
@@ -121,18 +122,17 @@ class SystemRepository {
   }) async {
     var filtered = _client
         .from('systems')
-        .select('*, clients(name, location, site_name)')
+        .select('*, clients(name, site_name, location)')
         .eq('organization_id', organizationId);
-
-    if (clientId != null) {
-      filtered = filtered.eq('client_id', clientId);
-    }
 
     final t = query?.trim();
     if (t != null && t.isNotEmpty) {
       filtered = filtered.or(
-        'name.ilike.%$t%,code.ilike.%$t%,type.ilike.%$t%,site_name.ilike.%$t%',
+        'name.ilike.%$t%,code.ilike.%$t%,type.ilike.%$t%,model.ilike.%$t%',
       );
+    }
+    if (clientId != null && clientId.isNotEmpty) {
+      filtered = filtered.eq('client_id', clientId);
     }
 
     final rows =
@@ -140,11 +140,11 @@ class SystemRepository {
 
     return (rows as List).map((e) {
       final m = Map<String, dynamic>.from(e as Map);
-      final c = m['clients'];
+      final c = m.remove('clients');
       if (c is Map) {
         m['client_name'] = c['name'];
-        m['client_location'] = c['location'];
         m['client_site'] = c['site_name'];
+        m['client_location'] = c['location'];
       }
       return AssetSystem.fromMap(m);
     }).toList();
@@ -153,16 +153,16 @@ class SystemRepository {
   Future<List<AssetSystem>> listByClient(String clientId) async {
     final rows = await _client
         .from('systems')
-        .select('*, clients(name, location, site_name)')
+        .select('*, clients(name, site_name, location)')
         .eq('client_id', clientId)
         .order('name');
     return (rows as List).map((e) {
       final m = Map<String, dynamic>.from(e as Map);
-      final c = m['clients'];
+      final c = m.remove('clients');
       if (c is Map) {
         m['client_name'] = c['name'];
-        m['client_location'] = c['location'];
         m['client_site'] = c['site_name'];
+        m['client_location'] = c['location'];
       }
       return AssetSystem.fromMap(m);
     }).toList();
@@ -171,23 +171,80 @@ class SystemRepository {
   Future<AssetSystem?> getById(String id) async {
     final row = await _client
         .from('systems')
-        .select('*, clients(name, location, site_name)')
+        .select('*, clients(name, site_name, location)')
         .eq('id', id)
         .maybeSingle();
     if (row == null) return null;
     final m = Map<String, dynamic>.from(row);
-    final c = m['clients'];
+    final c = m.remove('clients');
     if (c is Map) {
       m['client_name'] = c['name'];
-      m['client_location'] = c['location'];
       m['client_site'] = c['site_name'];
+      m['client_location'] = c['location'];
     }
     return AssetSystem.fromMap(m);
   }
 
-  Future<AssetSystem> create(Map<String, dynamic> data) async {
-    final row =
-        await _client.from('systems').insert(data).select().single();
+  Future<AssetSystem> create({
+    required String organizationId,
+    required String name,
+    required String clientId,
+    required String clientName,
+    String? clientLocation,
+    String? clientSite,
+    String? code,
+    String? type,
+    String? model,
+    String? serialNumber,
+    double? capacity,
+    String? capacityUnit,
+    String? barcode,
+    String? siteName,
+    DateTime? installationDate,
+    DateTime? registrationDate,
+    double? fuelTankCapacity,
+    double? initialHourMeter,
+    double? initialEnergyMeter,
+    String? operationType,
+    String? status,
+    String? notes,
+  }) async {
+    final row = await _client
+        .from('systems')
+        .insert({
+          'organization_id': organizationId,
+          'name': name.trim(),
+          'client_id': clientId,
+          'client_name': clientName,
+          if (_trimOrNull(clientLocation) != null)
+            'client_location': _trimOrNull(clientLocation),
+          if (_trimOrNull(clientSite) != null)
+            'client_site': _trimOrNull(clientSite),
+          if (_trimOrNull(code) != null) 'code': _trimOrNull(code),
+          if (_trimOrNull(type) != null) 'type': _trimOrNull(type),
+          if (_trimOrNull(model) != null) 'model': _trimOrNull(model),
+          if (_trimOrNull(serialNumber) != null)
+            'serial_number': _trimOrNull(serialNumber),
+          if (capacity != null) 'capacity': capacity,
+          if (_trimOrNull(capacityUnit) != null)
+            'capacity_unit': _trimOrNull(capacityUnit),
+          if (_trimOrNull(barcode) != null) 'barcode': _trimOrNull(barcode),
+          if (_trimOrNull(siteName) != null) 'site_name': _trimOrNull(siteName),
+          if (installationDate != null)
+            'installation_date': installationDate.toIso8601String(),
+          if (registrationDate != null)
+            'registration_date': registrationDate.toIso8601String(),
+          if (fuelTankCapacity != null) 'fuel_tank_capacity': fuelTankCapacity,
+          if (initialHourMeter != null) 'initial_hour_meter': initialHourMeter,
+          if (initialEnergyMeter != null)
+            'initial_energy_meter': initialEnergyMeter,
+          if (_trimOrNull(operationType) != null)
+            'operation_type': _trimOrNull(operationType),
+          if (_trimOrNull(status) != null) 'status': _trimOrNull(status),
+          if (_trimOrNull(notes) != null) 'notes': _trimOrNull(notes),
+        })
+        .select()
+        .single();
     return AssetSystem.fromMap(Map<String, dynamic>.from(row));
   }
 
@@ -202,6 +259,10 @@ class SystemRepository {
         .select()
         .single();
     return AssetSystem.fromMap(Map<String, dynamic>.from(row));
+  }
+
+  Future<void> delete(String id) async {
+    await _client.from('systems').delete().eq('id', id);
   }
 }
 
