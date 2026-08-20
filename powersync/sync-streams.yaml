@@ -47,21 +47,40 @@ streams:
         WHERE user_id = auth.user_id()
       )
 
-  # --- Domain v1 (work) — enable when tables + RLS are confirmed -------------
-  # tenant_work_orders:
+  # --- Domain v1 (work) ------------------------------------------------------
+  tenant_work_orders:
+    auto_subscribe: true
+    query: |
+      SELECT w.* FROM work_orders w
+      WHERE w.organization_id IN (
+        SELECT organization_id FROM organization_members
+        WHERE user_id = auth.user_id()
+      )
+
+  tenant_work_requests:
+    auto_subscribe: true
+    query: |
+      SELECT r.* FROM work_requests r
+      WHERE r.organization_id IN (
+        SELECT organization_id FROM organization_members
+        WHERE user_id = auth.user_id()
+      )
+
+  # Child work tables (parts / events) — add after parent streams proven.
+  # tenant_work_order_parts:
   #   auto_subscribe: true
   #   query: |
-  #     SELECT w.* FROM work_orders w
-  #     WHERE w.organization_id IN (
+  #     SELECT p.* FROM work_order_parts p
+  #     WHERE p.organization_id IN (
   #       SELECT organization_id FROM organization_members
   #       WHERE user_id = auth.user_id()
   #     )
 
-  # tenant_work_requests:
+  # tenant_work_order_events:
   #   auto_subscribe: true
   #   query: |
-  #     SELECT r.* FROM work_requests r
-  #     WHERE r.organization_id IN (
+  #     SELECT e.* FROM work_order_events e
+  #     WHERE e.organization_id IN (
   #       SELECT organization_id FROM organization_members
   #       WHERE user_id = auth.user_id()
   #     )

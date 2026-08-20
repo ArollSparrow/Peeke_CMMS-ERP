@@ -9,6 +9,7 @@ import 'package:powersync/powersync.dart';
 ///   regenerate from PowerSync Dashboard when streams stabilize.
 ///
 /// PowerSync always provides a text `id` column; do not redefine it.
+/// Infrastructure foundation — not a full production column audit.
 final Schema peekePowerSyncSchema = Schema([
   Table(
     'organization_members',
@@ -95,5 +96,75 @@ final Schema peekePowerSyncSchema = Schema([
       Index('systems_client', [IndexedColumn('client_id')]),
     ],
   ),
-  // work_orders / work_requests: add when streams are uncommented.
+  Table(
+    'work_requests',
+    [
+      Column.text('organization_id'),
+      Column.text('wr_number'),
+      Column.text('client_id'),
+      Column.text('system_id'),
+      Column.text('client_name'),
+      Column.text('client_site'),
+      Column.text('system_type'),
+      Column.text('system_model'),
+      Column.text('system_serial'),
+      Column.text('job_type'),
+      Column.text('priority'),
+      Column.text('requested_by'),
+      Column.text('description'),
+      Column.text('fault_description'),
+      Column.text('notes'),
+      Column.text('status'),
+      Column.integer('needs_procurement'),
+      Column.text('reviewed_by'),
+      Column.text('review_notes'),
+      Column.text('reviewed_at'),
+      Column.text('work_order_id'),
+      Column.text('created_at'),
+      Column.text('updated_at'),
+    ],
+    indexes: [
+      Index('wr_org', [IndexedColumn('organization_id')]),
+      Index('wr_status', [IndexedColumn('status')]),
+    ],
+  ),
+  Table(
+    'work_orders',
+    [
+      Column.text('organization_id'),
+      Column.text('wo_number'),
+      Column.text('work_request_id'),
+      Column.text('client_id'),
+      Column.text('system_id'),
+      Column.text('client_name'),
+      Column.text('client_site'),
+      Column.text('system_type'),
+      Column.text('system_model'),
+      Column.text('system_serial'),
+      Column.text('job_type'),
+      Column.text('priority'),
+      Column.text('requested_by'),
+      Column.text('description'),
+      Column.text('fault_description'),
+      Column.text('notes'),
+      Column.text('status'),
+      Column.integer('needs_procurement'),
+      Column.text('assigned_technician'),
+      Column.text('completed_by'),
+      Column.text('completed_at'),
+      Column.text('approved_by'),
+      Column.text('approved_at'),
+      Column.text('approval_notes'),
+      Column.text('cancelled_by'),
+      Column.text('cancelled_at'),
+      Column.text('cancel_notes'),
+      Column.text('created_at'),
+      Column.text('updated_at'),
+    ],
+    indexes: [
+      Index('wo_org', [IndexedColumn('organization_id')]),
+      Index('wo_status', [IndexedColumn('status')]),
+    ],
+  ),
+  // work_order_parts / work_order_events: enable with streams after parents proven.
 ]);

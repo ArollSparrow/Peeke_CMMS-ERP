@@ -50,6 +50,12 @@ final powerSyncStatusProvider =
   yield* db.statusStream;
 });
 
+/// True after at least one full sync cycle (infra signal; UI may ignore).
+final powerSyncHasSyncedProvider = Provider.autoDispose<bool>((ref) {
+  final status = ref.watch(powerSyncStatusProvider).valueOrNull;
+  return status?.hasSynced == true;
+});
+
 /// Org-scoped clients from local SQLite (offline-capable, reactive).
 final localClientsWatchProvider =
     StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) async* {
@@ -85,6 +91,50 @@ final localSystemsWatchProvider =
   yield* db
       .watch(
         'SELECT * FROM systems WHERE organization_id = ? ORDER BY name COLLATE NOCASE',
+        parameters: [org.id],
+      )
+      .map(
+        (rows) => rows
+            .map((r) => Map<String, dynamic>.from(r))
+            .toList(growable: false),
+      );
+});
+
+/// Org-scoped work orders from local SQLite.
+final localWorkOrdersWatchProvider =
+    StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) async* {
+  final db = await ref.watch(powerSyncDatabaseProvider.future);
+  final org = ref.watch(activeOrganizationProvider);
+  if (db == null || org == null) {
+    yield const [];
+    return;
+  }
+
+  yield* db
+      .watch(
+        'SELECT * FROM work_orders WHERE organization_id = ? ORDER BY created_at DESC',
+        parameters: [org.id],
+      )
+      .map(
+        (rows) => rows
+            .map((r) => Map<String, dynamic>.from(r))
+            .toList(growable: false),
+      );
+});
+
+/// Org-scoped work requests from local SQLite.
+final localWorkRequestsWatchProvider =
+    StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) async* {
+  final db = await ref.watch(powerSyncDatabaseProvider.future);
+  final org = ref.watch(activeOrganizationProvider);
+  if (db == null || org == null) {
+    yield const [];
+    return;
+  }
+
+  yield* db
+      .watch(
+        'SELECT * FROM work_requests WHERE organization_id = ? ORDER BY created_at DESC',
         parameters: [org.id],
       )
       .map(

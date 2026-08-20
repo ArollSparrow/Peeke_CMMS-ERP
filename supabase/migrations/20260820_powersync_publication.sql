@@ -11,17 +11,19 @@
 -- GRANT SELECT ON ALL TABLES IN SCHEMA public TO powersync_role;
 -- ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO powersync_role;
 
--- 2) Publication — offline priority v1 only
+-- 2) Publication — offline foundation v1
 -- DROP PUBLICATION IF EXISTS powersync;
 -- CREATE PUBLICATION powersync FOR TABLE
 --   public.organization_members,
 --   public.organizations,
 --   public.clients,
---   public.systems;
+--   public.systems,
+--   public.work_orders,
+--   public.work_requests;
 --
 -- Later (after streams + RLS review):
---   public.work_orders,
---   public.work_requests,
+--   public.work_order_parts,
+--   public.work_order_events,
 --   public.spare_parts,
 --   ...
 
