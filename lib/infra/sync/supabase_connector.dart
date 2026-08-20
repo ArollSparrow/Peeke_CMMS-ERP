@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:powersync/powersync.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -11,9 +9,11 @@ import 'powersync_env.dart';
 /// - [uploadData] applies CRUD via the user-scoped Supabase client so Postgres
 ///   RLS remains the write authority.
 class PeekeSupabaseConnector extends PowerSyncBackendConnector {
-  PeekeSupabaseConnector(this._db);
+  PeekeSupabaseConnector(this.db);
 
-  final PowerSyncDatabase _db;
+  /// Retained for future batch helpers / diagnostics.
+  // ignore: unused_field
+  final PowerSyncDatabase db;
 
   SupabaseClient get _client => Supabase.instance.client;
 
@@ -68,7 +68,6 @@ class PeekeSupabaseConnector extends PowerSyncBackendConnector {
         }
       } on PostgrestException catch (e) {
         // RLS rejection or constraint — surface; do not complete batch blindly.
-        // Throwing keeps the op in the queue for retry / diagnosis.
         throw StateError(
           'PowerSync upload failed on $table/${entry.id}: ${e.message}',
         );

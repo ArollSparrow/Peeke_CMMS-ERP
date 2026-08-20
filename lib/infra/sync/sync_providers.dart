@@ -29,10 +29,6 @@ final powerSyncConnectionProvider = FutureProvider<void>((ref) async {
   }
 
   await PeekePowerSync.connectIfPossible();
-
-  ref.onDispose(() {
-    // Do not clear DB on provider dispose (rebuilds); clear only on explicit logout.
-  });
 });
 
 /// Example: org-scoped clients from local SQLite (offline-capable).
@@ -46,10 +42,11 @@ final localClientsWatchProvider =
     return;
   }
 
+  // powersync_core: watch(sql, {parameters}) — second arg is named.
   yield* db
       .watch(
         'SELECT * FROM clients WHERE organization_id = ? ORDER BY name COLLATE NOCASE',
-        [org.id],
+        parameters: [org.id],
       )
       .map(
         (rows) => rows
