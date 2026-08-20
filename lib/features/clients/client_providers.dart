@@ -274,56 +274,66 @@ final systemRepositoryProvider = Provider<SystemRepository>((ref) {
   return SystemRepository(ref.watch(supabaseClientProvider));
 });
 
-/// Prefer local SQLite when PowerSync is configured and the DB is open;
-/// otherwise fall back to live Supabase (online-only path).
+/// Reactive clients list.
+///
+/// - PowerSync configured → local SQLite watch (offline-first, live updates).
+/// - Otherwise → one-shot Supabase fetch (online-only path).
 /// Writes still go through [ClientRepository] → Postgres RLS.
 final clientsListProvider =
-    FutureProvider.autoDispose<List<Client>>((ref) async {
+    StreamProvider.autoDispose<List<Client>>((ref) async* {
   final org = ref.watch(activeOrganizationProvider);
-  if (org == null) return [];
+  if (org == null) {
+    yield const [];
+    return;
+  }
 
   if (PowerSyncEnv.isConfigured) {
     final db = await ref.watch(powerSyncDatabaseProvider.future);
     if (db != null) {
-      final rows = await db.getAll(
-        'SELECT * FROM clients WHERE organization_id = ? ORDER BY name COLLATE NOCASE',
-        [org.id],
-      );
-      // Empty local cache before first sync: fall through to network.
-      if (rows.isNotEmpty) {
-        return rows
-            .map((r) => Client.fromMap(Map<String, dynamic>.from(r)))
-            .toList();
-      }
+      yield* db
+          .watch(
+            'SELECT * FROM clients WHERE organization_id = ? ORDER BY name COLLATE NOCASE',
+            parameters: [org.id],
+          )
+          .map(
+            (rows) => rows
+                .map((r) => Client.fromMap(Map<String, dynamic>.from(r)))
+                .toList(growable: false),
+          );
+      return;
     }
   }
 
-  return ref.watch(clientRepositoryProvider).list(organizationId: org.id);
+  yield await ref.watch(clientRepositoryProvider).list(organizationId: org.id);
 });
 
-/// Prefer local SQLite when PowerSync is configured and the DB is open;
-/// otherwise fall back to live Supabase. Writes still go through RLS.
+/// Reactive systems list (same dual path as clients).
 final systemsListProvider =
-    FutureProvider.autoDispose<List<AssetSystem>>((ref) async {
+    StreamProvider.autoDispose<List<AssetSystem>>((ref) async* {
   final org = ref.watch(activeOrganizationProvider);
-  if (org == null) return [];
+  if (org == null) {
+    yield const [];
+    return;
+  }
 
   if (PowerSyncEnv.isConfigured) {
     final db = await ref.watch(powerSyncDatabaseProvider.future);
     if (db != null) {
-      final rows = await db.getAll(
-        'SELECT * FROM systems WHERE organization_id = ? ORDER BY name COLLATE NOCASE',
-        [org.id],
-      );
-      if (rows.isNotEmpty) {
-        return rows
-            .map((r) => AssetSystem.fromMap(Map<String, dynamic>.from(r)))
-            .toList();
-      }
+      yield* db
+          .watch(
+            'SELECT * FROM systems WHERE organization_id = ? ORDER BY name COLLATE NOCASE',
+            parameters: [org.id],
+          )
+          .map(
+            (rows) => rows
+                .map((r) => AssetSystem.fromMap(Map<String, dynamic>.from(r)))
+                .toList(growable: false),
+          );
+      return;
     }
   }
 
-  return ref.watch(systemRepositoryProvider).list(organizationId: org.id);
+  yield await ref.watch(systemRepositoryProvider).list(organizationId: org.id);
 });
 
 final clientByIdProvider =
@@ -361,20 +371,22 @@ final systemByIdProvider =
 });
 
 final systemsByClientProvider =
-    FutureProvider.autoDispose.family<List<AssetSystem>, String>((ref, clientId) async {
+    StreamProvider.autoDispose.family<List<AssetSystem>, String>((ref, clientId) async* {
   if (PowerSyncEnv.isConfigured) {
     final db = await ref.watch(powerSyncDatabaseProvider.future);
     if (db != null) {
-      final rows = await db.getAll(
-        'SELECT * FROM systems WHERE client_id = ? ORDER BY name COLLATE NOCASE',
-        [clientId],
-      );
-      if (rows.isNotEmpty) {
-        return rows
-            .map((r) => AssetSystem.fromMap(Map<String, dynamic>.from(r)))
-            .toList();
-      }
+      yield* db
+          .watch(
+            'SELECT * FROM systems WHERE client_id = ? ORDER BY name COLLATE NOCASE',
+            parameters: [clientId],
+          )
+          .map(
+            (rows) => rows
+                .map((r) => AssetSystem.fromMap(Map<String, dynamic>.from(r)))
+                .toList(growable: false),
+          );
+      return;
     }
   }
-  return ref.watch(systemRepositoryProvider).listByClient(clientId);
+  yield await ref.watch(systemRepositoryProvider).listByClient(clientId);
 });

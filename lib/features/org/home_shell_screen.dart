@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:powersync/powersync.dart';
 
 import '../../design/gloss_theme.dart';
 import '../../infra/friendly_error.dart';
@@ -25,6 +26,7 @@ class HomeShellScreen extends ConsumerWidget {
     // Opt-in: only connects when POWERSYNC_URL is set at build time.
     ref.watch(powerSyncConnectionProvider);
     final syncConfigured = ref.watch(powerSyncConfiguredProvider);
+    final syncStatus = ref.watch(powerSyncStatusProvider).valueOrNull;
 
     final orgsAsync = ref.watch(myOrganizationsProvider);
     final active = ref.watch(activeOrganizationProvider);
@@ -58,11 +60,11 @@ class HomeShellScreen extends ConsumerWidget {
               padding: const EdgeInsets.only(right: 4),
               child: Center(
                 child: Tooltip(
-                  message: 'Local sync enabled (PowerSync)',
+                  message: _syncTooltip(syncStatus),
                   child: Icon(
-                    Icons.cloud_sync_outlined,
+                    _syncIcon(syncStatus),
                     size: 20,
-                    color: GlossColors.teal.withValues(alpha: 0.85),
+                    color: _syncColor(syncStatus),
                   ),
                 ),
               ),
@@ -274,6 +276,41 @@ class HomeShellScreen extends ConsumerWidget {
         },
       ),
     );
+  }
+
+  static String _syncTooltip(SyncStatus? s) {
+    if (s == null) return 'Local sync enabled (PowerSync)';
+    if (s.anyError != null) {
+      return s.connected
+          ? 'Sync problem — check connection'
+          : 'Offline — local data only';
+    }
+    if (s.connecting) return 'Connecting to sync…';
+    if (!s.connected) return 'Offline — local data only';
+    if (s.downloading || s.uploading) return 'Syncing…';
+    if (s.hasSynced == true) return 'Synced';
+    return 'Local sync enabled (PowerSync)';
+  }
+
+  static IconData _syncIcon(SyncStatus? s) {
+    if (s == null) return Icons.cloud_sync_outlined;
+    if (s.anyError != null) {
+      return s.connected ? Icons.sync_problem : Icons.cloud_off;
+    }
+    if (s.connecting) return Icons.cloud_sync_outlined;
+    if (!s.connected) return Icons.cloud_off;
+    if (s.downloading || s.uploading) return Icons.sync;
+    return Icons.cloud_done_outlined;
+  }
+
+  static Color _syncColor(SyncStatus? s) {
+    if (s == null) return GlossColors.teal.withValues(alpha: 0.85);
+    if (s.anyError != null) {
+      return s.connected ? Colors.orange.shade700 : Colors.grey.shade600;
+    }
+    if (!s.connected) return Colors.grey.shade600;
+    if (s.downloading || s.uploading) return GlossColors.teal;
+    return GlossColors.teal.withValues(alpha: 0.9);
   }
 }
 

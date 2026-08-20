@@ -31,7 +31,26 @@ final powerSyncConnectionProvider = FutureProvider<void>((ref) async {
   await PeekePowerSync.connectIfPossible();
 });
 
-/// Org-scoped clients from local SQLite (offline-capable).
+/// Live connection / download / upload status from PowerSync.
+/// Null when PowerSync is not configured or DB is not open.
+final powerSyncStatusProvider =
+    StreamProvider.autoDispose<SyncStatus?>((ref) async* {
+  if (!PowerSyncEnv.isConfigured) {
+    yield null;
+    return;
+  }
+
+  final db = await ref.watch(powerSyncDatabaseProvider.future);
+  if (db == null) {
+    yield null;
+    return;
+  }
+
+  yield db.currentStatus;
+  yield* db.statusStream;
+});
+
+/// Org-scoped clients from local SQLite (offline-capable, reactive).
 final localClientsWatchProvider =
     StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) async* {
   final db = await ref.watch(powerSyncDatabaseProvider.future);
@@ -53,7 +72,7 @@ final localClientsWatchProvider =
       );
 });
 
-/// Org-scoped systems from local SQLite (offline-capable).
+/// Org-scoped systems from local SQLite (offline-capable, reactive).
 final localSystemsWatchProvider =
     StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) async* {
   final db = await ref.watch(powerSyncDatabaseProvider.future);

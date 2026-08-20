@@ -18,9 +18,9 @@ Push runs **Dry run (analyze)** then **Cloudflare Pages** deploy
 | `lib/infra/sync/peeke_schema.dart` | Local SQLite schema with `organization_id` (clients + systems expanded) |
 | `lib/infra/sync/supabase_connector.dart` | JWT credentials + RLS upload |
 | `lib/infra/sync/powersync_database.dart` | Open/connect/clear lifecycle |
-| `lib/infra/sync/sync_providers.dart` | Riverpod hooks + local clients/systems watch |
-| `lib/features/org/home_shell_screen.dart` | Connect on session; clear on logout; sync icon when configured |
-| `lib/features/clients/client_providers.dart` | Dual-read clients + systems (local SQLite when configured) |
+| `lib/infra/sync/sync_providers.dart` | Riverpod hooks, local watches, sync status stream |
+| `lib/features/org/home_shell_screen.dart` | Connect on session; clear on logout; live sync icon |
+| `lib/features/clients/client_providers.dart` | Reactive dual-read clients + systems (local watch when configured) |
 | `supabase/migrations/20260820_powersync_publication.sql` | Publication allowlist stub |
 | `docs/adr/004-powersync-cloud-saas-offline.md` | Decision record |
 
@@ -41,11 +41,13 @@ Without `POWERSYNC_URL`, the app behaves as online-only Supabase (icon hidden).
 
 ## After ops are green
 
-Next engineering bite on **this same branch**:
+Engineering on **this same branch** is largely ready for clients + systems:
 
-- UI can already dual-read clients + systems via the list/by-id providers.
-- Optionally switch list screens to the pure `local*WatchProvider` streams once data is confirmed flowing.
-- Then uncomment work_orders / work_requests streams + schema.
+- List providers are **StreamProvider** + local `watch` when PowerSync is configured (live offline updates).
+- Detail / by-id remain dual-read FutureProviders.
+- Home shell sync icon reflects connecting / syncing / offline / error from `statusStream`.
+
+Next domain bite: uncomment work_orders / work_requests streams + schema columns, then dual-read those providers.
 
 ## Preview URL
 
