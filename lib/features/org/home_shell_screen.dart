@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../design/gloss_theme.dart';
 import '../../infra/friendly_error.dart';
+import '../../infra/sync/powersync_database.dart';
+import '../../infra/sync/sync_providers.dart';
 import '../auth/auth_providers.dart';
 import '../clients/client_providers.dart';
 import '../inventory/inventory_providers.dart';
@@ -20,6 +22,10 @@ class HomeShellScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Opt-in: only connects when POWERSYNC_URL is set at build time.
+    ref.watch(powerSyncConnectionProvider);
+    final syncConfigured = ref.watch(powerSyncConfiguredProvider);
+
     final orgsAsync = ref.watch(myOrganizationsProvider);
     final active = ref.watch(activeOrganizationProvider);
     final user = ref.watch(currentUserProvider);
@@ -47,9 +53,24 @@ class HomeShellScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Peeke CMMS-ERP'),
         actions: [
+          if (syncConfigured)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Center(
+                child: Tooltip(
+                  message: 'Local sync enabled (PowerSync)',
+                  child: Icon(
+                    Icons.cloud_sync_outlined,
+                    size: 20,
+                    color: GlossColors.teal.withValues(alpha: 0.85),
+                  ),
+                ),
+              ),
+            ),
           IconButton(
             tooltip: 'Sign out',
             onPressed: () async {
+              await PeekePowerSync.disconnectAndClear();
               await ref.read(supabaseClientProvider).auth.signOut();
             },
             icon: const Icon(Icons.logout),
@@ -79,7 +100,6 @@ class HomeShellScreen extends ConsumerWidget {
             );
           }
 
-          // Hard gate: pending / rejected / suspended / expired testing
           if (active != null && !active.hasProductAccess) {
             return const OrgStatusScreen();
           }
@@ -326,14 +346,15 @@ class _EmptyOrg extends StatelessWidget {
                     color: GlossColors.navy)),
             const SizedBox(height: 8),
             const Text(
-              'Submit an organisation for Peeke Automation review. '
-              'CMMS access opens after approval or a test window.',
+              'Create an organization to start using Peeke.',
               textAlign: TextAlign.center,
               style: TextStyle(color: GlossColors.teal),
             ),
             const SizedBox(height: 24),
             FilledButton(
-                onPressed: onCreate, child: const Text('Apply for organisation')),
+              onPressed: onCreate,
+              child: const Text('Create organization'),
+            ),
           ],
         ),
       ),
@@ -347,54 +368,60 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(text.toUpperCase(),
-        style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.6,
-            color: GlossColors.teal));
+    return Text(
+      text,
+      style: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.4,
+        color: GlossColors.teal,
+      ),
+    );
   }
 }
 
 class _KpiCard extends StatelessWidget {
-  const _KpiCard(
-      {required this.label,
-      required this.value,
-      required this.icon,
-      this.onTap});
+  const _KpiCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.onTap,
+  });
+
   final String label;
   final String value;
   final IconData icon;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: GlossColors.sky,
-      borderRadius: BorderRadius.circular(12),
+      color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: GlossColors.teal),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        child: Ink(
+          decoration: GlossTheme.plate,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          child: Row(
             children: [
-              Icon(icon, size: 20, color: GlossColors.teal),
-              const SizedBox(height: 10),
-              Text(value,
-                  style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: GlossColors.navy)),
-              const SizedBox(height: 2),
-              Text(label,
-                  style:
-                      const TextStyle(fontSize: 12, color: GlossColors.teal)),
+              Icon(icon, color: GlossColors.navy, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label,
+                        style: const TextStyle(
+                            fontSize: 12, color: GlossColors.teal)),
+                    Text(value,
+                        style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: GlossColors.navy)),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -409,7 +436,7 @@ class _ModuleTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.badge,
-    this.onTap,
+    required this.onTap,
     this.enabled = true,
   });
 
@@ -417,7 +444,7 @@ class _ModuleTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final String? badge;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
   final bool enabled;
 
   @override
@@ -425,32 +452,17 @@ class _ModuleTile extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
-        enabled: enabled,
-        leading:
-            Icon(icon, color: enabled ? GlossColors.teal : GlossColors.navy),
+        leading: Icon(icon, color: GlossColors.navy),
         title: Text(title),
         subtitle: Text(subtitle),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (badge != null)
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: GlossColors.sky,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(badge!,
-                    style: const TextStyle(
-                        fontSize: 12, color: GlossColors.navy)),
-              ),
-            if (enabled) ...[
-              const SizedBox(width: 4),
-              const Icon(Icons.chevron_right)
-            ],
-          ],
-        ),
+        trailing: badge == null
+            ? const Icon(Icons.chevron_right)
+            : Text(badge!,
+                style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: GlossColors.teal)),
+        enabled: enabled,
         onTap: enabled ? onTap : null,
       ),
     );
