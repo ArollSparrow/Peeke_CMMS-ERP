@@ -1,10 +1,20 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../infra/sync/powersync_env.dart';
+import '../../infra/sync/sync_providers.dart';
 import '../auth/auth_providers.dart';
 import '../org/org_providers.dart';
 import '../procurement/procurement_models.dart';
 import 'work_models.dart';
+
+const _openOrderStatuses = {
+  'open',
+  'in_progress',
+  'on_hold',
+  'pending_approval',
+  'awaiting_parts',
+};
 
 class WorkRepository {
   WorkRepository(this._client);
@@ -617,35 +627,113 @@ final workRequestSearchProvider =
 final workOrderSearchProvider =
     StateProvider.autoDispose<String>((ref) => '');
 
+/// Reactive work requests.
+/// PowerSync configured → local SQLite watch (+ optional status filter).
+/// Otherwise → Supabase. Writes still go through [WorkRepository] → RLS.
 final workRequestsListProvider =
-    FutureProvider.autoDispose<List<WorkRequest>>((ref) async {
+    StreamProvider.autoDispose<List<WorkRequest>>((ref) async* {
   final org = ref.watch(activeOrganizationProvider);
-  if (org == null) return [];
+  if (org == null) {
+    yield const [];
+    return;
+  }
   final status = ref.watch(workRequestStatusFilterProvider);
-  return ref.watch(workRepositoryProvider).listRequests(
+
+  if (PowerSyncEnv.isConfigured) {
+    final db = await ref.watch(powerSyncDatabaseProvider.future);
+    if (db != null) {
+      yield* db
+          .watch(
+            'SELECT * FROM work_requests WHERE organization_id = ? ORDER BY created_at DESC',
+            parameters: [org.id],
+          )
+          .map((rows) {
+        var list = rows
+            .map((r) => WorkRequest.fromMap(Map<String, dynamic>.from(r)))
+            .toList(growable: false);
+        if (status != null && status.isNotEmpty) {
+          list = list.where((r) => r.status == status).toList(growable: false);
+        }
+        return list;
+      });
+      return;
+    }
+  }
+
+  yield await ref.watch(workRepositoryProvider).listRequests(
         organizationId: org.id,
         status: status,
       );
 });
 
+/// Reactive work orders (same dual path as requests).
 final workOrdersListProvider =
-    FutureProvider.autoDispose<List<WorkOrder>>((ref) async {
+    StreamProvider.autoDispose<List<WorkOrder>>((ref) async* {
   final org = ref.watch(activeOrganizationProvider);
-  if (org == null) return [];
+  if (org == null) {
+    yield const [];
+    return;
+  }
   final status = ref.watch(workOrderStatusFilterProvider);
-  return ref.watch(workRepositoryProvider).listOrders(
+
+  if (PowerSyncEnv.isConfigured) {
+    final db = await ref.watch(powerSyncDatabaseProvider.future);
+    if (db != null) {
+      yield* db
+          .watch(
+            'SELECT * FROM work_orders WHERE organization_id = ? ORDER BY created_at DESC',
+            parameters: [org.id],
+          )
+          .map((rows) {
+        var list = rows
+            .map((r) => WorkOrder.fromMap(Map<String, dynamic>.from(r)))
+            .toList(growable: false);
+        if (status != null && status.isNotEmpty) {
+          list = list.where((o) => o.status == status).toList(growable: false);
+        }
+        return list;
+      });
+      return;
+    }
+  }
+
+  yield await ref.watch(workRepositoryProvider).listOrders(
         organizationId: org.id,
         status: status,
       );
 });
 
 final workRequestByIdProvider =
-    FutureProvider.autoDispose.family<WorkRequest?, String>((ref, id) {
+    FutureProvider.autoDispose.family<WorkRequest?, String>((ref, id) async {
+  if (PowerSyncEnv.isConfigured) {
+    final db = await ref.watch(powerSyncDatabaseProvider.future);
+    if (db != null) {
+      final rows = await db.getAll(
+        'SELECT * FROM work_requests WHERE id = ? LIMIT 1',
+        [id],
+      );
+      if (rows.isNotEmpty) {
+        return WorkRequest.fromMap(Map<String, dynamic>.from(rows.first));
+      }
+    }
+  }
   return ref.watch(workRepositoryProvider).getRequest(id);
 });
 
 final workOrderByIdProvider =
-    FutureProvider.autoDispose.family<WorkOrder?, String>((ref, id) {
+    FutureProvider.autoDispose.family<WorkOrder?, String>((ref, id) async {
+  if (PowerSyncEnv.isConfigured) {
+    final db = await ref.watch(powerSyncDatabaseProvider.future);
+    if (db != null) {
+      final rows = await db.getAll(
+        'SELECT * FROM work_orders WHERE id = ? LIMIT 1',
+        [id],
+      );
+      if (rows.isNotEmpty) {
+        return WorkOrder.fromMap(Map<String, dynamic>.from(rows.first));
+      }
+    }
+  }
   return ref.watch(workRepositoryProvider).getOrder(id);
 });
 
@@ -664,16 +752,53 @@ final workOrderLinkedPosProvider =
   return ref.watch(workRepositoryProvider).listPurchaseOrdersForWo(woId);
 });
 
+/// Open-order KPI: local count when PowerSync configured, else network.
 final openWorkOrdersCountProvider =
-    FutureProvider.autoDispose<int>((ref) async {
+    StreamProvider.autoDispose<int>((ref) async* {
   final org = ref.watch(activeOrganizationProvider);
-  if (org == null) return 0;
-  return ref.watch(workRepositoryProvider).countOpenOrders(org.id);
+  if (org == null) {
+    yield 0;
+    return;
+  }
+
+  if (PowerSyncEnv.isConfigured) {
+    final db = await ref.watch(powerSyncDatabaseProvider.future);
+    if (db != null) {
+      yield* db
+          .watch(
+            'SELECT id, status FROM work_orders WHERE organization_id = ?',
+            parameters: [org.id],
+          )
+          .map((rows) => rows
+              .where((r) => _openOrderStatuses.contains(r['status'] as String?))
+              .length);
+      return;
+    }
+  }
+
+  yield await ref.watch(workRepositoryProvider).countOpenOrders(org.id);
 });
 
 final pendingWorkRequestsCountProvider =
-    FutureProvider.autoDispose<int>((ref) async {
+    StreamProvider.autoDispose<int>((ref) async* {
   final org = ref.watch(activeOrganizationProvider);
-  if (org == null) return 0;
-  return ref.watch(workRepositoryProvider).countPendingRequests(org.id);
+  if (org == null) {
+    yield 0;
+    return;
+  }
+
+  if (PowerSyncEnv.isConfigured) {
+    final db = await ref.watch(powerSyncDatabaseProvider.future);
+    if (db != null) {
+      yield* db
+          .watch(
+            "SELECT id FROM work_requests WHERE organization_id = ? AND status = 'pending'",
+            parameters: [org.id],
+          )
+          .map((rows) => rows.length);
+      return;
+    }
+  }
+
+  yield await ref.watch(workRepositoryProvider).countPendingRequests(org.id);
 });
