@@ -1,14 +1,16 @@
 # PowerSync Cloud bootstrap (Peeke)
 
-Branch: `infra/powersync-cloud-bootstrap`
+**Working branch (until PowerSync is done):** `infra/powersync-cloud-bootstrap`
 
-## Policy: every branch gets a dry run
+Do not merge to redesign until streams + publication + one domain cutover are proven.
+All PowerSync commits and preview deploys stay on this branch.
 
-Push to this branch runs **Dry run (analyze)** then **Cloudflare Pages** deploy
-(see `.github/workflows/deploy-cloudflare-pages.yml`). Fix analyze failures
-before relying on the preview URL.
+## Policy: every push gets a dry run
 
-## What this bite includes
+Push runs **Dry run (analyze)** then **Cloudflare Pages** deploy
+(see `.github/workflows/deploy-cloudflare-pages.yml`).
+
+## What is on the branch
 
 | Artifact | Purpose |
 |----------|---------|
@@ -17,53 +19,34 @@ before relying on the preview URL.
 | `lib/infra/sync/supabase_connector.dart` | JWT credentials + RLS upload |
 | `lib/infra/sync/powersync_database.dart` | Open/connect/clear lifecycle |
 | `lib/infra/sync/sync_providers.dart` | Riverpod hooks + sample clients watch |
+| `lib/features/org/home_shell_screen.dart` | Connect on session; clear on logout; sync icon when configured |
 | `supabase/migrations/20260820_powersync_publication.sql` | Publication allowlist stub |
 | `docs/adr/004-powersync-cloud-saas-offline.md` | Decision record |
 
-UI is **not** cut over yet. App runs as today until `POWERSYNC_URL` is set and
-providers are watched from a screen.
+Without `POWERSYNC_URL`, the app behaves as online-only Supabase (icon hidden).
 
-## Prerequisites
+## Your next ops steps (cannot be done from the app alone)
 
-1. Run `scripts/isolation_rls_checklist.sql` — RLS on for clients/systems.
-2. Create PowerSync Cloud project; connect Supabase; create replication role.
-3. Apply publication allowlist (edit SQL stub, then run on project).
-4. Deploy `powersync/sync-streams.yaml` in the Dashboard (Validate → Deploy).
-5. Confirm two-tenant test: user B never downloads org A clients.
+1. **PowerSync Cloud** — create project/instance (Team if SOC 2 report needed).
+2. **Connect Supabase** `tappfahlaiixctyliesz` with a replication role.
+3. **Publication allowlist** — apply the SQL in `20260820_powersync_publication.sql` (edit role/password; do not use `FOR ALL TABLES`).
+4. **Deploy streams** — paste `powersync/sync-streams.yaml` → Validate → Deploy.
+5. **Two-tenant test** — user B must not download org A clients.
+6. **Local/preview with sync:**
+   ```bash
+   flutter run --dart-define=POWERSYNC_URL=https://YOUR_INSTANCE.powersync.journeyapps.com
+   ```
+   Or add the same define to the Cloudflare workflow later for preview builds.
 
-## Preview URL (after Actions succeed)
+## After ops are green
+
+Next engineering bite on **this same branch**:
+
+- Cut **clients** list/providers to `localClientsWatchProvider` (or dual-read).
+- Then systems; then work orders streams uncommented.
+
+## Preview URL
 
 https://infra-powersync-cloud-bootstrap.peeke-cmms-erp.pages.dev
 
-(May require Cloudflare Access if enabled on the project.)
-
-## Run with sync enabled
-
-```bash
-git checkout infra/powersync-cloud-bootstrap
-flutter pub get
-
-flutter run \
-  --dart-define=SUPABASE_URL=https://tappfahlaiixctyliesz.supabase.co \
-  --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
-  --dart-define=POWERSYNC_URL=https://YOUR_INSTANCE.powersync.journeyapps.com
-```
-
-Then from a widget/provider scope:
-
-```dart
-ref.watch(powerSyncConnectionProvider);
-final clients = ref.watch(localClientsWatchProvider);
-```
-
-## Logout
-
-Call `PeekePowerSync.disconnectAndClear()` when signing out so the next user on
-the device does not see prior tenant rows.
-
-## Next bites
-
-1. Live publication + stream deploy on staging instance.
-2. Hook `powerSyncConnectionProvider` after auth in shell.
-3. Cut clients list to `localClientsWatchProvider`.
-4. Uncomment work_orders streams + schema when ready.
+Actions: https://github.com/ArollSparrow/Peekes/actions
