@@ -301,10 +301,28 @@ final clientsListProvider =
   return ref.watch(clientRepositoryProvider).list(organizationId: org.id);
 });
 
+/// Prefer local SQLite when PowerSync is configured and the DB is open;
+/// otherwise fall back to live Supabase. Writes still go through RLS.
 final systemsListProvider =
     FutureProvider.autoDispose<List<AssetSystem>>((ref) async {
   final org = ref.watch(activeOrganizationProvider);
   if (org == null) return [];
+
+  if (PowerSyncEnv.isConfigured) {
+    final db = await ref.watch(powerSyncDatabaseProvider.future);
+    if (db != null) {
+      final rows = await db.getAll(
+        'SELECT * FROM systems WHERE organization_id = ? ORDER BY name COLLATE NOCASE',
+        [org.id],
+      );
+      if (rows.isNotEmpty) {
+        return rows
+            .map((r) => AssetSystem.fromMap(Map<String, dynamic>.from(r)))
+            .toList();
+      }
+    }
+  }
+
   return ref.watch(systemRepositoryProvider).list(organizationId: org.id);
 });
 
@@ -327,10 +345,36 @@ final clientByIdProvider =
 
 final systemByIdProvider =
     FutureProvider.autoDispose.family<AssetSystem?, String>((ref, id) async {
+  if (PowerSyncEnv.isConfigured) {
+    final db = await ref.watch(powerSyncDatabaseProvider.future);
+    if (db != null) {
+      final rows = await db.getAll(
+        'SELECT * FROM systems WHERE id = ? LIMIT 1',
+        [id],
+      );
+      if (rows.isNotEmpty) {
+        return AssetSystem.fromMap(Map<String, dynamic>.from(rows.first));
+      }
+    }
+  }
   return ref.watch(systemRepositoryProvider).getById(id);
 });
 
 final systemsByClientProvider =
     FutureProvider.autoDispose.family<List<AssetSystem>, String>((ref, clientId) async {
+  if (PowerSyncEnv.isConfigured) {
+    final db = await ref.watch(powerSyncDatabaseProvider.future);
+    if (db != null) {
+      final rows = await db.getAll(
+        'SELECT * FROM systems WHERE client_id = ? ORDER BY name COLLATE NOCASE',
+        [clientId],
+      );
+      if (rows.isNotEmpty) {
+        return rows
+            .map((r) => AssetSystem.fromMap(Map<String, dynamic>.from(r)))
+            .toList();
+      }
+    }
+  }
   return ref.watch(systemRepositoryProvider).listByClient(clientId);
 });

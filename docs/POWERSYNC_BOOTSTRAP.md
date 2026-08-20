@@ -15,11 +15,12 @@ Push runs **Dry run (analyze)** then **Cloudflare Pages** deploy
 | Artifact | Purpose |
 |----------|---------|
 | `powersync/sync-streams.yaml` | Org-membership-scoped streams (clients/systems v1) |
-| `lib/infra/sync/peeke_schema.dart` | Local SQLite schema with `organization_id` |
+| `lib/infra/sync/peeke_schema.dart` | Local SQLite schema with `organization_id` (clients + systems expanded) |
 | `lib/infra/sync/supabase_connector.dart` | JWT credentials + RLS upload |
 | `lib/infra/sync/powersync_database.dart` | Open/connect/clear lifecycle |
-| `lib/infra/sync/sync_providers.dart` | Riverpod hooks + sample clients watch |
+| `lib/infra/sync/sync_providers.dart` | Riverpod hooks + local clients/systems watch |
 | `lib/features/org/home_shell_screen.dart` | Connect on session; clear on logout; sync icon when configured |
+| `lib/features/clients/client_providers.dart` | Dual-read clients + systems (local SQLite when configured) |
 | `supabase/migrations/20260820_powersync_publication.sql` | Publication allowlist stub |
 | `docs/adr/004-powersync-cloud-saas-offline.md` | Decision record |
 
@@ -31,7 +32,7 @@ Without `POWERSYNC_URL`, the app behaves as online-only Supabase (icon hidden).
 2. **Connect Supabase** `tappfahlaiixctyliesz` with a replication role.
 3. **Publication allowlist** — apply the SQL in `20260820_powersync_publication.sql` (edit role/password; do not use `FOR ALL TABLES`).
 4. **Deploy streams** — paste `powersync/sync-streams.yaml` → Validate → Deploy.
-5. **Two-tenant test** — user B must not download org A clients.
+5. **Two-tenant test** — user B must not download org A clients/systems.
 6. **Local/preview with sync:**
    ```bash
    flutter run --dart-define=POWERSYNC_URL=https://YOUR_INSTANCE.powersync.journeyapps.com
@@ -42,8 +43,9 @@ Without `POWERSYNC_URL`, the app behaves as online-only Supabase (icon hidden).
 
 Next engineering bite on **this same branch**:
 
-- Cut **clients** list/providers to `localClientsWatchProvider` (or dual-read).
-- Then systems; then work orders streams uncommented.
+- UI can already dual-read clients + systems via the list/by-id providers.
+- Optionally switch list screens to the pure `local*WatchProvider` streams once data is confirmed flowing.
+- Then uncomment work_orders / work_requests streams + schema.
 
 ## Preview URL
 

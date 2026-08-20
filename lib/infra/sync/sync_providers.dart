@@ -31,8 +31,7 @@ final powerSyncConnectionProvider = FutureProvider<void>((ref) async {
   await PeekePowerSync.connectIfPossible();
 });
 
-/// Example: org-scoped clients from local SQLite (offline-capable).
-/// Wire UI to this after Phase 4 cutover for the clients domain.
+/// Org-scoped clients from local SQLite (offline-capable).
 final localClientsWatchProvider =
     StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) async* {
   final db = await ref.watch(powerSyncDatabaseProvider.future);
@@ -42,10 +41,31 @@ final localClientsWatchProvider =
     return;
   }
 
-  // powersync_core: watch(sql, {parameters}) — second arg is named.
   yield* db
       .watch(
         'SELECT * FROM clients WHERE organization_id = ? ORDER BY name COLLATE NOCASE',
+        parameters: [org.id],
+      )
+      .map(
+        (rows) => rows
+            .map((r) => Map<String, dynamic>.from(r))
+            .toList(growable: false),
+      );
+});
+
+/// Org-scoped systems from local SQLite (offline-capable).
+final localSystemsWatchProvider =
+    StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) async* {
+  final db = await ref.watch(powerSyncDatabaseProvider.future);
+  final org = ref.watch(activeOrganizationProvider);
+  if (db == null || org == null) {
+    yield const [];
+    return;
+  }
+
+  yield* db
+      .watch(
+        'SELECT * FROM systems WHERE organization_id = ? ORDER BY name COLLATE NOCASE',
         parameters: [org.id],
       )
       .map(
