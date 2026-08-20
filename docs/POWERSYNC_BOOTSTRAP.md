@@ -5,6 +5,8 @@
 Do not merge to redesign until streams + publication + one domain cutover are proven.
 All PowerSync commits and preview deploys stay on this branch.
 
+This branch is **infrastructure foundation** — dual-read paths exist so offline can light up when ops are green. Production feature polish is out of scope here.
+
 ## Policy: every push gets a dry run
 
 Push runs **Dry run (analyze)** then **Cloudflare Pages** deploy
@@ -14,13 +16,14 @@ Push runs **Dry run (analyze)** then **Cloudflare Pages** deploy
 
 | Artifact | Purpose |
 |----------|---------|
-| `powersync/sync-streams.yaml` | Org-membership-scoped streams (clients/systems v1) |
-| `lib/infra/sync/peeke_schema.dart` | Local SQLite schema with `organization_id` (clients + systems expanded) |
+| `powersync/sync-streams.yaml` | Org-membership streams: orgs, clients, systems, work_orders, work_requests |
+| `lib/infra/sync/peeke_schema.dart` | Local SQLite schema (`organization_id` on every synced table) |
 | `lib/infra/sync/supabase_connector.dart` | JWT credentials + RLS upload |
 | `lib/infra/sync/powersync_database.dart` | Open/connect/clear lifecycle |
-| `lib/infra/sync/sync_providers.dart` | Riverpod hooks, local watches, sync status stream |
+| `lib/infra/sync/sync_providers.dart` | Status stream, hasSynced, local watches |
 | `lib/features/org/home_shell_screen.dart` | Connect on session; clear on logout; live sync icon |
-| `lib/features/clients/client_providers.dart` | Reactive dual-read clients + systems (local watch when configured) |
+| `lib/features/clients/client_providers.dart` | Reactive dual-read clients + systems |
+| `lib/features/work/work_providers.dart` | Reactive dual-read work orders + requests + KPI counts |
 | `supabase/migrations/20260820_powersync_publication.sql` | Publication allowlist stub |
 | `docs/adr/004-powersync-cloud-saas-offline.md` | Decision record |
 
@@ -32,22 +35,24 @@ Without `POWERSYNC_URL`, the app behaves as online-only Supabase (icon hidden).
 2. **Connect Supabase** `tappfahlaiixctyliesz` with a replication role.
 3. **Publication allowlist** — apply the SQL in `20260820_powersync_publication.sql` (edit role/password; do not use `FOR ALL TABLES`).
 4. **Deploy streams** — paste `powersync/sync-streams.yaml` → Validate → Deploy.
-5. **Two-tenant test** — user B must not download org A clients/systems.
+5. **Two-tenant test** — user B must not download org A rows.
 6. **Local/preview with sync:**
    ```bash
    flutter run --dart-define=POWERSYNC_URL=https://YOUR_INSTANCE.powersync.journeyapps.com
    ```
-   Or add the same define to the Cloudflare workflow later for preview builds.
 
-## After ops are green
+## Foundation coverage (code)
 
-Engineering on **this same branch** is largely ready for clients + systems:
+| Domain | Streams | Schema | Dual-read lists | Notes |
+|--------|---------|--------|-----------------|-------|
+| Membership / orgs | yes | yes | (auth path) | auto_subscribe |
+| Clients | yes | yes | reactive watch | |
+| Systems | yes | yes | reactive watch | |
+| Work requests | yes | yes | reactive watch | status filter client-side offline |
+| Work orders | yes | yes | reactive watch | open-count KPI local |
+| WO parts / events | stub only | no | network only | next infra bite |
 
-- List providers are **StreamProvider** + local `watch` when PowerSync is configured (live offline updates).
-- Detail / by-id remain dual-read FutureProviders.
-- Home shell sync icon reflects connecting / syncing / offline / error from `statusStream`.
-
-Next domain bite: uncomment work_orders / work_requests streams + schema columns, then dual-read those providers.
+Writes always go through Supabase JWT + Postgres RLS.
 
 ## Preview URL
 
