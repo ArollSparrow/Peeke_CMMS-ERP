@@ -1,6 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../infra/sync/powersync_env.dart';
+import '../../infra/sync/sync_providers.dart';
+
 import '../auth/auth_providers.dart';
 import '../org/org_providers.dart';
 import 'client_models.dart';
@@ -119,44 +122,67 @@ class SystemRepository {
   }) async {
     var filtered = _client
         .from('systems')
-        .select()
+        .select('*, clients(name, site_name, location)')
         .eq('organization_id', organizationId);
-
-    if (clientId != null) {
-      filtered = filtered.eq('client_id', clientId);
-    }
 
     final t = query?.trim();
     if (t != null && t.isNotEmpty) {
       filtered = filtered.or(
-        'name.ilike.%$t%,code.ilike.%$t%,serial_number.ilike.%$t%,client_name.ilike.%$t%,type.ilike.%$t%,model.ilike.%$t%',
+        'name.ilike.%$t%,code.ilike.%$t%,type.ilike.%$t%,model.ilike.%$t%',
       );
+    }
+    if (clientId != null && clientId.isNotEmpty) {
+      filtered = filtered.eq('client_id', clientId);
     }
 
     final rows =
         await filtered.order('name').range(offset, offset + limit - 1);
 
-    return (rows as List)
-        .map((e) => AssetSystem.fromMap(Map<String, dynamic>.from(e as Map)))
-        .toList();
+    return (rows as List).map((e) {
+      final m = Map<String, dynamic>.from(e as Map);
+      final c = m.remove('clients');
+      if (c is Map) {
+        m['client_name'] = c['name'];
+        m['client_site'] = c['site_name'];
+        m['client_location'] = c['location'];
+      }
+      return AssetSystem.fromMap(m);
+    }).toList();
   }
 
   Future<List<AssetSystem>> listByClient(String clientId) async {
     final rows = await _client
         .from('systems')
-        .select()
+        .select('*, clients(name, site_name, location)')
         .eq('client_id', clientId)
         .order('name');
-    return (rows as List)
-        .map((e) => AssetSystem.fromMap(Map<String, dynamic>.from(e as Map)))
-        .toList();
+    return (rows as List).map((e) {
+      final m = Map<String, dynamic>.from(e as Map);
+      final c = m.remove('clients');
+      if (c is Map) {
+        m['client_name'] = c['name'];
+        m['client_site'] = c['site_name'];
+        m['client_location'] = c['location'];
+      }
+      return AssetSystem.fromMap(m);
+    }).toList();
   }
 
   Future<AssetSystem?> getById(String id) async {
-    final row =
-        await _client.from('systems').select().eq('id', id).maybeSingle();
+    final row = await _client
+        .from('systems')
+        .select('*, clients(name, site_name, location)')
+        .eq('id', id)
+        .maybeSingle();
     if (row == null) return null;
-    return AssetSystem.fromMap(Map<String, dynamic>.from(row));
+    final m = Map<String, dynamic>.from(row);
+    final c = m.remove('clients');
+    if (c is Map) {
+      m['client_name'] = c['name'];
+      m['client_site'] = c['site_name'];
+      m['client_location'] = c['location'];
+    }
+    return AssetSystem.fromMap(m);
   }
 
   Future<AssetSystem> create({
@@ -180,6 +206,7 @@ class SystemRepository {
     double? initialHourMeter,
     double? initialEnergyMeter,
     String? operationType,
+    String? status,
     String? notes,
   }) async {
     final row = await _client
@@ -189,32 +216,31 @@ class SystemRepository {
           'name': name.trim(),
           'client_id': clientId,
           'client_name': clientName,
-          if (clientLocation != null) 'client_location': clientLocation,
-          if (clientSite != null) 'client_site': clientSite,
+          if (_trimOrNull(clientLocation) != null)
+            'client_location': _trimOrNull(clientLocation),
+          if (_trimOrNull(clientSite) != null)
+            'client_site': _trimOrNull(clientSite),
           if (_trimOrNull(code) != null) 'code': _trimOrNull(code),
-          if (_trimOrNull(type) != null) ...{
-            'type': _trimOrNull(type),
-            'system_type': _trimOrNull(type),
-          },
+          if (_trimOrNull(type) != null) 'type': _trimOrNull(type),
           if (_trimOrNull(model) != null) 'model': _trimOrNull(model),
           if (_trimOrNull(serialNumber) != null)
             'serial_number': _trimOrNull(serialNumber),
           if (capacity != null) 'capacity': capacity,
-          if (capacityUnit != null) 'capacity_unit': capacityUnit,
+          if (_trimOrNull(capacityUnit) != null)
+            'capacity_unit': _trimOrNull(capacityUnit),
           if (_trimOrNull(barcode) != null) 'barcode': _trimOrNull(barcode),
           if (_trimOrNull(siteName) != null) 'site_name': _trimOrNull(siteName),
           if (installationDate != null)
-            'installation_date':
-                installationDate.toIso8601String().split('T').first,
+            'installation_date': installationDate.toIso8601String(),
           if (registrationDate != null)
-            'registration_date':
-                registrationDate.toIso8601String().split('T').first,
+            'registration_date': registrationDate.toIso8601String(),
           if (fuelTankCapacity != null) 'fuel_tank_capacity': fuelTankCapacity,
           if (initialHourMeter != null) 'initial_hour_meter': initialHourMeter,
           if (initialEnergyMeter != null)
             'initial_energy_meter': initialEnergyMeter,
           if (_trimOrNull(operationType) != null)
             'operation_type': _trimOrNull(operationType),
+          if (_trimOrNull(status) != null) 'status': _trimOrNull(status),
           if (_trimOrNull(notes) != null) 'notes': _trimOrNull(notes),
         })
         .select()
@@ -248,31 +274,119 @@ final systemRepositoryProvider = Provider<SystemRepository>((ref) {
   return SystemRepository(ref.watch(supabaseClientProvider));
 });
 
+/// Reactive clients list.
+///
+/// - PowerSync configured → local SQLite watch (offline-first, live updates).
+/// - Otherwise → one-shot Supabase fetch (online-only path).
+/// Writes still go through [ClientRepository] → Postgres RLS.
 final clientsListProvider =
-    FutureProvider.autoDispose<List<Client>>((ref) async {
+    StreamProvider.autoDispose<List<Client>>((ref) async* {
   final org = ref.watch(activeOrganizationProvider);
-  if (org == null) return [];
-  return ref.watch(clientRepositoryProvider).list(organizationId: org.id);
+  if (org == null) {
+    yield const [];
+    return;
+  }
+
+  if (PowerSyncEnv.isConfigured) {
+    final db = await ref.watch(powerSyncDatabaseProvider.future);
+    if (db != null) {
+      yield* db
+          .watch(
+            'SELECT * FROM clients WHERE organization_id = ? ORDER BY name COLLATE NOCASE',
+            parameters: [org.id],
+          )
+          .map(
+            (rows) => rows
+                .map((r) => Client.fromMap(Map<String, dynamic>.from(r)))
+                .toList(growable: false),
+          );
+      return;
+    }
+  }
+
+  yield await ref.watch(clientRepositoryProvider).list(organizationId: org.id);
 });
 
+/// Reactive systems list (same dual path as clients).
 final systemsListProvider =
-    FutureProvider.autoDispose<List<AssetSystem>>((ref) async {
+    StreamProvider.autoDispose<List<AssetSystem>>((ref) async* {
   final org = ref.watch(activeOrganizationProvider);
-  if (org == null) return [];
-  return ref.watch(systemRepositoryProvider).list(organizationId: org.id);
+  if (org == null) {
+    yield const [];
+    return;
+  }
+
+  if (PowerSyncEnv.isConfigured) {
+    final db = await ref.watch(powerSyncDatabaseProvider.future);
+    if (db != null) {
+      yield* db
+          .watch(
+            'SELECT * FROM systems WHERE organization_id = ? ORDER BY name COLLATE NOCASE',
+            parameters: [org.id],
+          )
+          .map(
+            (rows) => rows
+                .map((r) => AssetSystem.fromMap(Map<String, dynamic>.from(r)))
+                .toList(growable: false),
+          );
+      return;
+    }
+  }
+
+  yield await ref.watch(systemRepositoryProvider).list(organizationId: org.id);
 });
 
 final clientByIdProvider =
     FutureProvider.autoDispose.family<Client?, String>((ref, id) async {
+  if (PowerSyncEnv.isConfigured) {
+    final db = await ref.watch(powerSyncDatabaseProvider.future);
+    if (db != null) {
+      final rows = await db.getAll(
+        'SELECT * FROM clients WHERE id = ? LIMIT 1',
+        [id],
+      );
+      if (rows.isNotEmpty) {
+        return Client.fromMap(Map<String, dynamic>.from(rows.first));
+      }
+    }
+  }
   return ref.watch(clientRepositoryProvider).getById(id);
 });
 
 final systemByIdProvider =
     FutureProvider.autoDispose.family<AssetSystem?, String>((ref, id) async {
+  if (PowerSyncEnv.isConfigured) {
+    final db = await ref.watch(powerSyncDatabaseProvider.future);
+    if (db != null) {
+      final rows = await db.getAll(
+        'SELECT * FROM systems WHERE id = ? LIMIT 1',
+        [id],
+      );
+      if (rows.isNotEmpty) {
+        return AssetSystem.fromMap(Map<String, dynamic>.from(rows.first));
+      }
+    }
+  }
   return ref.watch(systemRepositoryProvider).getById(id);
 });
 
 final systemsByClientProvider =
-    FutureProvider.autoDispose.family<List<AssetSystem>, String>((ref, clientId) async {
-  return ref.watch(systemRepositoryProvider).listByClient(clientId);
+    StreamProvider.autoDispose.family<List<AssetSystem>, String>((ref, clientId) async* {
+  if (PowerSyncEnv.isConfigured) {
+    final db = await ref.watch(powerSyncDatabaseProvider.future);
+    if (db != null) {
+      yield* db
+          .watch(
+            'SELECT * FROM systems WHERE client_id = ? ORDER BY name COLLATE NOCASE',
+            parameters: [clientId],
+          )
+          .map(
+            (rows) => rows
+                .map((r) => AssetSystem.fromMap(Map<String, dynamic>.from(r)))
+                .toList(growable: false),
+          );
+      return;
+    }
+  }
+  yield await ref.watch(systemRepositoryProvider).listByClient(clientId);
 });

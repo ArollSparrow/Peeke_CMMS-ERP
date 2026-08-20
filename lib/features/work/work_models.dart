@@ -1,3 +1,9 @@
+bool _asBool(dynamic v) {
+  if (v is bool) return v;
+  if (v is num) return v != 0;
+  return false;
+}
+
 class WorkRequest {
   const WorkRequest({
     required this.id,
@@ -68,7 +74,8 @@ class WorkRequest {
       faultDescription: m['fault_description'] as String?,
       notes: m['notes'] as String?,
       status: m['status'] as String? ?? 'pending',
-      needsProcurement: m['needs_procurement'] as bool? ?? false,
+      // SQLite (PowerSync) stores bool as integer 0/1.
+      needsProcurement: _asBool(m['needs_procurement']),
       reviewedBy: m['reviewed_by'] as String?,
       reviewNotes: m['review_notes'] as String?,
       reviewedAt: m['reviewed_at'] != null
@@ -168,7 +175,7 @@ class WorkOrder {
       faultDescription: m['fault_description'] as String?,
       notes: m['notes'] as String?,
       status: m['status'] as String? ?? 'open',
-      needsProcurement: m['needs_procurement'] as bool? ?? false,
+      needsProcurement: _asBool(m['needs_procurement']),
       assignedTechnician: m['assigned_technician'] as String?,
       completedBy: m['completed_by'] as String?,
       completedAt: m['completed_at'] != null
