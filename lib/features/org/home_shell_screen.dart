@@ -396,32 +396,31 @@ class _KpiCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: GlossColors.sky,
+      borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
-        child: Ink(
-          decoration: GlossTheme.plate,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          child: Row(
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: GlossColors.teal),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, color: GlossColors.navy, size: 22),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(label,
-                        style: const TextStyle(
-                            fontSize: 12, color: GlossColors.teal)),
-                    Text(value,
-                        style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: GlossColors.navy)),
-                  ],
-                ),
-              ),
+              Icon(icon, size: 20, color: GlossColors.teal),
+              const SizedBox(height: 10),
+              Text(value,
+                  style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: GlossColors.navy)),
+              const SizedBox(height: 2),
+              Text(label,
+                  style:
+                      const TextStyle(fontSize: 12, color: GlossColors.teal)),
             ],
           ),
         ),
