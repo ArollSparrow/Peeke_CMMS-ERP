@@ -1,34 +1,38 @@
 -- PowerSync Cloud replication surface (allowlist).
--- Apply on project tappfahlaiixctyliesz AFTER RLS is green on listed tables.
--- Do NOT use FOR ALL TABLES in production.
+-- Project: tappfahlaiixctyliesz (Peeke CMMS-ERP)
 --
--- Adjust role name/password via secrets; never commit credentials.
+-- Applied live (2026-08-21) via ops on infra/powersync-cloud-bootstrap:
+--   - ROLE powersync_role (REPLICATION, BYPASSRLS, LOGIN)
+--   - PUBLICATION powersync FOR TABLE (allowlist — NOT FOR ALL TABLES):
+--       organization_members, organizations, clients, systems,
+--       work_orders, work_requests
+--
+-- Password is NOT in git. Retrieve from ops vault / the session that created the role.
+-- Connection URI for PowerSync Dashboard (Direct, not pooler):
+--   postgresql://powersync_role:PASSWORD@db.tappfahlaiixctyliesz.supabase.co:5432/postgres
+--
 -- See: https://docs.powersync.com/integrations/supabase/guide
+-- See: docs/POWERSYNC_OPS_RUNBOOK.md
 
--- 1) Replication role (run once; store password in vault / CI secrets)
--- CREATE ROLE powersync_role WITH REPLICATION LOGIN PASSWORD '...';
+-- Idempotent re-apply (safe if already present):
+-- DO $$
+-- BEGIN
+--   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'powersync_role') THEN
+--     CREATE ROLE powersync_role WITH REPLICATION BYPASSRLS LOGIN PASSWORD '...';
+--   END IF;
+-- END $$;
 -- GRANT USAGE ON SCHEMA public TO powersync_role;
--- GRANT SELECT ON ALL TABLES IN SCHEMA public TO powersync_role;
--- ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO powersync_role;
-
--- 2) Publication — offline foundation v1
+-- GRANT SELECT ON TABLE
+--   public.organization_members, public.organizations, public.clients,
+--   public.systems, public.work_orders, public.work_requests
+-- TO powersync_role;
 -- DROP PUBLICATION IF EXISTS powersync;
 -- CREATE PUBLICATION powersync FOR TABLE
---   public.organization_members,
---   public.organizations,
---   public.clients,
---   public.systems,
---   public.work_orders,
---   public.work_requests;
---
--- Later (after streams + RLS review):
---   public.work_order_parts,
---   public.work_order_events,
---   public.spare_parts,
---   ...
+--   public.organization_members, public.organizations, public.clients,
+--   public.systems, public.work_orders, public.work_requests;
 
--- 3) Verify
+-- Verify:
 -- SELECT * FROM pg_publication_tables WHERE pubname = 'powersync';
+-- SELECT rolname, rolreplication, rolbypassrls FROM pg_roles WHERE rolname = 'powersync_role';
 
--- Placeholder so migration history records intent on this branch.
 SELECT 1;
