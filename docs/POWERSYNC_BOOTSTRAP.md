@@ -2,42 +2,38 @@
 
 **Working branch:** `infra/powersync-cloud-bootstrap`
 
-Infrastructure foundation is on production (`redesign/gloss-restrained-full-depth` via #33).  
-Ops + isolation continue on **this branch** until streams are proven.
+## Ready for last-mile (native-only)
 
-## Ops status
+Infrastructure is in place. **PowerSync Cloud free accounts can idle-deactivate after ~1 week** — so:
+
+1. Keep engineering/docs on this branch.  
+2. Sign up + connect + deploy streams **only when you can test the same day on Android or iOS**.  
+3. Web/Cloudflare preview stays online-only (no `POWERSYNC_URL` required).
+
+Full last-mile steps: **[POWERSYNC_OPS_RUNBOOK.md](POWERSYNC_OPS_RUNBOOK.md)**.
+
+## Status
 
 | Step | Status |
 |------|--------|
-| PowerSync Cloud instance | **Manual** — [runbook](POWERSYNC_OPS_RUNBOOK.md) |
-| Publication allowlist on `tappfahlaiixctyliesz` | **Done** (6 tables) |
-| Deploy `powersync/sync-streams.yaml` | **Manual** — dashboard Validate → Deploy |
-| Two-tenant isolation | Checklist: `scripts/powersync_two_tenant_isolation.sql` |
+| App dual-read + schema + connector | Done |
+| Publication allowlist on Supabase | Done |
+| Streams YAML in repo | Done |
+| PowerSync Cloud signup / instance | **Last** — when ready to test native |
+| Deploy streams + two-tenant device test | **Last** — Android/iOS |
 
-Full steps: **[POWERSYNC_OPS_RUNBOOK.md](POWERSYNC_OPS_RUNBOOK.md)**.
+## Sign up (when ready)
 
-## Policy: every push gets a dry run
+https://accounts.powersync.com/portal/powersync-signup  
+Then: https://dashboard.powersync.com/
 
-Push runs **Dry run (analyze)** then **Cloudflare Pages** deploy.
-
-## What is on the branch
-
-| Artifact | Purpose |
-|----------|---------|
-| `powersync/sync-streams.yaml` | Membership-scoped streams (clients/systems/work) |
-| `lib/infra/sync/*` | Schema, connector, lifecycle, status |
-| Dual-read providers | Clients, systems, work orders/requests |
-| Publication | Applied live; migration documents intent |
-| `docs/POWERSYNC_OPS_RUNBOOK.md` | Dashboard + connection steps |
-
-Without `POWERSYNC_URL`, the app is online-only Supabase.
-
-## Local run with sync
+## Local native run (after instance exists)
 
 ```bash
-flutter run --dart-define=POWERSYNC_URL=https://YOUR_INSTANCE.powersync.journeyapps.com
+flutter run -d android --dart-define=POWERSYNC_URL=https://YOUR_INSTANCE.powersync.journeyapps.com
+# or -d ios
 ```
 
-## Preview URL
+## Preview URL (web — online-only)
 
 https://infra-powersync-cloud-bootstrap.peeke-cmms-erp.pages.dev

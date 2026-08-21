@@ -3,81 +3,122 @@
 **Branch:** `infra/powersync-cloud-bootstrap`  
 **Supabase project:** `tappfahlaiixctyliesz` (Peeke CMMS-ERP, eu-central-1)
 
-## Status (2026-08-21)
+## Strategy: free account lasts ~1 week of inactivity
 
-| Step | Status |
+Do **not** create the PowerSync Cloud project until everything below is ready.
+Then run **signup → connect → streams → Android/iOS test** in one sitting.
+
+| Surface | PowerSync |
+|---------|-----------|
+| **Android / iOS** | Primary test target (local SQLite + sync) |
+| **Web / Cloudflare preview** | Stays online-only unless you pass `POWERSYNC_URL` (not required for CI) |
+
+Without `POWERSYNC_URL`, the app never opens a local PowerSync DB.
+
+---
+
+## Already done (no action)
+
+| Item | Status |
 |------|--------|
-| 1. PowerSync Cloud instance | **You** — dashboard only |
-| 2. Publication allowlist | **Done** on Supabase (6 tables) |
-| 3. Deploy `powersync/sync-streams.yaml` | **You** — paste in dashboard |
-| 4. Two-tenant isolation test | Checklist in `scripts/powersync_two_tenant_isolation.sql` |
+| Flutter schema + connector + lifecycle | On branch + production foundation |
+| Dual-read providers (clients, systems, work) | Done |
+| Home shell sync status + logout `disconnectAndClear` | Done |
+| `powersync/sync-streams.yaml` (membership-scoped) | In repo |
+| Publication allowlist on Supabase (6 tables) | **Live** |
+| Role `powersync_role` (REPLICATION + BYPASSRLS + LOGIN) | **Live** |
+| Two-tenant SQL checklist | `scripts/powersync_two_tenant_isolation.sql` |
 
-Replication role: `powersync_role` (REPLICATION + BYPASSRLS + LOGIN).  
-Password is **not** in git — use the value from the session that created the role (or reset via SQL).
+---
 
-## 1) Create PowerSync Cloud instance
+## Last-mile sequence (when you are ready to use the free week)
 
-1. Sign up / log in: https://dashboard.powersync.com/
-2. Create a project (e.g. **Peeke**). Default Dev + Prod instances appear.
-3. Prefer region **EU** to match Supabase `eu-central-1` when offered.
-4. Open the instance → **Database Connections** → Connect Postgres.
-5. Use **Direct** host (not pooler):
-   - Host: `db.tappfahlaiixctyliesz.supabase.co`
-   - Port: `5432`
-   - Database: `postgres`
-   - User: `powersync_role`
-   - Password: *(ops vault)*
-   - Or URI:  
-     `postgresql://powersync_role:PASSWORD@db.tappfahlaiixctyliesz.supabase.co:5432/postgres`
-6. **Client Auth** → enable **Use Supabase Auth**  
-   - New JWT signing keys: leave legacy secret empty.  
-   - Legacy HS256: paste JWT secret from Supabase → Project Settings → JWT.
-7. Save / Deploy connection.
+### A) Sign up (once)
 
-## 2) Publication (already applied)
+1. **Sign up** (not the dashboard Sign-in page):  
+   https://accounts.powersync.com/portal/powersync-signup  
+2. Then open: https://dashboard.powersync.com/ and sign in.  
+3. **Create project** → name e.g. `Peeke`.  
+   Accept default Dev (+ Prod) instances. Prefer **EU** region if offered.
 
-Allowlist only (not `FOR ALL TABLES`):
+### B) Connect Supabase (Development instance is enough for first test)
 
-- `organization_members`
-- `organizations`
-- `clients`
-- `systems`
-- `work_orders`
-- `work_requests`
+1. Instance → **Database Connections** → Postgres.  
+2. **Direct** host (not pooler):
 
-Verify:
+| Field | Value |
+|--------|--------|
+| Host | `db.tappfahlaiixctyliesz.supabase.co` |
+| Port | `5432` |
+| Database | `postgres` |
+| User | `powersync_role` |
+| Password | *(ops vault — created 2026-08-21; not in git)* |
+
+URI shape:
+
+```text
+postgresql://powersync_role:PASSWORD@db.tappfahlaiixctyliesz.supabase.co:5432/postgres
+```
+
+3. **Test Connection** → Save / Deploy.  
+4. **Client Auth** → enable **Use Supabase Auth**.  
+   - New JWT keys: leave legacy secret empty.  
+   - Legacy HS256 only: paste secret from Supabase → Project Settings → JWT.
+
+### C) Deploy Sync Streams
+
+1. Instance → **Sync Streams** (edition **3**).  
+2. Paste the full contents of repo file:  
+   `powersync/sync-streams.yaml`  
+3. **Validate** → **Deploy**.
+
+### D) Copy instance URL
+
+From the dashboard (Connect / instance details), copy the endpoint, typically:
+
+```text
+https://<id>.powersync.journeyapps.com
+```
+
+### E) Native test only (Android or iOS)
+
+```bash
+# From repo root, on this branch:
+flutter pub get
+
+# Android example
+flutter run -d android --dart-define=POWERSYNC_URL=https://YOUR_INSTANCE.powersync.journeyapps.com
+
+# iOS example
+flutter run -d ios --dart-define=POWERSYNC_URL=https://YOUR_INSTANCE.powersync.journeyapps.com
+```
+
+Checklist:
+
+1. Sign in as **User A** (Org A only) → wait for sync icon → confirm clients/systems/work match Org A.  
+2. Sign out (triggers `disconnectAndClear`).  
+3. Sign in as **User B** (Org B only) → **no** Org A rows in local lists.  
+4. Optional: airplane mode → lists still work from local SQLite; writes queue until online.  
+5. SQL baseline: `scripts/powersync_two_tenant_isolation.sql`.
+
+### F) After test
+
+- Keep using the Free instance lightly so it is not idle for a full week, **or**  
+- Upgrade later when production offline is required.  
+- Do **not** put `POWERSYNC_URL` into Cloudflare Pages build until isolation is proven.
+
+---
+
+## Publication verify (already applied)
 
 ```sql
 SELECT tablename FROM pg_publication_tables WHERE pubname = 'powersync' ORDER BY 1;
+-- Expect: clients, organization_members, organizations, systems, work_orders, work_requests
 ```
-
-## 3) Deploy Sync Streams
-
-1. PowerSync Dashboard → instance → **Sync Streams** (edition 3).
-2. Paste contents of repo file `powersync/sync-streams.yaml`.
-3. **Validate** against the connected database.
-4. **Deploy**.
-
-Streams are membership-scoped via `organization_members` + `auth.user_id()`.
-
-## 4) Two-tenant isolation
-
-1. Run `scripts/powersync_two_tenant_isolation.sql` for baseline counts.
-2. With app:
-   ```bash
-   flutter run --dart-define=POWERSYNC_URL=https://YOUR_INSTANCE.powersync.journeyapps.com
-   ```
-3. User B must not download Org A clients/systems/work rows.
-4. Logout clears local DB (`disconnectAndClear`).
-
-## App wiring (already on branch)
-
-- Opt-in: `POWERSYNC_URL` only.
-- Without it: online-only Supabase.
-- Dual-read lists for clients, systems, work orders/requests.
 
 ## Do not
 
-- Commit `powersync_role` password.
-- Use `FOR ALL TABLES` publication in production.
-- Sync `organization_payment_settings` secrets.
+- Commit `powersync_role` password.  
+- Use `FOR ALL TABLES` publication.  
+- Sync payment secret tables.  
+- Rely on web preview for offline proof (native is the real gate).
