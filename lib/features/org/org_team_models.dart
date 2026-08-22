@@ -57,6 +57,35 @@ class OrgDept {
   final int sortOrder;
 }
 
+/// Department row enriched for admin roster (Departments v2).
+class OrgDeptStats {
+  const OrgDeptStats({
+    required this.dept,
+    required this.memberCount,
+    this.hodNames = const [],
+  });
+  final OrgDept dept;
+  final int memberCount;
+  final List<String> hodNames;
+
+  String get hodLine {
+    if (hodNames.isEmpty) return 'No HoD assigned';
+    if (hodNames.length == 1) return 'HoD · ${hodNames.first}';
+    if (hodNames.length == 2) {
+      return 'HoD · ${hodNames[0]} · ${hodNames[1]}';
+    }
+    return 'HoD · ${hodNames[0]} · ${hodNames[1]} +${hodNames.length - 2}';
+  }
+
+  String get countLine {
+    final n = memberCount;
+    final base = n == 0
+        ? '0 members'
+        : (n == 1 ? '1 member' : '$n members');
+    return dept.isActive ? base : '$base · inactive';
+  }
+}
+
 final orgDepartmentsProvider =
     FutureProvider.autoDispose<List<OrgDept>>((ref) async {
   final org = ref.watch(activeOrganizationProvider);
@@ -100,6 +129,56 @@ final orgActiveDepartmentsProvider =
   return ref.watch(orgDepartmentsProvider).whenData(
         (list) => list.where((d) => d.isActive).toList(),
       );
+});
+
+/// Departments with member counts + HoD display names.
+final orgDepartmentStatsProvider =
+    FutureProvider.autoDispose<List<OrgDeptStats>>((ref) async {
+  final org = ref.watch(activeOrganizationProvider);
+  if (org == null) return [];
+  final client = ref.watch(supabaseClientProvider);
+  final depts = await ref.watch(orgDepartmentsProvider.future);
+  final members = await ref.watch(orgMembersProvider.future);
+  final nameByUser = <String, String>{};
+  for (final m in members) {
+    final n = m.fullName?.trim();
+    nameByUser[m.userId] =
+        (n != null && n.isNotEmpty) ? n : (m.email ?? 'Member');
+  }
+
+  final mdRows = await client
+      .from('organization_member_departments')
+      .select('user_id, department_id')
+      .eq('organization_id', org.id);
+  final hodRows = await client
+      .from('organization_department_heads')
+      .select('user_id, department_id')
+      .eq('organization_id', org.id);
+
+  final countByDept = <String, Set<String>>{};
+  for (final e in (mdRows as List)) {
+    final m = Map<String, dynamic>.from(e as Map);
+    final did = m['department_id'] as String;
+    final uid = m['user_id'] as String;
+    countByDept.putIfAbsent(did, () => {}).add(uid);
+  }
+  final hodByDept = <String, List<String>>{};
+  for (final e in (hodRows as List)) {
+    final m = Map<String, dynamic>.from(e as Map);
+    final did = m['department_id'] as String;
+    final uid = m['user_id'] as String;
+    final label = nameByUser[uid] ?? 'Member';
+    hodByDept.putIfAbsent(did, () => []).add(label);
+  }
+
+  return [
+    for (final d in depts)
+      OrgDeptStats(
+        dept: d,
+        memberCount: countByDept[d.id]?.length ?? 0,
+        hodNames: hodByDept[d.id] ?? const [],
+      ),
+  ];
 });
 
 final orgMembersProvider =

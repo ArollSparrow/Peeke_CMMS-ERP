@@ -52,6 +52,20 @@ class OrgRoles {
     operator,
   ];
 
+  /// Display order for Roles overview (authority top → field).
+  static const hierarchy = <String>[
+    owner,
+    systemAdmin,
+    ceo,
+    generalManager,
+    admin,
+    hod,
+    supervisor,
+    officer,
+    technician,
+    operator,
+  ];
+
   static String label(String? code) {
     switch (code) {
       case owner:
@@ -79,6 +93,37 @@ class OrgRoles {
         return code ?? '—';
     }
   }
+
+  /// Short capability note for Roles overview (product language, not ACL matrix).
+  static String capability(String? code) {
+    switch (normalize(code)) {
+      case owner:
+        return 'Full org control · billing & lifecycle · invite & team · all modules';
+      case systemAdmin:
+        return 'Technical admin · team & settings · same elevated tools as Admin';
+      case ceo:
+        return 'Executive oversight · elevated team & org settings';
+      case generalManager:
+        return 'Operations leadership · elevated team & org settings';
+      case admin:
+        return 'Day-to-day admin · invites, members, departments';
+      case hod:
+        return 'Department head · leads assigned depts (set on member profile)';
+      case supervisor:
+        return 'Supervises field work · approvals where policy allows';
+      case officer:
+        return 'Office / coordination · standard module access';
+      case technician:
+        return 'Field maintenance · work orders, jobs, service history';
+      case operator:
+        return 'Plant operations · start/stop, fuel, breakdown records';
+      default:
+        return 'Standard member access';
+    }
+  }
+
+  static bool isElevatedRole(String? code) =>
+      elevated.contains(normalize(code));
 
   static String normalize(String? code) {
     if (code == null || code.isEmpty) return technician;
