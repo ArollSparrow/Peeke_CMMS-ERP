@@ -7,7 +7,7 @@ import '../auth/auth_providers.dart';
 import 'org_providers.dart';
 import 'org_team_models.dart';
 
-/// Create / rename / soft-deactivate departments for the active org.
+/// Create / rename / soft-deactivate departments + HoD / headcount (v2).
 /// Elevated roles only (same gate as Team invite).
 class OrgDepartmentsScreen extends ConsumerStatefulWidget {
   const OrgDepartmentsScreen({super.key});
@@ -27,6 +27,12 @@ class _OrgDepartmentsScreenState extends ConsumerState<OrgDepartmentsScreen> {
   void dispose() {
     _name.dispose();
     super.dispose();
+  }
+
+  void _refresh() {
+    ref.invalidate(orgDepartmentsProvider);
+    ref.invalidate(orgDepartmentStatsProvider);
+    ref.invalidate(orgMembersProvider);
   }
 
   Future<void> _create() async {
@@ -51,7 +57,7 @@ class _OrgDepartmentsScreenState extends ConsumerState<OrgDepartmentsScreen> {
         },
       );
       _name.clear();
-      ref.invalidate(orgDepartmentsProvider);
+      _refresh();
       setState(() => _message = 'Department “$name” created');
     } catch (e) {
       setState(() => _error = friendlyError(e));
@@ -103,8 +109,7 @@ class _OrgDepartmentsScreenState extends ConsumerState<OrgDepartmentsScreen> {
           'p_name': name,
         },
       );
-      ref.invalidate(orgDepartmentsProvider);
-      ref.invalidate(orgMembersProvider);
+      _refresh();
       setState(() => _message = 'Renamed to “$name”');
     } catch (e) {
       setState(() => _error = friendlyError(e));
@@ -150,7 +155,7 @@ class _OrgDepartmentsScreenState extends ConsumerState<OrgDepartmentsScreen> {
           'p_active': active,
         },
       );
-      ref.invalidate(orgDepartmentsProvider);
+      _refresh();
       setState(
         () => _message = active
             ? '“${dept.name}” reactivated'
@@ -163,22 +168,22 @@ class _OrgDepartmentsScreenState extends ConsumerState<OrgDepartmentsScreen> {
     }
   }
 
-  Widget _tile(OrgDept d) {
+  Widget _tile(OrgDeptStats s) {
+    final d = s.dept;
     return Container(
       width: double.infinity,
-      height: GlossSurfaces.tileMinHeight,
       margin: const EdgeInsets.only(bottom: GlossSurfaces.fieldGap),
-      decoration: d.isActive ? GlossSurfaces.plate : GlossSurfaces.plate,
+      decoration: GlossSurfaces.plate,
       child: Opacity(
         opacity: d.isActive ? 1 : 0.55,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 2, 0),
+          padding: const EdgeInsets.fromLTRB(12, 10, 2, 10),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
                       d.isActive ? d.code : '${d.code} · inactive',
@@ -189,6 +194,19 @@ class _OrgDepartmentsScreenState extends ConsumerState<OrgDepartmentsScreen> {
                     Text(
                       d.name,
                       style: GlossSurfaces.tileName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      s.hodLine,
+                      style: GlossSurfaces.tileMeta.copyWith(fontSize: 11),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      s.countLine,
+                      style: GlossSurfaces.tileMeta.copyWith(fontSize: 11),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -242,7 +260,7 @@ class _OrgDepartmentsScreenState extends ConsumerState<OrgDepartmentsScreen> {
   @override
   Widget build(BuildContext context) {
     final caps = ref.watch(orgCapabilitiesProvider);
-    final depts = ref.watch(orgDepartmentsProvider);
+    final stats = ref.watch(orgDepartmentStatsProvider);
 
     if (!caps.isElevated) {
       return Scaffold(
@@ -268,8 +286,9 @@ class _OrgDepartmentsScreenState extends ConsumerState<OrgDepartmentsScreen> {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [
           Text(
-            'Seeded defaults can be renamed. Deactivate hides a department '
-            'from new assignments without deleting member history.',
+            'Each row shows HoD and headcount. Assign HoD on Team → member → '
+            'long-press a department chip. Deactivate hides a department from '
+            'new assignments without deleting history.',
             style: GlossSurfaces.logoAccent,
           ),
           const SizedBox(height: 16),
@@ -316,7 +335,7 @@ class _OrgDepartmentsScreenState extends ConsumerState<OrgDepartmentsScreen> {
             ),
           ),
           const SizedBox(height: GlossSurfaces.fieldGap),
-          depts.when(
+          stats.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Text(friendlyError(e)),
             data: (list) {
@@ -325,7 +344,7 @@ class _OrgDepartmentsScreenState extends ConsumerState<OrgDepartmentsScreen> {
                     style: GlossSurfaces.logoAccent);
               }
               return Column(
-                children: [for (final d in list) _tile(d)],
+                children: [for (final s in list) _tile(s)],
               );
             },
           ),
