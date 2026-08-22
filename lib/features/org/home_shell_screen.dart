@@ -17,6 +17,7 @@ import '../procurement/procurement_providers.dart';
 import '../work/work_providers.dart';
 import 'org_providers.dart';
 import 'org_status_screen.dart';
+import 'org_team_models.dart';
 
 class HomeShellScreen extends ConsumerWidget {
   const HomeShellScreen({super.key});
@@ -32,6 +33,7 @@ class HomeShellScreen extends ConsumerWidget {
     final active = ref.watch(activeOrganizationProvider);
     final user = ref.watch(currentUserProvider);
     final clientsAsync = ref.watch(clientsListProvider);
+    final membersAsync = ref.watch(orgMembersProvider);
     final openWo = ref.watch(openWorkOrdersCountProvider).valueOrNull;
     final lowStock = ref.watch(lowStockCountProvider).valueOrNull;
     final partsCount = ref.watch(partsCountProvider).valueOrNull;
@@ -45,6 +47,7 @@ class HomeShellScreen extends ConsumerWidget {
     final inviteLanding = ref.watch(teamInviteLandingProvider);
 
     final clientCount = clientsAsync.valueOrNull?.length;
+    final memberCount = membersAsync.valueOrNull?.length;
     final payBadge = paySettings == null
         ? 'Setup'
         : (paySettings.isConfigured && paySettings.isEnabled
@@ -109,6 +112,7 @@ class HomeShellScreen extends ConsumerWidget {
           return RefreshIndicator(
             onRefresh: () async {
               ref.invalidate(myOrganizationsProvider);
+              ref.invalidate(orgMembersProvider);
               ref.invalidate(clientsListProvider);
               ref.invalidate(systemsListProvider);
               ref.invalidate(openWorkOrdersCountProvider);
@@ -183,8 +187,10 @@ class HomeShellScreen extends ConsumerWidget {
                 _ModuleTile(
                   icon: Icons.group_outlined,
                   title: 'Team',
-                  subtitle: 'Members & invites',
-                  badge: 'Live',
+                  subtitle: 'Directory, invites & departments',
+                  badge: memberCount == null
+                      ? '…'
+                      : (memberCount == 0 ? 'Empty' : '$memberCount'),
                   onTap: () => context.push('/org/team'),
                 ),
                 _ModuleTile(
