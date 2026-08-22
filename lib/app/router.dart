@@ -22,6 +22,7 @@ import '../features/maintenance/service_history_screen.dart';
 import '../features/operations/operations_screens.dart';
 import '../features/org/create_org_screen.dart';
 import '../features/org/home_shell_screen.dart';
+import '../features/org/org_activity_screen.dart';
 import '../features/org/org_departments_screen.dart';
 import '../features/org/org_member_profile_screen.dart';
 import '../features/org/org_roles_screen.dart';
@@ -72,6 +73,7 @@ bool _isKnownAppPath(String loc) {
     '/org/create',
     '/org/status',
     '/org/team',
+    '/org/team/activity',
     '/org/departments',
     '/org/roles',
     '/registration',
@@ -240,6 +242,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           builder: (context, state) => const OrgStatusScreen()),
       GoRoute(
           path: '/org/team', builder: (context, state) => const OrgTeamScreen()),
+      GoRoute(
+          path: '/org/team/activity',
+          builder: (context, state) => const OrgActivityScreen()),
       GoRoute(
         path: '/org/team/:userId',
         builder: (context, state) => OrgMemberProfileScreen(
