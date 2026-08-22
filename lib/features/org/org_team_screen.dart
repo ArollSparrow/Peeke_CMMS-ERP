@@ -923,7 +923,11 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                 return Column(
                   children: [
                     for (final m in filtered)
-                      _memberCard(m, me, canInvite),
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => context.push('/org/team/${m.userId}'),
+                        child: _memberCard(m, me, canInvite),
+                      ),
                   ],
                 );
               },
