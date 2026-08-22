@@ -70,6 +70,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   @override
+  void deactivate() {
+    // Cover case: page stays in tree under a transparent/transition layer.
+    _password.clear();
+    _confirm.clear();
+    super.deactivate();
+  }
+
+  @override
   void dispose() {
     _email.dispose();
     _password.dispose();
@@ -190,6 +198,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             email: email,
             password: _password.text,
           );
+          // Never leave a live password in the widget tree after success
+          // (route can briefly remain painted under the next page on web).
+          if (mounted) {
+            _password.clear();
+            _confirm.clear();
+          }
           break;
       }
     } catch (e) {
@@ -350,211 +364,214 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     return Scaffold(
       backgroundColor: GlossColors.sky,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: Center(
-                child: SingleChildScrollView(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: _formWidth),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Center(
-                          child: Image.asset(
-                            'assets/branding/peeke_icon.png',
-                            height: 120,
-                            width: 120,
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) => const Text(
-                              'Peeke',
+      body: ColoredBox(
+        color: GlossColors.sky,
+        child: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: Center(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 16),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: _formWidth),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Center(
+                            child: Image.asset(
+                              'assets/branding/peeke_icon.png',
+                              height: 120,
+                              width: 120,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) => const Text(
+                                'Peeke',
+                                style: _logoMark,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+
+                          if (_mode == _AuthMode.register) ...[
+                            const Text(
+                              'Create organisation',
+                              textAlign: TextAlign.center,
                               style: _logoMark,
                             ),
-                          ),
-                        ),
-                        const SizedBox(height: 32),
+                            const SizedBox(height: 18),
+                          ],
+                          if (_mode == _AuthMode.forgot) ...[
+                            const Text(
+                              'Reset password',
+                              textAlign: TextAlign.center,
+                              style: _logoMark,
+                            ),
+                            const SizedBox(height: 18),
+                          ],
 
-                        if (_mode == _AuthMode.register) ...[
-                          const Text(
-                            'Create organisation',
-                            textAlign: TextAlign.center,
-                            style: _logoMark,
-                          ),
-                          const SizedBox(height: 18),
-                        ],
-                        if (_mode == _AuthMode.forgot) ...[
-                          const Text(
-                            'Reset password',
-                            textAlign: TextAlign.center,
-                            style: _logoMark,
-                          ),
-                          const SizedBox(height: 18),
-                        ],
-
-                        TextField(
-                          controller: _email,
-                          keyboardType: TextInputType.emailAddress,
-                          style: _logoMark.copyWith(fontSize: 14),
-                          cursorColor: GlossColors.navy,
-                          autofillHints: const [AutofillHints.email],
-                          decoration: _fieldDecoration('Email'),
-                        ),
-                        if (_mode != _AuthMode.forgot) ...[
-                          const SizedBox(height: 12),
                           TextField(
-                            controller: _password,
-                            obscureText: !_showPassword,
+                            controller: _email,
+                            keyboardType: TextInputType.emailAddress,
                             style: _logoMark.copyWith(fontSize: 14),
                             cursorColor: GlossColors.navy,
-                            autofillHints: _mode == _AuthMode.register
-                                ? const [AutofillHints.newPassword]
-                                : const [AutofillHints.password],
-                            decoration: _fieldDecoration('Password').copyWith(
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _showPassword
-                                      ? Icons.visibility_off_outlined
-                                      : Icons.visibility_outlined,
-                                  color:
-                                      GlossColors.navy.withValues(alpha: 0.7),
-                                  size: 20,
+                            autofillHints: const [AutofillHints.email],
+                            decoration: _fieldDecoration('Email'),
+                          ),
+                          if (_mode != _AuthMode.forgot) ...[
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: _password,
+                              obscureText: !_showPassword,
+                              style: _logoMark.copyWith(fontSize: 14),
+                              cursorColor: GlossColors.navy,
+                              autofillHints: _mode == _AuthMode.register
+                                  ? const [AutofillHints.newPassword]
+                                  : const [AutofillHints.password],
+                              decoration: _fieldDecoration('Password').copyWith(
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _showPassword
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
+                                    color:
+                                        GlossColors.navy.withValues(alpha: 0.7),
+                                    size: 20,
+                                  ),
+                                  onPressed: () => setState(
+                                      () => _showPassword = !_showPassword),
                                 ),
-                                onPressed: () => setState(
-                                    () => _showPassword = !_showPassword),
-                              ),
-                            ),
-                          ),
-                        ],
-                        if (_mode == _AuthMode.register) ...[
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: _confirm,
-                            obscureText: !_showPassword,
-                            style: _logoMark.copyWith(fontSize: 14),
-                            cursorColor: GlossColors.navy,
-                            autofillHints: const [AutofillHints.newPassword],
-                            decoration: _fieldDecoration('Confirm password'),
-                            onSubmitted: (_) => _busy ? null : _submit(),
-                          ),
-                        ],
-                        if (_error != null) ...[
-                          const SizedBox(height: 12),
-                          Text(
-                            _error!,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: GlossColors.danger,
-                              fontSize: 13,
-                              height: 1.35,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                        if (_info != null) ...[
-                          const SizedBox(height: 12),
-                          Text(
-                            _info!,
-                            textAlign: TextAlign.center,
-                            style: _logoAccent,
-                          ),
-                        ],
-                        const SizedBox(height: 20),
-                        _primaryAction(),
-                        if (_mode == _AuthMode.signIn) ...[
-                          if (_offerForgotPassword && !inviteOnly) ...[
-                            const SizedBox(height: 6),
-                            TextButton(
-                              onPressed: _busy
-                                  ? null
-                                  : () => _setMode(_AuthMode.forgot),
-                              child: const Text(
-                                'Forgot password?',
-                                style: _logoAccent,
                               ),
                             ),
                           ],
-                          if (_offerResendConfirmation && !inviteOnly) ...[
-                            const SizedBox(height: 2),
-                            TextButton(
-                              onPressed:
-                                  _busy ? null : _resendConfirmation,
-                              child: const Text(
-                                'Resend confirmation email',
-                                style: _logoAccent,
+                          if (_mode == _AuthMode.register) ...[
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: _confirm,
+                              obscureText: !_showPassword,
+                              style: _logoMark.copyWith(fontSize: 14),
+                              cursorColor: GlossColors.navy,
+                              autofillHints: const [AutofillHints.newPassword],
+                              decoration: _fieldDecoration('Confirm password'),
+                              onSubmitted: (_) => _busy ? null : _submit(),
+                            ),
+                          ],
+                          if (_error != null) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              _error!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: GlossColors.danger,
+                                fontSize: 13,
+                                height: 1.35,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ],
-                          if (!inviteOnly) ...[
-                            const SizedBox(height: 16),
-                            Center(
-                              child: TextButton.icon(
+                          if (_info != null) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              _info!,
+                              textAlign: TextAlign.center,
+                              style: _logoAccent,
+                            ),
+                          ],
+                          const SizedBox(height: 20),
+                          _primaryAction(),
+                          if (_mode == _AuthMode.signIn) ...[
+                            if (_offerForgotPassword && !inviteOnly) ...[
+                              const SizedBox(height: 6),
+                              TextButton(
                                 onPressed: _busy
                                     ? null
-                                    : () => _setMode(_AuthMode.register),
-                                icon: const Icon(
-                                  Icons.link,
-                                  size: 18,
-                                  color: GlossColors.navy,
+                                    : () => _setMode(_AuthMode.forgot),
+                                child: const Text(
+                                  'Forgot password?',
+                                  style: _logoAccent,
                                 ),
-                                label: const Text(
-                                  'Create Organisation',
-                                  style: _logoMark,
+                              ),
+                            ],
+                            if (_offerResendConfirmation && !inviteOnly) ...[
+                              const SizedBox(height: 2),
+                              TextButton(
+                                onPressed:
+                                    _busy ? null : _resendConfirmation,
+                                child: const Text(
+                                  'Resend confirmation email',
+                                  style: _logoAccent,
                                 ),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: GlossColors.navy,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
+                              ),
+                            ],
+                            if (!inviteOnly) ...[
+                              const SizedBox(height: 16),
+                              Center(
+                                child: TextButton.icon(
+                                  onPressed: _busy
+                                      ? null
+                                      : () => _setMode(_AuthMode.register),
+                                  icon: const Icon(
+                                    Icons.link,
+                                    size: 18,
+                                    color: GlossColors.navy,
+                                  ),
+                                  label: const Text(
+                                    'Create Organisation',
+                                    style: _logoMark,
+                                  ),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: GlossColors.navy,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
+                            ],
                           ],
+                          if (_mode == _AuthMode.register)
+                            TextButton(
+                              onPressed: _busy
+                                  ? null
+                                  : () => _setMode(_AuthMode.signIn),
+                              child: const Text(
+                                'Already have an account? Sign in',
+                                style: _logoAccent,
+                              ),
+                            ),
+                          if (_mode == _AuthMode.forgot)
+                            TextButton(
+                              onPressed: _busy
+                                  ? null
+                                  : () => _setMode(_AuthMode.signIn),
+                              child: const Text(
+                                'Back to sign in',
+                                style: _logoAccent,
+                              ),
+                            ),
                         ],
-                        if (_mode == _AuthMode.register)
-                          TextButton(
-                            onPressed: _busy
-                                ? null
-                                : () => _setMode(_AuthMode.signIn),
-                            child: const Text(
-                              'Already have an account? Sign in',
-                              style: _logoAccent,
-                            ),
-                          ),
-                        if (_mode == _AuthMode.forgot)
-                          TextButton(
-                            onPressed: _busy
-                                ? null
-                                : () => _setMode(_AuthMode.signIn),
-                            child: const Text(
-                              'Back to sign in',
-                              style: _logoAccent,
-                            ),
-                          ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-            const Padding(
-              padding: EdgeInsets.only(bottom: 16, top: 8),
-              child: Text(
-                '© Peeke Automation',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: GlossColors.navy,
-                  fontWeight: FontWeight.w400,
-                  letterSpacing: 0.2,
+              const Padding(
+                padding: EdgeInsets.only(bottom: 16, top: 8),
+                child: Text(
+                  '© Peeke Automation',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: GlossColors.navy,
+                    fontWeight: FontWeight.w400,
+                    letterSpacing: 0.2,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
