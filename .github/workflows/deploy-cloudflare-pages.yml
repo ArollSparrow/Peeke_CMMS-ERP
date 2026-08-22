@@ -9,6 +9,7 @@ on:
       - redesign/gloss-restrained-full-depth
       - infra/powersync-cloud-bootstrap
       - feature/department-management
+      - feature/team-invite-multi
   workflow_dispatch:
 
 jobs:
