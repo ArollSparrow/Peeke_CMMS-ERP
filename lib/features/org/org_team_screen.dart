@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../design/gloss_theme.dart';
@@ -292,13 +293,10 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     final isMe = m.userId == me;
     final hasPhone = (m.phone != null && m.phone!.trim().isNotEmpty);
 
-    // Name line: identity only.
     final nameParts = <String>[name];
     if (isMe) nameParts.add('You');
     final nameLine = nameParts.join(' · ');
 
-    // Meta line: Title · Department only — no org role, no HoD tags.
-    // e.g. "Plant Manager · Engineering"
     final depts = m.departmentLabels;
     final metaParts = <String>[];
     if (title != null) metaParts.add(title);
@@ -522,7 +520,17 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
 
     return Scaffold(
       backgroundColor: GlossColors.sky,
-      appBar: AppBar(title: const Text('Team')),
+      appBar: AppBar(
+        title: const Text('Team'),
+        actions: [
+          if (canInvite)
+            IconButton(
+              tooltip: 'Departments',
+              icon: const Icon(Icons.account_tree_outlined),
+              onPressed: () => context.push('/org/departments'),
+            ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [
