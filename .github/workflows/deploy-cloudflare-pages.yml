@@ -1,7 +1,7 @@
 name: Deploy Web → Cloudflare Pages
 
-# Primary production: Production_Main
-# Previews: PowerSync infra + feature branches (+ workflow_dispatch)
+# Primary production: Production_Main (must match Cloudflare Pages production_branch)
+# Previews: feature / infra branches (+ workflow_dispatch)
 on:
   push:
     branches:
@@ -86,9 +86,25 @@ jobs:
           cp -f web/favicon.png build/web/favicon.png 2>/dev/null || true
           cp -f web/icons/* build/web/icons/ 2>/dev/null || true
           printf '/*    /index.html   200\n' > build/web/_redirects
+      - name: Resolve Cloudflare Pages branch
+        id: cf
+        run: |
+          # Git branch Production_Main is the production release line.
+          # Cloudflare project production_branch must equal this string for environment=production.
+          case "${GITHUB_REF_NAME}" in
+            Production_Main)
+              echo "branch=Production_Main" >> "$GITHUB_OUTPUT"
+              echo "target=production" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "branch=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+              echo "target=preview" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+          echo "CF deploy branch=${GITHUB_REF_NAME} target mapped"
       - uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy build/web --project-name=peeke-web --branch=${{ github.ref_name }}
+          command: pages deploy build/web --project-name=peeke-web --branch=${{ steps.cf.outputs.branch }}
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
