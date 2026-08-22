@@ -45,7 +45,7 @@ class _OrgMemberProfileScreenState
       }
       return;
     }
-    final digits = raw.replaceAll(RegExp(r'[^\\d+]'), '');
+    final digits = raw.replaceAll(RegExp(r'[^\d+]'), '');
     if (digits.isEmpty) return;
     final uri = Uri(scheme: 'tel', path: digits);
     try {
@@ -332,6 +332,7 @@ class _OrgMemberProfileScreenState
 
     return Scaffold(
       backgroundColor: GlossColors.sky,
+      // Fully opaque so no prior route (e.g. login) can show through on web.
       appBar: AppBar(
         title: Text(isSelf ? 'My profile' : 'Member'),
         actions: [
@@ -359,135 +360,138 @@ class _OrgMemberProfileScreenState
           ),
         ],
       ),
-      body: members.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text(friendlyError(e)),
-        ),
-        data: (list) {
-          final m = _find(list);
-          if (m == null) {
-            return Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                'Member not found in this organisation.',
-                style: GlossSurfaces.logoAccent,
-              ),
-            );
-          }
-          final name = (m.fullName != null && m.fullName!.trim().isNotEmpty)
-              ? m.fullName!.trim()
-              : 'Team member';
-          final title = (m.jobTitle != null && m.jobTitle!.trim().isNotEmpty)
-              ? m.jobTitle!.trim()
-              : '—';
-          final phone = (m.phone != null && m.phone!.trim().isNotEmpty)
-              ? m.phone!.trim()
-              : '—';
-          final email = (m.email != null && m.email!.trim().isNotEmpty)
-              ? m.email!.trim()
-              : '—';
-          final depts = m.departmentLabels;
-          final hod = m.hodLabels;
-
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-            children: [
-              Center(
-                child: CircleAvatar(
-                  radius: 44,
-                  backgroundColor: GlossColors.sky,
-                  backgroundImage: (m.avatarUrl != null &&
-                          m.avatarUrl!.isNotEmpty)
-                      ? NetworkImage(m.avatarUrl!)
-                      : null,
-                  child: (m.avatarUrl == null || m.avatarUrl!.isEmpty)
-                      ? const Icon(Icons.person_outline,
-                          size: 44, color: GlossColors.navy)
-                      : null,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Center(
+      body: ColoredBox(
+        color: GlossColors.sky,
+        child: members.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(friendlyError(e)),
+          ),
+          data: (list) {
+            final m = _find(list);
+            if (m == null) {
+              return Padding(
+                padding: const EdgeInsets.all(16),
                 child: Text(
-                  name + (isSelf ? ' · You' : ''),
-                  style: GlossSurfaces.logoMark.copyWith(fontSize: 18),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Center(
-                child: Text(
-                  OrgRoles.label(m.role),
+                  'Member not found in this organisation.',
                   style: GlossSurfaces.logoAccent,
                 ),
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 12),
-                Text(_error!,
-                    style: GlossSurfaces.logoMark
-                        .copyWith(color: GlossColors.danger)),
-              ],
-              if (_message != null) ...[
-                const SizedBox(height: 12),
-                Text(_message!, style: GlossSurfaces.logoAccent),
-              ],
-              const SizedBox(height: 20),
-              _row('Job title', title, icon: Icons.work_outline),
-              _row('Email', email, icon: Icons.mail_outline),
-              _row('Phone', phone, icon: Icons.call_outlined),
-              _row(
-                'Departments',
-                depts.isEmpty ? 'None assigned' : depts.join(' · '),
-                icon: Icons.apartment_outlined,
-              ),
-              if (hod.isNotEmpty)
-                _row(
-                  'Head of department',
-                  hod.join(' · '),
-                  icon: Icons.star_outline,
-                ),
-              const SizedBox(height: 12),
-              if (phone != '—')
-                Align(
-                  alignment: Alignment.center,
-                  child: GlossSurfaces.glossCta(
-                    label: 'CALL',
-                    onTap: () => _call(m),
+              );
+            }
+            final name = (m.fullName != null && m.fullName!.trim().isNotEmpty)
+                ? m.fullName!.trim()
+                : 'Team member';
+            final title = (m.jobTitle != null && m.jobTitle!.trim().isNotEmpty)
+                ? m.jobTitle!.trim()
+                : '—';
+            final phone = (m.phone != null && m.phone!.trim().isNotEmpty)
+                ? m.phone!.trim()
+                : '—';
+            final email = (m.email != null && m.email!.trim().isNotEmpty)
+                ? m.email!.trim()
+                : '—';
+            final depts = m.departmentLabels;
+            final hod = m.hodLabels;
+
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+              children: [
+                Center(
+                  child: CircleAvatar(
+                    radius: 44,
+                    backgroundColor: GlossColors.sky,
+                    backgroundImage: (m.avatarUrl != null &&
+                            m.avatarUrl!.isNotEmpty)
+                        ? NetworkImage(m.avatarUrl!)
+                        : null,
+                    child: (m.avatarUrl == null || m.avatarUrl!.isEmpty)
+                        ? const Icon(Icons.person_outline,
+                            size: 44, color: GlossColors.navy)
+                        : null,
                   ),
                 ),
-              if (isSelf) ...[
-                const SizedBox(height: 16),
-                Text(
-                  'You can update name, phone, title, and photo. '
-                  'Role and departments require an elevated role.',
-                  style: GlossSurfaces.logoAccent.copyWith(fontSize: 12),
-                  textAlign: TextAlign.center,
+                const SizedBox(height: 12),
+                Center(
+                  child: Text(
+                    name + (isSelf ? ' · You' : ''),
+                    style: GlossSurfaces.logoMark.copyWith(fontSize: 18),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
-              ],
-              if (isOwner && !isSelf && m.role != OrgRoles.owner) ...[
+                const SizedBox(height: 4),
+                Center(
+                  child: Text(
+                    OrgRoles.label(m.role),
+                    style: GlossSurfaces.logoAccent,
+                  ),
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 12),
+                  Text(_error!,
+                      style: GlossSurfaces.logoMark
+                          .copyWith(color: GlossColors.danger)),
+                ],
+                if (_message != null) ...[
+                  const SizedBox(height: 12),
+                  Text(_message!, style: GlossSurfaces.logoAccent),
+                ],
                 const SizedBox(height: 20),
-                Align(
-                  alignment: Alignment.center,
-                  child: OutlinedButton(
-                    onPressed: _busy ? null : () => _transferOwnership(m),
-                    child: Text(
-                      'Transfer ownership',
-                      style: GlossSurfaces.logoMark,
+                _row('Job title', title, icon: Icons.work_outline),
+                _row('Email', email, icon: Icons.mail_outline),
+                _row('Phone', phone, icon: Icons.call_outlined),
+                _row(
+                  'Departments',
+                  depts.isEmpty ? 'None assigned' : depts.join(' · '),
+                  icon: Icons.apartment_outlined,
+                ),
+                if (hod.isNotEmpty)
+                  _row(
+                    'Head of department',
+                    hod.join(' · '),
+                    icon: Icons.star_outline,
+                  ),
+                const SizedBox(height: 12),
+                if (phone != '—')
+                  Align(
+                    alignment: Alignment.center,
+                    child: GlossSurfaces.glossCta(
+                      label: 'CALL',
+                      onTap: () => _call(m),
                     ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'You become System Admin. This cannot be undone from here.',
-                  style: GlossSurfaces.logoAccent.copyWith(fontSize: 11),
-                  textAlign: TextAlign.center,
-                ),
+                if (isSelf) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'You can update name, phone, title, and photo. '
+                    'Role and departments require an elevated role.',
+                    style: GlossSurfaces.logoAccent.copyWith(fontSize: 12),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+                if (isOwner && !isSelf && m.role != OrgRoles.owner) ...[
+                  const SizedBox(height: 20),
+                  Align(
+                    alignment: Alignment.center,
+                    child: OutlinedButton(
+                      onPressed: _busy ? null : () => _transferOwnership(m),
+                      child: Text(
+                        'Transfer ownership',
+                        style: GlossSurfaces.logoMark,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'You become System Admin. This cannot be undone from here.',
+                    style: GlossSurfaces.logoAccent.copyWith(fontSize: 11),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ],
-            ],
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
