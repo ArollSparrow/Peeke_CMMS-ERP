@@ -31,6 +31,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
   String? _message;
   String? _error;
   bool _busy = false;
+  bool _inviteOpen = false;
   _TeamFilter _filter = _TeamFilter.all;
   String? _filterRole;
   String? _filterDeptName;
@@ -338,19 +339,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     return Scaffold(
       backgroundColor: GlossColors.sky,
       appBar: AppBar(
-        title: Row(
-          children: [
-            Image.asset(
-              'assets/branding/peeke_icon.png',
-              height: 28,
-              width: 28,
-              fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-            ),
-            const SizedBox(width: 10),
-            const Text('Team'),
-          ],
-        ),
+        title: const Text('Team'),
         actions: [
           IconButton(
             tooltip: 'Roles',
@@ -369,6 +358,19 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
               onPressed: () => context.push('/org/departments'),
             ),
           ],
+          // Peeke logo at far right of the AppBar
+          Padding(
+            padding: const EdgeInsets.only(right: 12, left: 4),
+            child: Center(
+              child: Image.asset(
+                'assets/branding/peeke_icon.png',
+                height: 28,
+                width: 28,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              ),
+            ),
+          ),
         ],
       ),
       body: ListView(
@@ -483,20 +485,48 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                     }
                   },
                 ),
+                if (canInvite) ...[
+                  const SizedBox(width: 4),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => setState(() => _inviteOpen = !_inviteOpen),
+                      borderRadius:
+                          BorderRadius.circular(GlossSurfaces.tileRadius),
+                      child: Ink(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 8),
+                        decoration: _inviteOpen
+                            ? GlossSurfaces.navyPlate
+                            : GlossSurfaces.plate,
+                        child: Icon(
+                          _inviteOpen
+                              ? Icons.person_add
+                              : Icons.person_add_outlined,
+                          size: 18,
+                          color: _inviteOpen
+                              ? GlossColors.sky
+                              : GlossColors.navy,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          if (canInvite)
-            const OrgTeamInvitePanel()
-          else
+          if (canInvite && _inviteOpen) ...[
+            const SizedBox(height: 12),
+            const OrgTeamInvitePanel(),
+          ] else if (!canInvite)
             Padding(
-              padding: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.only(top: 12, bottom: 4),
               child: Text(
                 'Directory is open to all members. Only elevated roles can invite or edit.',
                 style: GlossSurfaces.logoAccent,
               ),
             ),
+          const SizedBox(height: 12),
           if (_error != null) ...[
             Text(_error!,
                 style: GlossSurfaces.logoMark
