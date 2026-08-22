@@ -52,7 +52,7 @@ Future<bool> showOrgMemberEditDialog({
   final org = ref.read(activeOrganizationProvider);
   if (org == null) return false;
   final client = ref.read(supabaseClientProvider);
-  final depts = await ref.read(orgDepartmentsProvider.future);
+  final allDepts = await ref.read(orgDepartmentsProvider.future);
 
   final mdRows = await client
       .from('organization_member_departments')
@@ -73,6 +73,11 @@ Future<bool> showOrgMemberEditDialog({
     for (final e in (hodRows as List))
       Map<String, dynamic>.from(e as Map)['department_id'] as String,
   };
+
+  // Active depts for new assignment; keep already-assigned inactive visible.
+  final depts = allDepts
+      .where((d) => d.isActive || selectedDepts.contains(d.id))
+      .toList();
 
   final nameCtrl = TextEditingController(text: member.fullName ?? '');
   final phoneCtrl = TextEditingController(text: member.phone ?? '');
@@ -283,7 +288,7 @@ Future<bool> showOrgMemberEditDialog({
                           ),
                           const SizedBox(height: GlossSurfaces.fieldGap),
                           if (depts.isEmpty)
-                            Text('No departments seeded yet.',
+                            Text('No active departments. Add some under Team → Departments.',
                                 style: GlossSurfaces.logoAccent)
                           else
                             Wrap(
