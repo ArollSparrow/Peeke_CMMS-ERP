@@ -288,7 +288,8 @@ Future<bool> showOrgMemberEditDialog({
                           ),
                           const SizedBox(height: GlossSurfaces.fieldGap),
                           if (depts.isEmpty)
-                            Text('No active departments. Add some under Team → Departments.',
+                            Text(
+                                'No active departments. Add some under Team → Departments.',
                                 style: GlossSurfaces.logoAccent)
                           else
                             Wrap(
@@ -384,6 +385,7 @@ Future<bool> showOrgMemberEditDialog({
     );
     ref.invalidate(orgMembersProvider);
     ref.invalidate(orgDepartmentsProvider);
+    ref.invalidate(orgDepartmentStatsProvider);
     return true;
   } catch (e) {
     onError(friendlyError(e));
