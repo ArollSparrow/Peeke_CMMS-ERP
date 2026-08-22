@@ -318,3 +318,84 @@ final orgInvitesProvider =
     );
   }).toList();
 });
+
+class OrgActivityRow {
+  const OrgActivityRow({
+    required this.id,
+    required this.action,
+    required this.summary,
+    this.actorUserId,
+    this.actorLabel,
+    this.createdAt,
+    this.metadata = const {},
+  });
+  final String id;
+  final String action;
+  final String summary;
+  final String? actorUserId;
+  final String? actorLabel;
+  final DateTime? createdAt;
+  final Map<String, dynamic> metadata;
+}
+
+final orgActivityProvider =
+    FutureProvider.autoDispose<List<OrgActivityRow>>((ref) async {
+  final org = ref.watch(activeOrganizationProvider);
+  if (org == null) return [];
+  final client = ref.watch(supabaseClientProvider);
+  final rows = await client
+      .from('organization_activity')
+      .select('id, action, summary, actor_user_id, metadata, created_at')
+      .eq('organization_id', org.id)
+      .order('created_at', ascending: false)
+      .limit(100);
+  final members = await ref.watch(orgMembersProvider.future);
+  final nameByUser = <String, String>{};
+  for (final m in members) {
+    final n = m.fullName?.trim();
+    nameByUser[m.userId] =
+        (n != null && n.isNotEmpty) ? n : (m.email ?? 'Member');
+  }
+  return (rows as List).map((e) {
+    final m = Map<String, dynamic>.from(e as Map);
+    final actorId = m['actor_user_id'] as String?;
+    DateTime? created;
+    final raw = m['created_at'];
+    if (raw is String) created = DateTime.tryParse(raw);
+    final meta = m['metadata'];
+    return OrgActivityRow(
+      id: m['id'] as String,
+      action: m['action'] as String? ?? '',
+      summary: m['summary'] as String? ?? '',
+      actorUserId: actorId,
+      actorLabel: actorId == null ? null : nameByUser[actorId],
+      createdAt: created,
+      metadata: meta is Map
+          ? Map<String, dynamic>.from(meta)
+          : const <String, dynamic>{},
+    );
+  }).toList();
+});
+
+/// Best-effort activity write (never throws to callers).
+Future<void> logOrgActivity(
+  WidgetRef ref, {
+  required String action,
+  required String summary,
+  Map<String, dynamic>? metadata,
+}) async {
+  final org = ref.read(activeOrganizationProvider);
+  if (org == null) return;
+  try {
+    await ref.read(supabaseClientProvider).rpc(
+      'log_org_activity',
+      params: {
+        'p_organization_id': org.id,
+        'p_action': action,
+        'p_summary': summary,
+        'p_metadata': metadata ?? <String, dynamic>{},
+      },
+    );
+    ref.invalidate(orgActivityProvider);
+  } catch (_) {}
+}
