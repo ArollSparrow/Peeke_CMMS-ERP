@@ -1,10 +1,11 @@
 name: Deploy Web → Cloudflare Pages
 
-# Primary: redesign/gloss-restrained-full-depth
-# Previews: PowerSync infra + Team department management (+ workflow_dispatch)
+# Primary production: Production_Main
+# Previews: PowerSync infra + feature branches (+ workflow_dispatch)
 on:
   push:
     branches:
+      - Production_Main
       - redesign/gloss-restrained-full-depth
       - infra/powersync-cloud-bootstrap
       - feature/department-management
@@ -78,16 +79,15 @@ jobs:
           URL="${SUPABASE_URL_INPUT:-$DEFAULT_URL}"
           KEY="$SUPABASE_ANON_KEY_INPUT"
           if [ ${#KEY} -lt 100 ]; then KEY="$DEFAULT_KEY"; fi
-          flutter build web --release --no-tree-shake-icons \
+          flutter build web --release \
             --dart-define=SUPABASE_URL="$URL" \
             --dart-define=SUPABASE_ANON_KEY="$KEY"
-          mkdir -p build/web/icons
-          cp -f web/favicon.png build/web/favicon.png 2>/dev/null || true
-          cp -f web/icons/* build/web/icons/ 2>/dev/null || true
-          printf '/*    /index.html   200\n' > build/web/_redirects
-      - uses: cloudflare/wrangler-action@v4
+      - name: Publish to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy build/web --project-name=peeke-web --branch=${{ github.ref_name }}
+          projectName: peeke-cmms
+          directory: build/web
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.ref_name }}
