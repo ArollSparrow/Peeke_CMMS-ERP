@@ -10,25 +10,27 @@
 | `member_edit_dialog.dart` | Member details dialog |
 | `org_departments_screen.dart` | Departments CRUD + HoD/headcount |
 | `org_roles_screen.dart` | Read-only roles hierarchy + capabilities |
+| `org_member_profile_screen.dart` | Full-screen profile + self-serve |
 
 ## Routes
 
 | Path | Who |
 |------|-----|
 | `/org/team` | All members |
-| `/org/departments` | Elevated |
 | `/org/roles` | All members |
+| `/org/team/:userId` | All members (self-serve for own) |
+| `/org/departments` | Elevated |
 
 ## Shipped on this branch
 
 **P0** — search, filters, pending Resend/Copy/Cancel, email validation, home badge  
 **Departments v2** — `orgDepartmentStatsProvider`: HoD names + member counts per dept  
-**Roles overview** — hierarchy order, capability blurbs, live member counts, “You”
+**Roles overview** — hierarchy order, capability blurbs, live member counts, “You”  
+**Member profile** — full-screen view, self-serve name/phone/title/photo, elevated full edit
 
 ## Still missing
 
-1. Member full-screen profile / self-serve fields  
-2. Owner transfer · invite expiry · bulk invite  
-3. Activity log  
+1. Owner transfer · invite expiry · bulk invite  
+2. Activity log  
 
 Branch: `feature/department-management`
