@@ -11,6 +11,7 @@
 | `org_departments_screen.dart` | Departments CRUD + HoD/headcount |
 | `org_roles_screen.dart` | Read-only roles hierarchy + capabilities |
 | `org_member_profile_screen.dart` | Full-screen profile + self-serve |
+| `org_activity_screen.dart` | Elevated audit trail |
 
 ## Routes
 
@@ -19,6 +20,7 @@
 | `/org/team` | All members |
 | `/org/roles` | All members |
 | `/org/team/:userId` | All members (self-serve for own) |
+| `/org/team/activity` | Elevated |
 | `/org/departments` | Elevated |
 
 ## Shipped on this branch
@@ -31,8 +33,10 @@
 **Invite age** — pending tiles show age; **expiring** flag after 7 days  
 **Bulk invite** — elevated Team hub → Bulk invite… (multi-line emails, one role)
 
+**Activity log** — `organization_activity` + `log_org_activity`; Team AppBar history icon
+
 ## Still missing
 
-1. Activity log (audit trail for invites / role changes / ownership)
+_(Team roadmap items on this branch are complete.)_
 
 Branch: `feature/department-management`
