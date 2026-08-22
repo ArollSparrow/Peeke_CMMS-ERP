@@ -1,12 +1,13 @@
 name: Deploy Web → Cloudflare Pages
 
 # Primary: redesign/gloss-restrained-full-depth
-# Preview: infra/powersync-cloud-bootstrap (and workflow_dispatch)
+# Previews: PowerSync infra + Team department management (+ workflow_dispatch)
 on:
   push:
     branches:
       - redesign/gloss-restrained-full-depth
       - infra/powersync-cloud-bootstrap
+      - feature/department-management
   workflow_dispatch:
 
 jobs:
