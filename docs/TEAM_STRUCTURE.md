@@ -26,11 +26,13 @@
 **P0** — search, filters, pending Resend/Copy/Cancel, email validation, home badge  
 **Departments v2** — `orgDepartmentStatsProvider`: HoD names + member counts per dept  
 **Roles overview** — hierarchy order, capability blurbs, live member counts, “You”  
-**Member profile** — full-screen view, self-serve name/phone/title/photo, elevated full edit
+**Member profile** — full-screen view, self-serve name/phone/title/photo, elevated full edit  
+**Owner transfer** — `transfer_org_ownership` RPC; owner-only on member profile  
+**Invite age** — pending tiles show age; **expiring** flag after 7 days  
+**Bulk invite** — elevated Team hub → Bulk invite… (multi-line emails, one role)
 
 ## Still missing
 
-1. Owner transfer · invite expiry · bulk invite  
-2. Activity log  
+1. Activity log (audit trail for invites / role changes / ownership)
 
 Branch: `feature/department-management`
