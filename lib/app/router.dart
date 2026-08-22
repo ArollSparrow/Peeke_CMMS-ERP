@@ -23,6 +23,7 @@ import '../features/operations/operations_screens.dart';
 import '../features/org/create_org_screen.dart';
 import '../features/org/home_shell_screen.dart';
 import '../features/org/org_departments_screen.dart';
+import '../features/org/org_member_profile_screen.dart';
 import '../features/org/org_roles_screen.dart';
 import '../features/org/org_status_screen.dart';
 import '../features/org/org_team_screen.dart';
@@ -108,6 +109,7 @@ bool _isKnownAppPath(String loc) {
     '/payments/transactions',
   };
   if (exact.contains(loc)) return true;
+  if (loc.startsWith('/org/team/')) return true;
   if (loc.startsWith('/clients/')) return true;
   if (loc.startsWith('/systems/')) return true;
   if (loc.startsWith('/work/requests/')) return true;
@@ -238,6 +240,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           builder: (context, state) => const OrgStatusScreen()),
       GoRoute(
           path: '/org/team', builder: (context, state) => const OrgTeamScreen()),
+      GoRoute(
+        path: '/org/team/:userId',
+        builder: (context, state) => OrgMemberProfileScreen(
+          userId: state.pathParameters['userId']!,
+        ),
+      ),
       GoRoute(
           path: '/org/departments',
           builder: (context, state) => const OrgDepartmentsScreen()),
