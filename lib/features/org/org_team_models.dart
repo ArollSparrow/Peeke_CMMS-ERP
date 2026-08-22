@@ -47,10 +47,14 @@ class OrgDept {
     required this.id,
     required this.code,
     required this.name,
+    this.isActive = true,
+    this.sortOrder = 0,
   });
   final String id;
   final String code;
   final String name;
+  final bool isActive;
+  final int sortOrder;
 }
 
 final orgDepartmentsProvider =
@@ -62,7 +66,7 @@ final orgDepartmentsProvider =
   Future<List<OrgDept>> load() async {
     final rows = await client
         .from('organization_departments')
-        .select('id, code, name, sort_order')
+        .select('id, code, name, sort_order, is_active')
         .eq('organization_id', org.id)
         .order('sort_order');
     return (rows as List).map((e) {
@@ -71,6 +75,8 @@ final orgDepartmentsProvider =
         id: m['id'] as String,
         code: m['code'] as String,
         name: m['name'] as String? ?? OrgDepartments.label(m['code'] as String),
+        isActive: m['is_active'] as bool? ?? true,
+        sortOrder: (m['sort_order'] as num?)?.toInt() ?? 0,
       );
     }).toList();
   }
@@ -86,6 +92,14 @@ final orgDepartmentsProvider =
     } catch (_) {}
   }
   return list;
+});
+
+/// Active departments only — member assignment picker.
+final orgActiveDepartmentsProvider =
+    Provider.autoDispose<AsyncValue<List<OrgDept>>>((ref) {
+  return ref.watch(orgDepartmentsProvider).whenData(
+        (list) => list.where((d) => d.isActive).toList(),
+      );
 });
 
 final orgMembersProvider =
