@@ -15,6 +15,11 @@ import 'org_team_models.dart';
 
 export 'org_team_models.dart';
 
+/// Client-side email check aligned with invite-org-member EMAIL_RE.
+final _emailRe = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+
+enum _TeamFilter { all, pending, role, department }
+
 class OrgTeamScreen extends ConsumerStatefulWidget {
   const OrgTeamScreen({super.key});
 
@@ -24,20 +29,76 @@ class OrgTeamScreen extends ConsumerStatefulWidget {
 
 class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
   final _email = TextEditingController();
+  final _search = TextEditingController();
   String _role = OrgRoles.technician;
   bool _busy = false;
   String? _message;
   String? _error;
   String? _actionLink;
 
+  _TeamFilter _filter = _TeamFilter.all;
+  String? _filterRole;
+  String? _filterDeptName;
+
   @override
   void dispose() {
     _email.dispose();
+    _search.dispose();
     super.dispose();
   }
 
   Widget _glossField({required Widget child}) {
     return GlossSurfaces.fieldShell(child: child);
+  }
+
+  bool _memberMatchesSearch(OrgMemberRow m, String q) {
+    if (q.isEmpty) return true;
+    final hay = [
+      m.fullName,
+      m.email,
+      m.jobTitle,
+      m.phone,
+      m.role,
+      ...m.departmentLabels,
+    ].whereType<String>().join(' ').toLowerCase();
+    return hay.contains(q);
+  }
+
+  List<OrgMemberRow> _filterMembers(List<OrgMemberRow> list) {
+    final q = _search.text.trim().toLowerCase();
+    var out = list.where((m) => _memberMatchesSearch(m, q)).toList();
+    if (_filter == _TeamFilter.role && _filterRole != null) {
+      out = out.where((m) => m.role == _filterRole).toList();
+    }
+    if (_filter == _TeamFilter.department && _filterDeptName != null) {
+      out = out
+          .where((m) => m.departmentLabels.contains(_filterDeptName))
+          .toList();
+    }
+    if (_filter == _TeamFilter.pending) {
+      out = [];
+    }
+    return out;
+  }
+
+  List<OrgInviteRow> _filterInvites(List<OrgInviteRow> list) {
+    final q = _search.text.trim().toLowerCase();
+    var out = list;
+    if (q.isNotEmpty) {
+      out = out
+          .where((i) =>
+              i.email.toLowerCase().contains(q) ||
+              OrgRoles.label(i.role).toLowerCase().contains(q))
+          .toList();
+    }
+    if (_filter == _TeamFilter.role && _filterRole != null) {
+      out = out.where((i) => i.role == _filterRole).toList();
+    }
+    if (_filter == _TeamFilter.department) {
+      // Invites have no dept yet.
+      out = [];
+    }
+    return out;
   }
 
   Future<void> _callMember(OrgMemberRow m) async {
@@ -76,11 +137,12 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     }
   }
 
-  Future<void> _invite() async {
+  Future<void> _invite({String? emailOverride, String? roleOverride}) async {
     final org = ref.read(activeOrganizationProvider);
     if (org == null) return;
-    final email = _email.text.trim();
-    if (email.isEmpty || !email.contains('@')) {
+    final email = (emailOverride ?? _email.text).trim().toLowerCase();
+    final role = roleOverride ?? _role;
+    if (!_emailRe.hasMatch(email)) {
       setState(() => _error = 'Enter a valid work email');
       return;
     }
@@ -97,7 +159,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
         body: {
           'organization_id': org.id,
           'email': email,
-          'role': _role,
+          'role': role,
           'redirect_to': authRedirectTo('/accept-invite'),
         },
       );
@@ -123,7 +185,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
           _actionLink =
               (link != null && link.isNotEmpty) ? link : null;
         });
-        _email.clear();
+        if (emailOverride == null) _email.clear();
       }
     } catch (e) {
       setState(() => _error = friendlyError(e));
@@ -132,15 +194,60 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     }
   }
 
-  Future<void> _copyLink() async {
-    final link = _actionLink;
-    if (link == null) return;
+  Future<void> _copyText(String link, {String snack = 'Invite link copied'}) async {
     await Clipboard.setData(ClipboardData(text: link));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Invite link copied — share via WhatsApp/SMS')),
+        SnackBar(content: Text(snack)),
       );
+    }
+  }
+
+  Future<void> _copyLink() async {
+    final link = _actionLink;
+    if (link == null) return;
+    await _copyText(link, snack: 'Invite link copied — share via WhatsApp/SMS');
+  }
+
+  Future<void> _resendInvite(OrgInviteRow invite) async {
+    await _invite(emailOverride: invite.email, roleOverride: invite.role);
+  }
+
+  Future<void> _copyInviteLink(OrgInviteRow invite) async {
+    // Re-run invite to obtain a fresh action_link, then copy.
+    final org = ref.read(activeOrganizationProvider);
+    if (org == null) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final res = await ref.read(supabaseClientProvider).functions.invoke(
+        'invite-org-member',
+        body: {
+          'organization_id': org.id,
+          'email': invite.email,
+          'role': invite.role,
+          'redirect_to': authRedirectTo('/accept-invite'),
+        },
+      );
+      final data = res.data;
+      Map<String, dynamic>? map;
+      if (data is Map) map = Map<String, dynamic>.from(data);
+      final link = map?['action_link']?.toString();
+      ref.invalidate(orgInvitesProvider);
+      if (link != null && link.isNotEmpty) {
+        setState(() => _actionLink = link);
+        await _copyText(link,
+            snack: 'Fresh invite link copied for ${invite.email}');
+      } else {
+        setState(() => _error =
+            map?['error']?.toString() ?? 'No link returned — try Resend');
+      }
+    } catch (e) {
+      setState(() => _error = friendlyError(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -283,6 +390,36 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     );
   }
 
+  Widget _filterChip({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(GlossSurfaces.tileRadius),
+          child: Ink(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration:
+                selected ? GlossSurfaces.navyPlate : GlossSurfaces.plate,
+            child: Text(
+              label,
+              style: GlossSurfaces.tileName.copyWith(
+                color: selected ? GlossColors.sky : GlossColors.navy,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _memberCard(OrgMemberRow m, String? me, bool canManage) {
     final name = (m.fullName != null && m.fullName!.trim().isNotEmpty)
         ? m.fullName!.trim()
@@ -297,8 +434,10 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
     if (isMe) nameParts.add('You');
     final nameLine = nameParts.join(' · ');
 
+    // Meta: title · depts; elevated also sees org role for scanability.
     final depts = m.departmentLabels;
     final metaParts = <String>[];
+    if (canManage) metaParts.add(OrgRoles.label(m.role));
     if (title != null) metaParts.add(title);
     if (depts.isNotEmpty) metaParts.addAll(depts);
     final metaLine = metaParts.isEmpty ? '—' : metaParts.join(' · ');
@@ -481,9 +620,21 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
                 ),
                 color: GlossColors.sky,
                 onSelected: (v) {
+                  if (v == 'resend') _resendInvite(i);
+                  if (v == 'copy') _copyInviteLink(i);
                   if (v == 'cancel') _revokeInvite(i);
                 },
                 itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'resend',
+                    child: Text('Resend invite',
+                        style: GlossSurfaces.logoMark),
+                  ),
+                  PopupMenuItem(
+                    value: 'copy',
+                    child: Text('Copy invite link',
+                        style: GlossSurfaces.logoMark),
+                  ),
                   PopupMenuItem(
                     value: 'cancel',
                     child: Text('Cancel invite',
@@ -504,7 +655,7 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
       alignment: Alignment.center,
       child: GlossSurfaces.glossCta(
         label: 'SEND INVITE',
-        onTap: _invite,
+        onTap: () => _invite(),
         busy: _busy,
       ),
     );
@@ -514,9 +665,16 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
   Widget build(BuildContext context) {
     final members = ref.watch(orgMembersProvider);
     final invites = ref.watch(orgInvitesProvider);
+    final depts = ref.watch(orgDepartmentsProvider).valueOrNull ?? [];
+    final activeDepts = depts.where((d) => d.isActive).toList();
     final caps = ref.watch(orgCapabilitiesProvider);
     final canInvite = caps.isElevated;
     final me = ref.watch(currentUserProvider)?.id;
+
+    final showMembers = _filter != _TeamFilter.pending;
+    final showPending = _filter == _TeamFilter.all ||
+        _filter == _TeamFilter.pending ||
+        _filter == _TeamFilter.role;
 
     return Scaffold(
       backgroundColor: GlossColors.sky,
@@ -537,8 +695,8 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
           Center(
             child: Image.asset(
               'assets/branding/peeke_icon.png',
-              height: 88,
-              width: 88,
+              height: 72,
+              width: 72,
               fit: BoxFit.contain,
               errorBuilder: (_, __, ___) => Text(
                 'Peeke',
@@ -546,7 +704,121 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
+          // —— Directory search ——
+          _glossField(
+            child: TextField(
+              controller: _search,
+              style: GlossSurfaces.logoMark.copyWith(fontSize: 13),
+              cursorColor: GlossColors.navy,
+              decoration: GlossSurfaces.compactField('Search team').copyWith(
+                    hintText: 'Name, email, title, phone…',
+                    prefixIcon: const Icon(Icons.search, size: 18),
+                    prefixIconConstraints:
+                        const BoxConstraints(minWidth: 36, minHeight: 36),
+                  ),
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
+          const SizedBox(height: GlossSurfaces.fieldGap),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _filterChip(
+                  label: 'All',
+                  selected: _filter == _TeamFilter.all,
+                  onTap: () => setState(() {
+                    _filter = _TeamFilter.all;
+                    _filterRole = null;
+                    _filterDeptName = null;
+                  }),
+                ),
+                _filterChip(
+                  label: 'Pending',
+                  selected: _filter == _TeamFilter.pending,
+                  onTap: () => setState(() {
+                    _filter = _TeamFilter.pending;
+                    _filterRole = null;
+                    _filterDeptName = null;
+                  }),
+                ),
+                _filterChip(
+                  label: _filter == _TeamFilter.role && _filterRole != null
+                      ? OrgRoles.label(_filterRole)
+                      : 'Role',
+                  selected: _filter == _TeamFilter.role,
+                  onTap: () async {
+                    final picked = await showModalBottomSheet<String>(
+                      context: context,
+                      backgroundColor: GlossColors.sky,
+                      builder: (ctx) => SafeArea(
+                        child: ListView(
+                          shrinkWrap: true,
+                          children: [
+                            for (final r in OrgRoles.all)
+                              ListTile(
+                                title: Text(OrgRoles.label(r),
+                                    style: GlossSurfaces.logoMark),
+                                onTap: () => Navigator.pop(ctx, r),
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                    if (picked != null) {
+                      setState(() {
+                        _filter = _TeamFilter.role;
+                        _filterRole = picked;
+                        _filterDeptName = null;
+                      });
+                    }
+                  },
+                ),
+                _filterChip(
+                  label: _filter == _TeamFilter.department &&
+                          _filterDeptName != null
+                      ? _filterDeptName!
+                      : 'Department',
+                  selected: _filter == _TeamFilter.department,
+                  onTap: () async {
+                    if (activeDepts.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('No active departments yet')),
+                      );
+                      return;
+                    }
+                    final picked = await showModalBottomSheet<String>(
+                      context: context,
+                      backgroundColor: GlossColors.sky,
+                      builder: (ctx) => SafeArea(
+                        child: ListView(
+                          shrinkWrap: true,
+                          children: [
+                            for (final d in activeDepts)
+                              ListTile(
+                                title: Text(d.name,
+                                    style: GlossSurfaces.logoMark),
+                                onTap: () => Navigator.pop(ctx, d.name),
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                    if (picked != null) {
+                      setState(() {
+                        _filter = _TeamFilter.department;
+                        _filterDeptName = picked;
+                        _filterRole = null;
+                      });
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
           if (canInvite) ...[
             _glossField(
               child: TextField(
@@ -618,58 +890,74 @@ class _OrgTeamScreenState extends ConsumerState<OrgTeamScreen> {
             Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: Text(
-                'Only owners, system admins, and elevated roles can manage the team.',
+                'Directory is open to all members. Only elevated roles can invite or edit.',
                 style: GlossSurfaces.logoAccent,
               ),
             ),
-          Text(
-            'MEMBERS',
-            style: GlossSurfaces.logoAccent.copyWith(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.6,
+          if (showMembers) ...[
+            Text(
+              'MEMBERS',
+              style: GlossSurfaces.logoAccent.copyWith(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.6,
+              ),
             ),
-          ),
-          const SizedBox(height: GlossSurfaces.fieldGap),
-          members.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Text(friendlyError(e)),
-            data: (list) {
-              if (list.isEmpty) {
-                return Text('No members found',
-                    style: GlossSurfaces.logoAccent);
-              }
-              return Column(
-                children: [
-                  for (final m in list) _memberCard(m, me, canInvite),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'PENDING INVITES',
-            style: GlossSurfaces.logoAccent.copyWith(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.6,
+            const SizedBox(height: GlossSurfaces.fieldGap),
+            members.when(
+              loading: () =>
+                  const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Text(friendlyError(e)),
+              data: (list) {
+                final filtered = _filterMembers(list);
+                if (list.isEmpty) {
+                  return Text('No members found',
+                      style: GlossSurfaces.logoAccent);
+                }
+                if (filtered.isEmpty) {
+                  return Text('No members match this search or filter',
+                      style: GlossSurfaces.logoAccent);
+                }
+                return Column(
+                  children: [
+                    for (final m in filtered)
+                      _memberCard(m, me, canInvite),
+                  ],
+                );
+              },
             ),
-          ),
-          const SizedBox(height: GlossSurfaces.fieldGap),
-          invites.when(
-            loading: () => const SizedBox.shrink(),
-            error: (e, _) => Text(friendlyError(e)),
-            data: (list) {
-              if (list.isEmpty) {
-                return Text('None', style: GlossSurfaces.logoAccent);
-              }
-              return Column(
-                children: [
-                  for (final i in list) _inviteTile(i, canInvite),
-                ],
-              );
-            },
-          ),
+            const SizedBox(height: 16),
+          ],
+          if (showPending && canInvite) ...[
+            Text(
+              'PENDING INVITES',
+              style: GlossSurfaces.logoAccent.copyWith(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.6,
+              ),
+            ),
+            const SizedBox(height: GlossSurfaces.fieldGap),
+            invites.when(
+              loading: () => const SizedBox.shrink(),
+              error: (e, _) => Text(friendlyError(e)),
+              data: (list) {
+                final filtered = _filterInvites(list);
+                if (list.isEmpty) {
+                  return Text('None', style: GlossSurfaces.logoAccent);
+                }
+                if (filtered.isEmpty) {
+                  return Text('No pending invites match',
+                      style: GlossSurfaces.logoAccent);
+                }
+                return Column(
+                  children: [
+                    for (final i in filtered) _inviteTile(i, canInvite),
+                  ],
+                );
+              },
+            ),
+          ],
         ],
       ),
     );
