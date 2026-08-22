@@ -222,6 +222,58 @@ class _OrgMemberProfileScreenState
     }
   }
 
+  Future<void> _transferOwnership(OrgMemberRow m) async {
+    final org = ref.read(activeOrganizationProvider);
+    if (org == null) return;
+    final name = (m.fullName != null && m.fullName!.trim().isNotEmpty)
+        ? m.fullName!.trim()
+        : (m.email ?? 'this member');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Transfer ownership?'),
+        content: Text(
+          'Make $name the organisation owner of ${org.name}?\n\n'
+          'You will become System Admin. Only one owner is allowed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Transfer'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+      _message = null;
+    });
+    try {
+      await ref.read(supabaseClientProvider).rpc(
+        'transfer_org_ownership',
+        params: {
+          'p_organization_id': org.id,
+          'p_new_owner_user_id': m.userId,
+        },
+      );
+      ref.invalidate(orgMembersProvider);
+      ref.invalidate(activeMembershipRoleProvider);
+      if (mounted) {
+        setState(() => _message = 'Ownership transferred to $name');
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = friendlyError(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Widget _row(String label, String value, {IconData? icon}) {
     return Container(
       width: double.infinity,
@@ -257,7 +309,9 @@ class _OrgMemberProfileScreenState
   Widget build(BuildContext context) {
     final members = ref.watch(orgMembersProvider);
     final me = ref.watch(currentUserProvider)?.id;
-    final elevated = ref.watch(orgCapabilitiesProvider).isElevated;
+    final caps = ref.watch(orgCapabilitiesProvider);
+    final elevated = caps.isElevated;
+    final isOwner = caps.isOwner;
     final isSelf = me != null && me == widget.userId;
 
     return Scaffold(
@@ -393,6 +447,25 @@ class _OrgMemberProfileScreenState
                   'You can update name, phone, title, and photo. '
                   'Role and departments require an elevated role.',
                   style: GlossSurfaces.logoAccent.copyWith(fontSize: 12),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+              if (isOwner && !isSelf && m.role != OrgRoles.owner) ...[
+                const SizedBox(height: 20),
+                Align(
+                  alignment: Alignment.center,
+                  child: OutlinedButton(
+                    onPressed: _busy ? null : () => _transferOwnership(m),
+                    child: Text(
+                      'Transfer ownership',
+                      style: GlossSurfaces.logoMark,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'You become System Admin. This cannot be undone from here.',
+                  style: GlossSurfaces.logoAccent.copyWith(fontSize: 11),
                   textAlign: TextAlign.center,
                 ),
               ],
