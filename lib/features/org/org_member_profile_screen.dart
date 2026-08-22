@@ -45,7 +45,7 @@ class _OrgMemberProfileScreenState
       }
       return;
     }
-    final digits = raw.replaceAll(RegExp(r'[^\d+]'), '');
+    final digits = raw.replaceAll(RegExp(r'[^\\d+]'), '');
     if (digits.isEmpty) return;
     final uri = Uri(scheme: 'tel', path: digits);
     try {
@@ -75,6 +75,15 @@ class _OrgMemberProfileScreenState
     );
     if (ok && mounted) {
       setState(() => _message = 'Member updated');
+      final label = m.fullName?.trim().isNotEmpty == true
+          ? m.fullName!.trim()
+          : (m.email ?? 'member');
+      await logOrgActivity(
+        ref,
+        action: 'member_updated',
+        summary: 'Updated $label',
+        metadata: {'user_id': m.userId},
+      );
     }
   }
 
@@ -215,6 +224,12 @@ class _OrgMemberProfileScreenState
       );
       ref.invalidate(orgMembersProvider);
       if (mounted) setState(() => _message = 'Profile updated');
+      await logOrgActivity(
+        ref,
+        action: 'member_updated',
+        summary: 'Updated own profile',
+        metadata: {'user_id': m.userId, 'self': true},
+      );
     } catch (e) {
       if (mounted) setState(() => _error = friendlyError(e));
     } finally {
@@ -264,6 +279,7 @@ class _OrgMemberProfileScreenState
       );
       ref.invalidate(orgMembersProvider);
       ref.invalidate(activeMembershipRoleProvider);
+      ref.invalidate(orgActivityProvider);
       if (mounted) {
         setState(() => _message = 'Ownership transferred to $name');
       }
