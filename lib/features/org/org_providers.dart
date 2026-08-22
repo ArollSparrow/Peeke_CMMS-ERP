@@ -108,6 +108,8 @@ class OrgCapabilities {
   bool get isElevated =>
       role != null && OrgRoles.elevated.contains(role);
 
+  bool get isOwner => role == OrgRoles.owner;
+
   bool get isMember => role != null;
 
   bool get canApproveWork {
