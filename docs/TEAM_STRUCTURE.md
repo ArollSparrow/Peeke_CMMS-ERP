@@ -7,7 +7,7 @@ invites, member edit, department chips, and call. Concurrent edits collided
 constantly. Claude correctly diagnosed that; this branch does the mechanical
 split so later product work has a clean surface.
 
-## Layout (this branch)
+## Layout
 
 | File | Responsibility |
 |------|----------------|
@@ -15,14 +15,21 @@ split so later product work has a clean surface.
 | `org_team_models.dart` | `OrgMemberRow` / `OrgInviteRow` / `OrgDept` + providers |
 | `department_chip.dart` | Reusable gloss dept chip (assign + HoD) |
 | `member_edit_dialog.dart` | Member details dialog + save |
+| `org_departments_screen.dart` | Create / rename / soft-deactivate departments |
 
-## Still missing (product — not started here)
+## Department management (shipped on `feature/department-management`)
 
-1. **Department management** — create / rename / deactivate in-app (today only seed + assign).
-2. **Roles overview** — read-only hierarchy from one source of truth.
-3. **Activity log** — later, when multi-tenant scale needs audit.
+- Route: `/org/departments` (elevated roles)
+- Team AppBar → departments icon when elevated
+- RPCs: `create_org_department`, `rename_org_department`, `set_org_department_active`
+- Column `organization_departments.is_active` (soft deactivate; no hard delete)
+- Member edit lists **active** departments only
+
+## Still missing (product)
+
+1. **Roles overview** — read-only hierarchy from one source of truth.
+2. **Activity log** — later, when multi-tenant scale needs audit.
 
 ## Process note
 
-Suggestions (Claude or otherwise) land in chat first; branches are cut and
-implemented here. Gloss-only work remains on `redesign/gloss-full-round-edges` (PR #24).
+Suggestions land in chat first; branches are cut and implemented here.
